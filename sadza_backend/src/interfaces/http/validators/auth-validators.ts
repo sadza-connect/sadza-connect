@@ -12,7 +12,14 @@ export const registerSchema = z.object({
     .trim()
     .toLowerCase()
     .email('Invalid email address')
-    .max(255, 'Email must not exceed 255 characters'),
+    .max(255, 'Email must not exceed 255 characters')
+    .refine((val) => {
+      const domain = val.split('@')[1];
+      const typoDomains = ['gmai.com', 'gamil.com', 'gmial.com', 'gmaill.com', 'hotmial.com', 'yaho.com', 'outlok.com'];
+      return !typoDomains.includes(domain);
+    }, {
+      message: 'Email domain has a typo (e.g., gmai.com instead of gmail.com). Please check spelling.',
+    }),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')

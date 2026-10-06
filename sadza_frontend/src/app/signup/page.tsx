@@ -127,10 +127,25 @@ function SignupFormContent() {
       ? `+${cleanDigits}`
       : `+263${cleanDigits.replace(/^0+/, '')}`;
 
+    const cleanEmail = email.trim().toLowerCase();
+    const emailDomain = cleanEmail.split('@')[1];
+    const typoDomains: Record<string, string> = {
+      'gmai.com': 'gmail.com',
+      'gamil.com': 'gmail.com',
+      'gmial.com': 'gmail.com',
+      'gmaill.com': 'gmail.com',
+      'yaho.com': 'yahoo.com',
+      'hotmial.com': 'hotmail.com',
+      'outlok.com': 'outlook.com',
+    };
+    if (emailDomain && typoDomains[emailDomain]) {
+      throw new Error(`Email typo detected: Did you mean @${typoDomains[emailDomain]} instead of @${emailDomain}?`);
+    }
+
     const payload: Record<string, any> = {
       accountType: selectedType,
       fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
       phoneNumber: formattedPhone,
     };
@@ -172,6 +187,23 @@ function SignupFormContent() {
       setErrorMessage('Please enter a valid email address (e.g., you@company.co.zw).');
       return;
     }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const emailDomain = cleanEmail.split('@')[1];
+    const typoDomains: Record<string, string> = {
+      'gmai.com': 'gmail.com',
+      'gamil.com': 'gmail.com',
+      'gmial.com': 'gmail.com',
+      'gmaill.com': 'gmail.com',
+      'yaho.com': 'yahoo.com',
+      'hotmial.com': 'hotmail.com',
+      'outlok.com': 'outlook.com',
+    };
+    if (emailDomain && typoDomains[emailDomain]) {
+      setErrorMessage(`Typo detected in email: Did you mean @${typoDomains[emailDomain]}? You entered "@${emailDomain}". Please correct it.`);
+      return;
+    }
+
     // Reject any emails or non-numeric characters in phone number
     const hasInvalidChars = /[a-zA-Z@]/.test(phoneNumber);
     const phoneDigits = phoneNumber.replace(/\D/g, '');
