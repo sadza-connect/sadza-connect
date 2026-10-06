@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+.next/
+**/.next/
+out/
+**/out/
+build/
+**/build/
+dist/
+**/dist/
+*.tsbuildinfo
+
+# Environment and sensitive keys
+.env
+.env*.local
+.env.production
+.env.staging
+.env.development
+*.env
+# Ensure example templates are tracked
+!.env.example
+!**/.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Certificates & secrets
+*.pem
+*.key
+*.cert
+
+# Reference template directory
+Template/
+
+# Vercel / Render temporary files
+.vercel/
