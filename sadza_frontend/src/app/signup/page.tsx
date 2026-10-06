@@ -119,6 +119,10 @@ function SignupFormContent() {
   const handleSendRegistrationCode = async () => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
     const cleanDigits = phoneNumber.replace(/\D/g, '');
+    if (cleanDigits.length < 8 || cleanDigits.length > 15) {
+      throw new Error('Please enter a valid phone number with 8 to 15 digits (e.g., 77 123 4567).');
+    }
+
     const formattedPhone = cleanDigits.startsWith('263')
       ? `+${cleanDigits}`
       : `+263${cleanDigits.replace(/^0+/, '')}`;
@@ -168,8 +172,11 @@ function SignupFormContent() {
       setErrorMessage('Please enter a valid email address (e.g., you@company.co.zw).');
       return;
     }
-    if (!phoneNumber.trim()) {
-      setErrorMessage('Please enter your mobile phone number.');
+    // Reject any emails or non-numeric characters in phone number
+    const hasInvalidChars = /[a-zA-Z@]/.test(phoneNumber);
+    const phoneDigits = phoneNumber.replace(/\D/g, '');
+    if (hasInvalidChars || phoneDigits.length < 8 || phoneDigits.length > 15) {
+      setErrorMessage('Please enter a valid mobile phone number with digits only (e.g., 77 123 4567). Email addresses are not accepted in the phone field.');
       return;
     }
     if (!hasMinLength) {
@@ -626,7 +633,12 @@ function SignupFormContent() {
                         type="tel"
                         required
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => {
+                          // Reject letters, @, and non-phone characters in real time
+                          const sanitized = e.target.value.replace(/[^0-9\s\-()+]/g, '');
+                          setPhoneNumber(sanitized);
+                          if (errorMessage) setErrorMessage('');
+                        }}
                         placeholder="77 123 4567"
                         className="flex-1 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 bg-transparent focus:outline-none font-medium"
                       />

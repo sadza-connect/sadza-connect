@@ -20,8 +20,16 @@ export const registerSchema = z.object({
   phoneNumber: z
     .string()
     .trim()
-    .min(7, 'Phone number must be at least 7 characters')
-    .max(25, 'Phone number must not exceed 25 characters')
+    .regex(
+      /^\+?[0-9\s\-()]{7,25}$/,
+      'Phone number must contain only digits and standard phone symbols (+, -, spaces, parentheses)',
+    )
+    .refine((val) => {
+      const digits = val.replace(/\D/g, '');
+      return digits.length >= 8 && digits.length <= 15;
+    }, {
+      message: 'Phone number must contain between 8 and 15 digits',
+    })
     .optional(),
   province: z.string().trim().max(100).optional(),
   businessName: z.string().trim().max(150).optional(),
