@@ -24,6 +24,7 @@ import {
   GoogleIcon,
 } from '@/components/ui/Icons';
 import { Store, User, Sparkles, CheckCircle2 } from 'lucide-react';
+import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 
 const PROVINCES = [
   'Harare Province (Harare, Chitungwiza)',
@@ -66,6 +67,23 @@ function SignupFormContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showOtpModal, setShowOtpModal] = useState(false);
+
+  const handleOtpVerified = () => {
+    setShowOtpModal(false);
+    if (selectedType === 'business') {
+      const params = new URLSearchParams({
+        name: businessName,
+        owner: fullName,
+        email: email,
+        phone: phoneNumber,
+        verified: 'true',
+      });
+      router.push(`/onboarding/business?${params.toString()}`);
+    } else {
+      setSubmitted(true);
+    }
+  };
 
   // Password validation
   const hasMinLength = password.length >= 8;
@@ -165,17 +183,8 @@ function SignupFormContent() {
         throw new Error(data.error?.message || data.message || 'Registration failed. Please check your details.');
       }
 
-      if (selectedType === 'business') {
-        const params = new URLSearchParams({
-          name: businessName,
-          owner: fullName,
-          email: email,
-          phone: phoneNumber,
-        });
-        router.push(`/onboarding/business?${params.toString()}`);
-      } else {
-        setSubmitted(true);
-      }
+      // Launch the 6-Digit Email Verification Pop-up Modal!
+      setShowOtpModal(true);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to connect to authentication server.');
     } finally {
@@ -818,6 +827,15 @@ function SignupFormContent() {
             <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Compliance</Link>
           </div>
         </div>
+
+        {/* 6-Digit Email Verification Pop-up Modal */}
+        <VerifyEmailModal
+          isOpen={showOtpModal}
+          onClose={() => setShowOtpModal(false)}
+          email={email}
+          accountType={selectedType || 'business'}
+          onVerified={handleOtpVerified}
+        />
       </div>
     </div>
   );

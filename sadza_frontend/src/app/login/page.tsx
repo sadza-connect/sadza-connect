@@ -20,6 +20,7 @@ import {
   CheckCircleIcon,
   Sparkles,
 } from '@/components/ui/Icons';
+import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,6 +36,10 @@ export default function LoginPage() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotInput, setForgotInput] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+
+  // Email verification modal state
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyEmailAddress, setVerifyEmailAddress] = useState('');
 
   // Quick fill helper for testing
   const handleQuickFill = (type: 'merchant' | 'shopper') => {
@@ -344,6 +349,19 @@ export default function LoginPage() {
                   <span>Sign in</span>
                   <ArrowRightIcon className="h-4 w-4" />
                 </Button>
+
+                <div className="mt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVerifyEmailAddress(identifier.includes('@') ? identifier.trim() : '');
+                      setShowVerifyModal(true);
+                    }}
+                    className="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  >
+                    Received a code? <span className="font-semibold text-emerald-600 dark:text-emerald-400 underline">Enter 6-digit PIN</span>
+                  </button>
+                </div>
               </form>
             )}
 
@@ -451,6 +469,22 @@ export default function LoginPage() {
           </div>
         </div>
       )}
+
+      {/* 6-DIGIT EMAIL VERIFICATION POP-UP MODAL */}
+      <VerifyEmailModal
+        isOpen={showVerifyModal}
+        onClose={() => setShowVerifyModal(false)}
+        email={verifyEmailAddress || (identifier.includes('@') ? identifier.trim() : 'your registered email address')}
+        accountType="personal"
+        onVerified={() => {
+          setShowVerifyModal(false);
+          setErrorMessage('');
+          setSubmitted(true);
+          setTimeout(() => {
+            router.push('/');
+          }, 1000);
+        }}
+      />
     </div>
   );
 }
