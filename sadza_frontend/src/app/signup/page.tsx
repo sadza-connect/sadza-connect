@@ -98,7 +98,7 @@ function SignupFormContent() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -132,8 +132,39 @@ function SignupFormContent() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+      const cleanPhone = phoneNumber.replace(/^0+/, '').replace(/\s+/g, '');
+      const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+263${cleanPhone}`;
+
+      const payload: Record<string, any> = {
+        accountType: selectedType,
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        phoneNumber: formattedPhone,
+      };
+
+      if (selectedType === 'business') {
+        payload.businessName = businessName.trim();
+        payload.businessStructure = 'sole_proprietorship';
+      } else if (province) {
+        payload.province = province;
+      }
+
+      const res = await fetch(`${apiUrl}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || data.message || 'Registration failed. Please check your details.');
+      }
+
       if (selectedType === 'business') {
         const params = new URLSearchParams({
           name: businessName,
@@ -145,7 +176,11 @@ function SignupFormContent() {
       } else {
         setSubmitted(true);
       }
-    }, 600);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to connect to authentication server.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

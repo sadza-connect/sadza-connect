@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/Icons';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +48,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -60,16 +62,56 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+      const res = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier.trim(), password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error?.message || data.message || 'Invalid email or password.');
+      }
+
+      if (data.data?.accessToken) {
+        localStorage.setItem('sadza_access_token', data.data.accessToken);
+        localStorage.setItem('sadza_refresh_token', data.data.refreshToken);
+        localStorage.setItem('sadza_user', JSON.stringify(data.data.user));
+      }
+
       setSubmitted(true);
-    }, 800);
+      setTimeout(() => {
+        router.push(data.data?.user?.role === 'admin' ? '/admin' : '/');
+      }, 1000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotInput.trim()) return;
-    setForgotSent(true);
+
+    setIsLoading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+      await fetch(`${apiUrl}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotInput.trim().toLowerCase() }),
+      });
+      setForgotSent(true);
+    } catch {
+      setForgotSent(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
