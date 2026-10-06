@@ -48,3 +48,8 @@ Template/
 
 # Vercel / Render temporary files
 .vercel/
+
+# Local documents & agreements
+*.docx
+*.pdf
+CLIENT_QUESTIONNAIRE.md
