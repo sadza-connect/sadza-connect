@@ -63,13 +63,13 @@ export class AuthService {
 
   async register(params: RegisterParams): Promise<RegisterResult> {
     const existingEmail = await this.userRepo.findByEmail(params.email);
-    if (existingEmail) {
-      throw new ConflictError('An account with this email address already exists');
+    if (existingEmail && existingEmail.isVerified) {
+      throw new ConflictError('An account with this email address already exists. Please sign in.');
     }
 
     if (params.phoneNumber) {
       const existingPhone = await this.userRepo.findByPhone(params.phoneNumber);
-      if (existingPhone) {
+      if (existingPhone && existingPhone.isVerified && existingPhone.id !== existingEmail?.id) {
         throw new ConflictError('An account with this phone number already exists');
       }
     }
@@ -77,23 +77,42 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(params.password, env.BCRYPT_SALT_ROUNDS);
     const role = params.accountType === 'business' ? UserRole.MERCHANT : UserRole.CUSTOMER;
 
-    const user = User.create({
-      id: randomUUID(),
-      accountType: params.accountType,
-      role,
-      fullName: params.fullName,
-      email: Email.create(params.email),
-      passwordHash: PasswordHash.create(hashedPassword),
-      phoneNumber: params.phoneNumber,
-      province: params.province,
-      businessName: params.businessName,
-      sector: params.sector,
-      businessStructure: params.businessStructure,
-      accountStatus: AccountStatus.ACTIVE,
-      isVerified: false,
-    });
+    let targetUser: User;
 
-    const created = await this.userRepo.create(user);
+    if (existingEmail && !existingEmail.isVerified) {
+      const updatedUser = new User({
+        ...existingEmail.toParams(),
+        accountType: params.accountType,
+        role,
+        fullName: params.fullName,
+        passwordHash: PasswordHash.create(hashedPassword),
+        phoneNumber: params.phoneNumber,
+        province: params.province,
+        businessName: params.businessName,
+        sector: params.sector,
+        businessStructure: params.businessStructure,
+        updatedAt: new Date(),
+      });
+      targetUser = await this.userRepo.update(updatedUser);
+      await this.verificationTokenRepo.invalidateForUser(targetUser.id);
+    } else {
+      const user = User.create({
+        id: randomUUID(),
+        accountType: params.accountType,
+        role,
+        fullName: params.fullName,
+        email: Email.create(params.email),
+        passwordHash: PasswordHash.create(hashedPassword),
+        phoneNumber: params.phoneNumber,
+        province: params.province,
+        businessName: params.businessName,
+        sector: params.sector,
+        businessStructure: params.businessStructure,
+        accountStatus: AccountStatus.ACTIVE,
+        isVerified: false,
+      });
+      targetUser = await this.userRepo.create(user);
+    }
 
     // Generate 6-digit email verification OTP
     const otp = this.generateOtp();
@@ -101,14 +120,14 @@ export class AuthService {
 
     await this.verificationTokenRepo.create({
       id: randomUUID(),
-      userId: created.id,
+      userId: targetUser.id,
       token: otp,
       expiresAt,
     });
 
-    await this.emailService.sendVerificationEmail(created.email.getValue(), otp);
+    await this.emailService.sendVerificationEmail(targetUser.email.getValue(), otp);
 
-    return { user: created };
+    return { user: targetUser };
   }
 
   async login(

@@ -116,7 +116,42 @@ function SignupFormContent() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendRegistrationCode = async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+    const cleanDigits = phoneNumber.replace(/\D/g, '');
+    const formattedPhone = cleanDigits.startsWith('263')
+      ? `+${cleanDigits}`
+      : `+263${cleanDigits.replace(/^0+/, '')}`;
+
+    const payload: Record<string, any> = {
+      accountType: selectedType,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      phoneNumber: formattedPhone,
+    };
+
+    if (selectedType === 'business') {
+      payload.businessName = businessName.trim();
+      payload.businessStructure = 'sole_proprietorship';
+    } else if (province) {
+      payload.province = province;
+    }
+
+    const res = await fetch(`${apiUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error?.message || data.message || 'Registration failed. Please check your details.');
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -128,8 +163,9 @@ function SignupFormContent() {
       setErrorMessage('Please enter your business or trading name.');
       return;
     }
-    if (!email.trim()) {
-      setErrorMessage('Please enter a valid email address.');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMessage('Please enter a valid email address (e.g., you@company.co.zw).');
       return;
     }
     if (!phoneNumber.trim()) {
@@ -149,47 +185,8 @@ function SignupFormContent() {
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-      const cleanPhone = phoneNumber.replace(/^0+/, '').replace(/\s+/g, '');
-      const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+263${cleanPhone}`;
-
-      const payload: Record<string, any> = {
-        accountType: selectedType,
-        fullName: fullName.trim(),
-        email: email.trim().toLowerCase(),
-        password,
-        phoneNumber: formattedPhone,
-      };
-
-      if (selectedType === 'business') {
-        payload.businessName = businessName.trim();
-        payload.businessStructure = 'sole_proprietorship';
-      } else if (province) {
-        payload.province = province;
-      }
-
-      const res = await fetch(`${apiUrl}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error?.message || data.message || 'Registration failed. Please check your details.');
-      }
-
-      // Launch the 6-Digit Email Verification Pop-up Modal!
-      setShowOtpModal(true);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to connect to authentication server.');
-    } finally {
-      setIsLoading(false);
-    }
+    // Open confirmation alert before dispatching email
+    setShowOtpModal(true);
   };
 
   return (
@@ -762,15 +759,15 @@ function SignupFormContent() {
                   >
                     <span>
                       {selectedType === 'business'
-                        ? 'Create Account & Continue to Business Setup'
-                        : 'Create Regular User Account'}
+                        ? 'Continue & Verify Email'
+                        : 'Continue & Verify Email'}
                     </span>
                     <ArrowRightIcon className="h-4 w-4" />
                   </Button>
 
                   {selectedType === 'business' && (
                     <p className="mt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
-                      ⚡ Quick 20-second signup. You will set up your trade category &amp; verification documents next.
+                      ⚡ Stage 1 of 2. You will confirm your email address with a 6-digit PIN before proceeding to business storefront &amp; documents setup.
                     </p>
                   )}
                 </form>
@@ -828,12 +825,15 @@ function SignupFormContent() {
           </div>
         </div>
 
-        {/* 6-Digit Email Verification Pop-up Modal */}
+        {/* 2-Step Email Verification Pop-up Modal (Confirmation Alert -> 6-Digit PIN) */}
         <VerifyEmailModal
           isOpen={showOtpModal}
           onClose={() => setShowOtpModal(false)}
           email={email}
           accountType={selectedType || 'business'}
+          initialStep="confirm"
+          onConfirmSendCode={handleSendRegistrationCode}
+          onEditEmail={() => setShowOtpModal(false)}
           onVerified={handleOtpVerified}
         />
       </div>
