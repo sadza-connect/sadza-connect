@@ -68,9 +68,10 @@ function SignupFormContent() {
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
+  const [isNavigatingToNextStage, setIsNavigatingToNextStage] = useState(false);
 
   const handleOtpVerified = () => {
-    setShowOtpModal(false);
+    setIsNavigatingToNextStage(true);
     if (selectedType === 'business') {
       const params = new URLSearchParams({
         name: businessName,
@@ -81,7 +82,9 @@ function SignupFormContent() {
       });
       router.push(`/onboarding/business?${params.toString()}`);
     } else {
+      setShowOtpModal(false);
       setSubmitted(true);
+      setIsNavigatingToNextStage(false);
     }
   };
 
@@ -868,6 +871,28 @@ function SignupFormContent() {
             <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Compliance</Link>
           </div>
         </div>
+
+        {/* Full-Screen Transition Loader to Stage 2 */}
+        {isNavigatingToNextStage && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-md text-white animate-in fade-in duration-300 p-6">
+            <div className="relative flex h-20 w-20 items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+              <Store className="h-9 w-9 text-emerald-400 animate-pulse" />
+            </div>
+            <h3 className="mt-6 text-xl font-bold tracking-tight text-white text-center">
+              {selectedType === 'business'
+                ? 'Loading Business Onboarding Studio...'
+                : 'Preparing Your Account Dashboard...'}
+            </h3>
+            <p className="mt-2 text-xs text-slate-300 max-w-sm text-center leading-relaxed">
+              Your email is verified. We are preparing Stage 2 (Storefront Setup &amp; Compliance Documents Vault).
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-950/80 border border-emerald-700/60 px-4 py-1.5 text-xs text-emerald-300 font-semibold shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>Redirecting to next stage...</span>
+            </div>
+          </div>
+        )}
 
         {/* 2-Step Email Verification Pop-up Modal (Confirmation Alert -> 6-Digit PIN) */}
         <VerifyEmailModal

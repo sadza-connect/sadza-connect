@@ -11,6 +11,9 @@ import {
   ShieldCheck,
   Edit2,
   Lock,
+  Loader2,
+  Building2,
+  Store,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +29,13 @@ interface VerifyEmailModalProps {
   onVerified: () => void;
 }
 
+const DISPATCH_MESSAGES = [
+  'Securing registration credentials...',
+  'Generating secure 6-digit verification PIN...',
+  'Dispatching email via Resend mailer...',
+  'Finalizing security handshake...',
+];
+
 export function VerifyEmailModal({
   isOpen,
   onClose,
@@ -40,6 +50,8 @@ export function VerifyEmailModal({
   const [pin, setPin] = useState<string[]>(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [dispatchStatusIndex, setDispatchStatusIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [resendCooldown, setResendCooldown] = useState(45);
   const [isResending, setIsResending] = useState(false);
@@ -54,7 +66,9 @@ export function VerifyEmailModal({
       setPin(['', '', '', '', '', '']);
       setErrorMessage('');
       setIsSuccess(false);
+      setIsNavigating(false);
       setResendSuccess(false);
+      setDispatchStatusIndex(0);
 
       if (initialStep === 'otp') {
         setTimeout(() => {
@@ -72,6 +86,19 @@ export function VerifyEmailModal({
       }, 150);
     }
   }, [isOpen, step]);
+
+  // Cycle dispatch status messages during registration send
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isLoading && step === 'confirm') {
+      interval = setInterval(() => {
+        setDispatchStatusIndex((prev) => (prev + 1) % DISPATCH_MESSAGES.length);
+      }, 1500);
+    } else {
+      setDispatchStatusIndex(0);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading, step]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -92,7 +119,6 @@ export function VerifyEmailModal({
       if (onConfirmSendCode) {
         await onConfirmSendCode();
       } else {
-        // Fallback: trigger resend-verification endpoint
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
         const res = await fetch(`${apiUrl}/auth/resend-verification`, {
           method: 'POST',
@@ -185,12 +211,14 @@ export function VerifyEmailModal({
       }
 
       setIsSuccess(true);
+      setIsNavigating(true);
+
+      // Keep smooth loading transition while triggering parent routing
       setTimeout(() => {
         onVerified();
-      }, 1200);
+      }, 1400);
     } catch (err: any) {
       setErrorMessage(err.message || 'Verification failed. Please check the PIN.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -230,7 +258,7 @@ export function VerifyEmailModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={isSuccess ? () => {} : onClose}
+      onClose={isSuccess || isNavigating ? () => {} : onClose}
       maxWidth="md"
       className="p-6 sm:p-8"
     >
@@ -242,7 +270,11 @@ export function VerifyEmailModal({
           <div className="space-y-5 animate-in fade-in duration-200">
             {/* Top Security Hero Badge */}
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 shadow-md shadow-emerald-500/10">
-              <ShieldCheck className="h-8 w-8" />
+              {isLoading ? (
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <ShieldCheck className="h-8 w-8" />
+              )}
             </div>
 
             <div>
@@ -252,12 +284,14 @@ export function VerifyEmailModal({
               </div>
 
               <h2 className="mt-2.5 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Confirm Your Email Address
+                {isLoading ? 'Dispatching Verification PIN...' : 'Confirm Your Email Address'}
               </h2>
 
               <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-sm mx-auto">
-                {accountType === 'business'
-                  ? 'Before proceeding to the next stage of registration, you must verify your business email address to ensure verified Zimbabwean merchant credibility.'
+                {isLoading
+                  ? 'Please hold on while we secure your account credentials and dispatch the code to your inbox.'
+                  : accountType === 'business'
+                  ? 'Before proceeding to Stage 2 of registration, you must verify your business email address to ensure verified Zimbabwean merchant credibility.'
                   : 'Before proceeding to the next stage of registration, you must verify ownership of your email address.'}
               </p>
             </div>
@@ -266,7 +300,7 @@ export function VerifyEmailModal({
             <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/30 p-4 text-left">
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                 <span className="font-medium">Verification code will be sent to:</span>
-                {onEditEmail && (
+                {onEditEmail && !isLoading && (
                   <button
                     type="button"
                     onClick={() => {
@@ -283,16 +317,34 @@ export function VerifyEmailModal({
               <div className="font-mono text-base font-bold text-slate-900 dark:text-white break-all">
                 {email}
               </div>
-              <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Lock className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>A secure 6-digit confirmation PIN will be dispatched immediately.</span>
-              </div>
+
+              {isLoading ? (
+                <div className="mt-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span>{DISPATCH_MESSAGES[dispatchStatusIndex]}</span>
+                    </span>
+                    <span className="font-mono text-[11px] opacity-75">~3s</span>
+                  </div>
+                  {/* Animated Progress Bar */}
+                  <div className="h-1.5 w-full bg-emerald-200 dark:bg-emerald-900/60 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 rounded-full w-2/3 animate-[pulse_1s_ease-in-out_infinite]" />
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Lock className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>A secure 6-digit confirmation PIN will be dispatched immediately.</span>
+                </div>
+              )}
             </div>
 
-            {/* Prompt Question */}
-            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-              Are you ready to confirm your email and proceed?
-            </p>
+            {!isLoading && (
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                Are you ready to confirm your email and proceed?
+              </p>
+            )}
 
             {/* Error Banner */}
             {errorMessage && (
@@ -310,33 +362,46 @@ export function VerifyEmailModal({
                 size="lg"
                 fullWidth
                 loading={isLoading}
+                disabled={isLoading}
                 onClick={handleConfirmAndSend}
                 className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 text-white font-semibold"
               >
-                <span>Confirm Email &amp; Send PIN</span>
-                <ArrowRight className="h-4 w-4 ml-1.5" />
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Dispatching 6-Digit PIN...</span>
+                  </span>
+                ) : (
+                  <>
+                    <span>Confirm Email &amp; Send PIN</span>
+                    <ArrowRight className="h-4 w-4 ml-1.5" />
+                  </>
+                )}
               </Button>
 
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={onClose}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                Review Details
-              </button>
+              {!isLoading && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Review Details
+                </button>
+              )}
             </div>
           </div>
         )}
 
         {/* =========================================================================
-            STAGE 2: ENTER 6-DIGIT VERIFICATION PIN
+            STAGE 2: ENTER 6-DIGIT VERIFICATION PIN & TRANSITION
             ========================================================================= */}
         {step === 'otp' && (
           <div>
             {/* Animated Icon Hero */}
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 shadow-md shadow-emerald-500/10">
-              {isSuccess ? (
+              {isNavigating ? (
+                <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
+              ) : isSuccess ? (
                 <CheckCircle2 className="h-8 w-8 text-emerald-500 animate-in zoom-in-75 duration-300" />
               ) : (
                 <Mail className="h-7 w-7" />
@@ -347,18 +412,32 @@ export function VerifyEmailModal({
             <div className="mt-4">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-3 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                 <Sparkles className="h-3 w-3" />
-                <span>6-Digit Verification Code</span>
+                <span>
+                  {isNavigating
+                    ? 'Preparing Next Stage...'
+                    : isSuccess
+                    ? 'Verification Confirmed'
+                    : '6-Digit Verification Code'}
+                </span>
               </div>
 
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {isSuccess ? 'Email Confirmed!' : 'Enter 6-Digit PIN'}
+                {isNavigating
+                  ? accountType === 'business'
+                    ? 'Loading Business Onboarding...'
+                    : 'Loading Your Dashboard...'
+                  : isSuccess
+                  ? 'Email Confirmed!'
+                  : 'Enter 6-Digit PIN'}
               </h2>
 
               <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                {isSuccess ? (
+                {isNavigating ? (
                   accountType === 'business'
-                    ? 'Your email is confirmed. Proceeding to the next stage...'
-                    : 'Your email has been verified. Welcome to Sadza Connect!'
+                    ? 'Your email is verified. Redirecting you to Stage 2: Storefront Studio & Verification Documents...'
+                    : 'Your account is active. Redirecting you to the verified dashboard...'
+                ) : isSuccess ? (
+                  'Email verification successful! Proceeding...'
                 ) : (
                   <>
                     We&rsquo;ve sent a 6-digit confirmation PIN to{' '}
@@ -370,7 +449,7 @@ export function VerifyEmailModal({
                 )}
               </p>
 
-              {onEditEmail && !isSuccess && (
+              {onEditEmail && !isSuccess && !isNavigating && (
                 <button
                   type="button"
                   onClick={() => {
@@ -384,12 +463,31 @@ export function VerifyEmailModal({
               )}
             </div>
 
-            {/* Success Animation Container */}
-            {isSuccess ? (
-              <div className="mt-8 py-6 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 text-center animate-in zoom-in-95">
-                <div className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span>Advancing to the next stage...</span>
+            {/* Active Transition Loading State */}
+            {isNavigating ? (
+              <div className="mt-7 py-6 px-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-center animate-in zoom-in-95 space-y-3.5">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/30">
+                    <Store className="h-5 w-5 animate-pulse" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      Stage 2: Storefront &amp; Compliance Vault
+                    </div>
+                    <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                      Initializing onboarding studio...
+                    </div>
+                  </div>
+                </div>
+
+                {/* Animated Progress Track */}
+                <div className="h-2 w-full bg-emerald-200/80 dark:bg-emerald-900/60 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 rounded-full w-full animate-[pulse_1.2s_ease-in-out_infinite]" />
+                </div>
+
+                <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+                  <span>Loading next page, please do not close this window...</span>
                 </div>
               </div>
             ) : (
@@ -409,7 +507,7 @@ export function VerifyEmailModal({
                       value={digit}
                       onChange={(e) => handleChange(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
-                      disabled={isLoading}
+                      disabled={isLoading || isNavigating}
                       className={`h-12 w-11 sm:h-14 sm:w-12 rounded-xl text-center text-xl sm:text-2xl font-mono font-bold tracking-tight transition-all duration-150 outline-hidden ${
                         digit
                           ? 'border-2 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/40 text-emerald-900 dark:text-white shadow-xs'
@@ -442,12 +540,21 @@ export function VerifyEmailModal({
                   size="lg"
                   fullWidth
                   loading={isLoading}
-                  disabled={!isComplete || isLoading}
+                  disabled={!isComplete || isLoading || isNavigating}
                   onClick={() => handleVerify()}
                   className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 text-white font-semibold"
                 >
-                  <span>Verify &amp; Proceed to Next Stage</span>
-                  <ArrowRight className="h-4 w-4 ml-1.5" />
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Verifying PIN...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span>Verify &amp; Proceed to Next Stage</span>
+                      <ArrowRight className="h-4 w-4 ml-1.5" />
+                    </>
+                  )}
                 </Button>
 
                 {/* Resend Helper & Timer */}
@@ -463,11 +570,11 @@ export function VerifyEmailModal({
                     <button
                       type="button"
                       onClick={handleResend}
-                      disabled={isResending}
+                      disabled={isResending || isLoading}
                       className="inline-flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer disabled:opacity-50"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${isResending ? 'animate-spin' : ''}`} />
-                      <span>Resend 6-Digit PIN</span>
+                      <span>{isResending ? 'Dispatching fresh code...' : 'Resend 6-Digit PIN'}</span>
                     </button>
                   )}
 
