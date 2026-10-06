@@ -17,18 +17,15 @@ const commonConfig: Knex.Config = {
   pool: {
     min: env.DB_POOL_MIN,
     max: env.DB_POOL_MAX,
-    // Kill idle connections after 30s — Supabase drops them at ~5min
-    idleTimeoutMillis: 30_000,
-    // Check for and reap stale connections every 15s
-    reapIntervalMillis: 15_000,
-    // Validate connections before handing them out — catches dead TCP connections
+    // Idle connections reaped quickly before Supabase pooler drops TCP sockets
+    idleTimeoutMillis: 15_000,
+    reapIntervalMillis: 5_000,
+    // Fast, synchronous socket health check — avoids hanging queries on dead TCP sockets
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     validate(conn: any) {
-      return new Promise((resolve) => {
-        conn.query('SELECT 1', (err: Error | null) => {
-          resolve(!err);
-        });
-      });
+      if (!conn || conn._ending) return false;
+      const stream = conn.connection?.stream;
+      return Boolean(stream && !stream.destroyed && stream.readable && stream.writable);
     },
   },
   acquireConnectionTimeout: 10_000,
@@ -48,6 +45,7 @@ function connectionConfig(): Knex.Config {
         ? {
             connectionString: env.DATABASE_URL,
             ssl: { rejectUnauthorized: false },
+            keepAlive: true,
           }
         : env.DATABASE_URL,
     };

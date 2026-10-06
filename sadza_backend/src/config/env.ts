@@ -46,8 +46,8 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true' || v === '1'),
-  DB_POOL_MIN: z.coerce.number().min(0).default(2),
-  DB_POOL_MAX: z.coerce.number().min(1).default(20),
+  DB_POOL_MIN: z.coerce.number().min(0).default(0),
+  DB_POOL_MAX: z.coerce.number().min(1).default(10),
   DATABASE_URL: z.string().optional(),
 
   // ─── Supabase ─────────────────────────────────────────
