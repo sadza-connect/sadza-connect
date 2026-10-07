@@ -1,0 +1,51 @@
+{
+  "name": "sadza-connect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sadza Connect Zimbabwe — Unified Super-App (Directory, Marketplace, Jobs, Utilities & Authentication)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "tsx scripts/test-auth-smoke.ts",
+    "db:migrate": "knex migrate:latest --knexfile src/config/knexfile.ts",
+    "db:rollback": "knex migrate:rollback --knexfile src/config/knexfile.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.49.1",
+    "bcrypt": "^5.1.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.4.5",
+    "framer-motion": "^11.3.19",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
+    "lucide-react": "^0.427.0",
+    "next": "14.2.5",
+    "pg": "^8.13.0",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^4.0.0",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.16.5",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "tsx": "^4.19.1",
+    "typescript": "^5.5.4"
+  }
+}

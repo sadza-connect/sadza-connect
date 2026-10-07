@@ -1,14 +1,14 @@
 services:
   # ----------------------------------------------------------------------------
-  # Sadza Connect Backend API Service
+  # Sadza Connect Zimbabwe — Unified Production Next.js 14 Application
+  # Consolidating Frontend Storefront, Directory, Utilities & Core Backend API
   # ----------------------------------------------------------------------------
   - type: web
-    name: sadza-backend
+    name: sadza-connect
     runtime: node
     plan: starter
-    rootDir: sadza_backend
     buildCommand: npm install && npm run build
-    startCommand: node dist/server.js
+    startCommand: npm start
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_VERSION
@@ -21,6 +21,10 @@ services:
         value: 0.0.0.0
       - key: API_PREFIX
         value: /api/v1
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: NEXT_PUBLIC_API_URL
+        value: /api/v1
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
@@ -28,6 +32,10 @@ services:
       - key: CORS_ORIGINS
         sync: false
       - key: FRONTEND_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_URL
         sync: false
@@ -51,30 +59,3 @@ services:
         sync: false
       - key: EMAIL_FROM
         value: Sadza Connect <noreply@sadzaconnect.co.zw>
-
-  # ----------------------------------------------------------------------------
-  # Sadza Connect Frontend (Next.js 14)
-  # ----------------------------------------------------------------------------
-  - type: web
-    name: sadza-frontend
-    runtime: node
-    plan: starter
-    rootDir: sadza_frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /
-    envVars:
-      - key: NODE_VERSION
-        value: 20
-      - key: NODE_ENV
-        value: production
-      - key: NEXT_PUBLIC_SITE_URL
-        sync: false
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_URL
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false

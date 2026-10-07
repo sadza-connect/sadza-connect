@@ -4,24 +4,44 @@
 
 ---
 
-## 🏗️ Repository Architecture
+## 🏗️ Unified Application Architecture
 
-Sadza Connect is architected as a modular multi-tier application designed for high resilience, offline-first readiness, and production-grade security:
+Sadza Connect is consolidated into a single production-ready **Next.js 14 App Router** application that handles both the rich user interface and full server-side functionality (Domain Entities, Authentication, JWT Token Family Rotation, Knex PostgreSQL pool, and transactional email):
 
 ```
-├── sadza_frontend/       # Next.js 14 App Router, React 18, Tailwind CSS, Framer Motion
-│   ├── src/app/          # Core pages: Storefronts, Directory, Marketplace, Jobs, Utilities
-│   ├── src/components/   # Component design system (Onboarding, Header, Footer, Hero)
-│   ├── src/lib/supabase/ # Client, Server & Admin Supabase integration points
-│   └── supabase/         # Phase 2 SQL migrations, schemas, RLS policies & seed data
-├── sadza_backend/        # Express REST API microservice in TypeScript (Node 20+)
-│   ├── src/domain/       # Clean Architecture Domain layer (User, Email, Password, Value Objects)
-│   ├── src/application/  # Use cases, JWT service & cryptographic rotation
-│   ├── src/infrastructure/# Knex/Postgres pool, Resend mailer, Supabase client
-│   └── scripts/          # Unit & smoke test test runner
-├── render.yaml           # Render Infrastructure-as-Code Blueprint
-├── .env.example          # Environment variable reference template
-└── ARCHITECTURE.md       # Technical architecture specification
+Sadza_Conneect/
+├── src/
+│   ├── app/                      # Next.js 14 App Router
+│   │   ├── (22 Core Pages)       # Storefronts, Directory, Marketplace, Jobs, Utilities, Admin Shell
+│   │   └── api/                  # Server-side Route Handlers
+│   │       ├── route.ts          # GET /api (API metadata)
+│   │       └── v1/
+│   │           ├── health/       # GET /api/v1/health (DB connectivity check)
+│   │           └── auth/         # Complete Authentication API
+│   │               ├── register/ # POST /api/v1/auth/register
+│   │               ├── login/    # POST /api/v1/auth/login
+│   │               ├── refresh/  # POST /api/v1/auth/refresh
+│   │               ├── verify-email/
+│   │               ├── resend-verification/
+│   │               ├── forgot-password/
+│   │               ├── verify-reset-otp/
+│   │               ├── reset-password/
+│   │               ├── logout/
+│   │               └── me/       # GET /api/v1/auth/me (Bearer token protected)
+│   ├── domain/                   # Clean Architecture Domain Layer (User, Value Objects)
+│   ├── application/              # Business Logic (AuthService, JwtService)
+│   ├── infrastructure/           # Knex PostgreSQL pool, Repositories, Resend Mailer
+│   ├── shared/                   # Shared Validators, Errors, Logger, Rate Limiter
+│   ├── components/               # MATECH UI Design System & Component Library
+│   ├── context/                  # Theme & Client State
+│   └── lib/                      # Supabase SSR helpers & client utilities
+├── scripts/
+│   └── test-auth-smoke.ts        # Unit & smoke test runner
+├── render.yaml                   # Unified single-service Render Blueprint
+├── .env.example                  # Consolidated environment variable reference template
+├── package.json                  # Unified dependencies & npm scripts
+├── sadza_frontend/               # [Original frontend preserved untouched]
+└── sadza_backend/                # [Original backend preserved untouched]
 ```
 
 ---
@@ -32,65 +52,71 @@ Sadza Connect is architected as a modular multi-tier application designed for hi
 - Node.js >= 20.0.0
 - npm >= 10.0.0
 
-### 1. Frontend Setup
+### Run the Application
 ```bash
-cd sadza_frontend
+# 1. Install dependencies
 npm install
+
+# 2. Configure environment
+cp .env.example .env.local
+
+# 3. Start development server (UI + API)
 npm run dev
 # Running at http://localhost:3000
-```
-
-### 2. Backend Setup
-```bash
-cd sadza_backend
-npm install
-npm run dev
-# API running at http://localhost:5000/api/v1
-# Health check: http://localhost:5000/api/v1/health
+# API endpoints at http://localhost:3000/api/v1
+# Health check at http://localhost:3000/api/v1/health
 ```
 
 ---
 
-## 🧪 Testing & Production Builds
+## 🧪 Testing & Production Validation
 
-### Frontend Build
 ```bash
-cd sadza_frontend
+# 1. Run Unit & Smoke Tests
+npm test
+# Executes domain value object, entity, JWT token rotation, and Zod validator smoke tests
+
+# 2. Type-Checking
+npx tsc --noEmit
+
+# 3. Linting
+npm run lint
+
+# 4. Production Build
 npm run build
-```
-*Validates TypeScript compilation, static site generation for all 22 core routes, and asset optimization.*
+# Compiles both the 22 frontend routes and all 12 server API route handlers
 
-### Backend Build & Smoke Tests
+# 5. Start Production Server
+npm start
+```
+
+---
+
+## 💾 Database Migrations (PostgreSQL / Knex)
+
 ```bash
-cd sadza_backend
-npm test         # Executes domain value object, entity, JWT & Zod validator smoke tests
-npm run build    # Compiles TypeScript into dist/
+# Run latest migrations
+npm run db:migrate
+
+# Rollback migrations
+npm run db:rollback
 ```
 
 ---
 
 ## 🌐 Production Deployment on Render
 
-This repository is configured for automated deployment via **Render Blueprints** (`render.yaml`).
+This repository is configured for automated single-service deployment via **Render Blueprints** (`render.yaml`):
 
-### Deployment Steps:
-1. Push this repository to your GitHub organization.
-2. In the [Render Dashboard](https://dashboard.render.com), click **New +** → **Blueprint**.
-3. Connect your GitHub repository.
-4. Render will automatically detect `render.yaml` and provision both:
-   - **`sadza-backend`** (Web Service, Node runtime)
-   - **`sadza-frontend`** (Web Service, Next.js runtime)
-5. Fill in the required environment variables in the Render dashboard:
-   - `NEXT_PUBLIC_SITE_URL`: Your production frontend domain (e.g. `https://sadzaconnect.co.zw`).
-   - `NEXT_PUBLIC_API_URL`: Your Render backend service URL (e.g. `https://sadza-backend.onrender.com/api/v1`).
-   - `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase production credentials.
-   - `DB_HOST`, `DB_USER`, `DB_PASSWORD`: Direct Postgres credentials for Knex migrations.
-   - `RESEND_API_KEY`: Your transactional email API key.
+1. In the [Render Dashboard](https://dashboard.render.com), click **New +** → **Blueprint**.
+2. Connect your GitHub repository.
+3. Render automatically provisions the unified **`sadza-connect`** web service running Node 20.
+4. Set required secrets (`JWT_ACCESS_SECRET`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `RESEND_API_KEY`, etc.) in the Render dashboard.
 
 ---
 
 ## 🔒 Security & Environment Variables
 
 - Never commit `.env` or `.env.local` files containing live secrets.
-- Refer to `.env.example`, `sadza_frontend/.env.example`, and `sadza_backend/.env.example` for the required configuration parameters.
-- All secrets are excluded via `.gitignore`.
+- Refer to `.env.example` for the required configuration parameters.
+- Secrets (`JWT_ACCESS_SECRET`, `DB_PASSWORD`, `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are kept strictly server-side and never exposed with `NEXT_PUBLIC_` prefixes.
