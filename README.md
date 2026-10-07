@@ -40,8 +40,7 @@ Sadza_Conneect/
 ├── render.yaml                   # Unified single-service Render Blueprint
 ├── .env.example                  # Consolidated environment variable reference template
 ├── package.json                  # Unified dependencies & npm scripts
-├── sadza_frontend/               # [Original frontend preserved untouched]
-└── sadza_backend/                # [Original backend preserved untouched]
+└── scaling.md                    # 1M User Scalability & Architecture Playbook
 ```
 
 ---
