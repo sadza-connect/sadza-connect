@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 
 export type CelebrationType = 'login' | 'register' | 'logout';
@@ -23,12 +23,19 @@ const STORAGE_KEY = 'sadza_auth_celebration';
 
 const CelebrationContext = createContext<CelebrationContextType | undefined>(undefined);
 
+function PathnameSync({ onRouteLoaded }: { onRouteLoaded: () => void }) {
+  const pathname = usePathname();
+  useEffect(() => {
+    onRouteLoaded();
+  }, [pathname, onRouteLoaded]);
+  return null;
+}
+
 export function CelebrationProvider({ children }: { children: React.ReactNode }) {
   const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
-  const pathname = usePathname();
 
-  // Check sessionStorage for celebrations queued before a redirect
-  useEffect(() => {
+  const checkStorage = useCallback(() => {
+    if (typeof window === 'undefined') return;
     try {
       const stored = sessionStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -40,7 +47,12 @@ export function CelebrationProvider({ children }: { children: React.ReactNode })
     } catch {
       // Ignore sessionStorage parsing errors
     }
-  }, [pathname]);
+  }, []);
+
+  // Initial check on mount
+  useEffect(() => {
+    checkStorage();
+  }, [checkStorage]);
 
   const triggerCelebration = useCallback((payload: CelebrationPayload) => {
     // Save to sessionStorage so if an immediate router.push redirect occurs,
@@ -72,6 +84,9 @@ export function CelebrationProvider({ children }: { children: React.ReactNode })
         dismissCelebration,
       }}
     >
+      <Suspense fallback={null}>
+        <PathnameSync onRouteLoaded={checkStorage} />
+      </Suspense>
       {children}
     </CelebrationContext.Provider>
   );
