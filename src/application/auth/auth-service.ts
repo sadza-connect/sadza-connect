@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { randomInt, randomUUID } from 'node:crypto';
 import {
   User,
