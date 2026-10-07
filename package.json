@@ -13,7 +13,7 @@
   "description": "Sadza Connect Zimbabwe — Unified Super-App (Directory, Marketplace, Jobs, Utilities & Authentication)",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build.js",
     "start": "next start",
     "lint": "next lint",
     "test": "tsx scripts/test-auth-smoke.ts",
