@@ -14,7 +14,7 @@ import {
   Clock,
   CheckCircle2,
 } from 'lucide-react';
-import { SAMPLE_BUSINESSES } from '@/lib/data/zimbabwe';
+import { SAMPLE_BUSINESSES } from '../../lib/data/zimbabwe';
 
 export default function AdminDashboardPage() {
   const kpis = [

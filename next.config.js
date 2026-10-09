@@ -1,3 +1,5 @@
+const path = require('path');
+
 // Ensure NODE_ENV is strictly standard lowercase 'production', 'development', or 'test'
 if (process.env.NODE_ENV) {
   const rawEnv = process.env.NODE_ENV.trim().toLowerCase().replace(/['"]/g, '');
@@ -42,9 +44,16 @@ const nextConfig = {
     serverComponentsExternalPackages: ['knex', 'pg', 'pino', 'pino-pretty'],
   },
   webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    };
     config.resolve.extensionAlias = {
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
     };
+    config.resolve.extensions = Array.from(
+      new Set(['.ts', '.tsx', '.js', '.jsx', '.json', ...(config.resolve.extensions || [])])
+    );
     return config;
   },
 };

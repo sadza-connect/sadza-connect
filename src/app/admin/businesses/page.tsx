@@ -11,7 +11,7 @@ import {
   MapPin,
   Search,
 } from 'lucide-react';
-import { SAMPLE_BUSINESSES, BusinessListing } from '@/lib/data/zimbabwe';
+import { SAMPLE_BUSINESSES, BusinessListing } from '../../../lib/data/zimbabwe';
 
 export default function AdminBusinessesPage() {
   const [businesses, setBusinesses] = useState<BusinessListing[]>(SAMPLE_BUSINESSES);
