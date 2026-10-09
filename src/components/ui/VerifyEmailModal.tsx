@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
 interface VerifyEmailModalProps {
   isOpen: boolean;
@@ -119,15 +120,14 @@ export function VerifyEmailModal({
       if (onConfirmSendCode) {
         await onConfirmSendCode();
       } else {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-        const res = await fetch(`${apiUrl}/auth/resend-verification`, {
+        const apiUrl = getApiBaseUrl();
+        const result = await safeFetchJson(`${apiUrl}/auth/resend-verification`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: email.trim().toLowerCase() }),
         });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error?.message || 'Failed to dispatch verification code');
+        if (!result.ok) {
+          throw new Error(result.error || 'Failed to dispatch verification code');
         }
       }
 
@@ -197,17 +197,15 @@ export function VerifyEmailModal({
     setErrorMessage('');
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-      const res = await fetch(`${apiUrl}/auth/verify-email`, {
+      const apiUrl = getApiBaseUrl();
+      const result = await safeFetchJson(`${apiUrl}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: fullPin }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error?.message || data.message || 'Invalid or expired verification PIN.');
+      if (!result.ok) {
+        throw new Error(result.error || 'Invalid or expired verification PIN.');
       }
 
       setIsSuccess(true);
@@ -230,16 +228,15 @@ export function VerifyEmailModal({
     setResendSuccess(false);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-      const res = await fetch(`${apiUrl}/auth/resend-verification`, {
+      const apiUrl = getApiBaseUrl();
+      const result = await safeFetchJson(`${apiUrl}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error?.message || 'Failed to resend code');
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to resend code');
       }
 
       setResendSuccess(true);

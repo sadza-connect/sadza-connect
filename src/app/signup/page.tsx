@@ -25,6 +25,7 @@ import {
 import { Store, User, Sparkles, CheckCircle2 } from 'lucide-react';
 import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 import { useCelebration } from '@/context/CelebrationContext';
+import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
 const PROVINCES = [
   'Harare Province (Harare, Chitungwiza)',
@@ -114,7 +115,6 @@ function SignupFormContent() {
 
 
   const handleSendRegistrationCode = async () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
     const cleanDigits = phoneNumber.replace(/\D/g, '');
     if (cleanDigits.length < 8 || cleanDigits.length > 15) {
       throw new Error('Please enter a valid phone number with 8 to 15 digits (e.g., 77 123 4567).');
@@ -154,16 +154,15 @@ function SignupFormContent() {
       payload.province = province;
     }
 
-    const res = await fetch(`${apiUrl}/auth/register`, {
+    const apiUrl = getApiBaseUrl();
+    const result = await safeFetchJson(`${apiUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error?.message || data.message || 'Registration failed. Please check your details.');
+    if (!result.ok) {
+      throw new Error(result.error || 'Registration failed. Please check your details.');
     }
   };
 

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
 export interface UserSession {
   id: string;
@@ -91,8 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshToken = localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
 
     try {
-      // End session using the application's existing authentication backend
-      const res = await fetch('/api/v1/auth/logout', {
+      const apiUrl = getApiBaseUrl();
+      const result = await safeFetchJson(`${apiUrl}/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,13 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ refreshToken: refreshToken || '' }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const errorMessage =
-          errorData.error?.message ||
-          errorData.message ||
-          'Failed to securely end session on server. Please try again.';
-        setLogoutError(errorMessage);
+      if (!result.ok) {
+        setLogoutError(result.error || 'Failed to securely end session on server. Please try again.');
         return false;
       }
 
