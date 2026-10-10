@@ -86,14 +86,7 @@ export function Navbar() {
             href="/pricing"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
-            Pricing
-          </Link>
-          <Link
-            href="/#ai-assistant"
-            className="flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors border border-slate-200 dark:border-slate-700"
-          >
-            <Sparkles className="h-3 w-3 text-emerald-500" />
-            <span>Assistant</span>
+            Pricing &amp; Adverts
           </Link>
         </nav>
 
@@ -238,18 +231,7 @@ export function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
             >
-              Pricing
-            </Link>
-            <Link
-              href="/#ai-assistant"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg flex items-center justify-between bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700"
-            >
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
-                Assistant
-              </span>
-              <span className="text-[10px] uppercase font-mono text-emerald-600">Online</span>
+              Pricing &amp; Adverts
             </Link>
           </nav>
 

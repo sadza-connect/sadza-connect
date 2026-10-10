@@ -69,13 +69,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/#ai-assistant" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Sadza AI Discovery
+                <Link href="/#commercial-portal" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                  Sponsored Business Adverts
                 </Link>
               </li>
               <li>
-                <Link href="/#categories" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Provincial Economic Hubs
+                <Link href="/#directory" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                  10 Provinces Directory
                 </Link>
               </li>
             </ul>
