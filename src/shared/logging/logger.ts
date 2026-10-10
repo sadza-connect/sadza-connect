@@ -1,21 +1,13 @@
 import pino from 'pino';
 import { env } from '../../config/env.js';
 
-const transport =
-  env.LOG_FORMAT === 'pretty'
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname',
-        },
-      }
-    : undefined;
-
+/**
+ * Serverless-safe Pino logger.
+ * Avoids worker-thread transports (pino-pretty) which crash inside
+ * Netlify / AWS Lambda serverless functions due to bundled path resolution.
+ */
 export const logger = pino({
   level: env.LOG_LEVEL,
-  transport,
   redact: {
     paths: [
       'req.headers.authorization',

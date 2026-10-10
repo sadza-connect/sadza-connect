@@ -1,14 +1,50 @@
 /**
  * Resilient API Client Helper for Sadza Connect.
- * Safely executes HTTP requests and parses responses, guarding against
- * raw HTML responses (such as Netlify SPA 200 fallbacks, 404s, or 502/503 cold starts)
- * that cause "Unexpected token '<', '<!DOCTYPE ' is not valid JSON" errors.
+ * - Normalizes NEXT_PUBLIC_API_URL (auto-appends /api/v1 if omitted, strips quotes,
+ *   and prevents localhost URLs from being called on live cloud domains).
+ * - Automatically falls back to same-origin /api/v1 routes if an external URL returns
+ *   an HTML 404 or network failure.
  */
 
 export function getApiBaseUrl(): string {
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  const raw =
+    typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL
+      ? process.env.NEXT_PUBLIC_API_URL.trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, '')
+      : '';
+
+  if (!raw || raw === '/api/v1' || raw === '/api') {
+    return '/api/v1';
   }
+
+  // If running in browser on a live domain, never call localhost
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const isLocalBrowser = host === 'localhost' || host === '127.0.0.1';
+    if (!isLocalBrowser && (raw.includes('localhost') || raw.includes('127.0.0.1'))) {
+      return '/api/v1';
+    }
+
+    // If the configured URL points to the exact same origin, use relative '/api/v1'
+    try {
+      if (raw.startsWith('http://') || raw.startsWith('https://')) {
+        const parsed = new URL(raw);
+        if (parsed.origin === window.location.origin) {
+          return '/api/v1';
+        }
+      }
+    } catch {
+      return '/api/v1';
+    }
+  }
+
+  // Ensure absolute URLs end with /api/v1
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    if (!raw.endsWith('/api/v1') && !raw.includes('/api/v1/')) {
+      return raw.endsWith('/api') ? `${raw}/v1` : `${raw}/api/v1`;
+    }
+    return raw;
+  }
+
   return '/api/v1';
 }
 
@@ -19,10 +55,10 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
-export async function safeFetchJson<T = any>(
+async function executeSingleFetch<T = any>(
   url: string,
   options?: RequestInit,
-): Promise<ApiResponse<T>> {
+): Promise<ApiResponse<T> & { isHtmlOr404?: boolean }> {
   try {
     const res = await fetch(url, options);
     const contentType = res.headers.get('content-type') || '';
@@ -44,7 +80,6 @@ export async function safeFetchJson<T = any>(
       }
     }
 
-    // Guard: Detect HTML returned instead of JSON (Netlify SPA 200 fallback, CDN 404, or gateway error)
     const isHtmlResponse =
       contentType.includes('text/html') ||
       rawText.trim().startsWith('<!DOCTYPE') ||
@@ -54,13 +89,12 @@ export async function safeFetchJson<T = any>(
       return {
         ok: false,
         status: res.status,
-        error:
-          'Backend API returned an HTML page instead of JSON. If your frontend is hosted on Netlify and backend on Render, please set NEXT_PUBLIC_API_URL in Netlify Site Settings > Environment Variables to your live Render API URL (e.g. https://your-backend.onrender.com/api/v1).',
+        isHtmlOr404: true,
+        error: `Server returned an unexpected response (${res.status}). Please try again in a moment.`,
       };
     }
 
     if (!res.ok) {
-      // 1. Structured JSON error response from API
       if (parsedBody?.error?.message) {
         return { ok: false, status: res.status, error: parsedBody.error.message };
       }
@@ -68,27 +102,25 @@ export async function safeFetchJson<T = any>(
         return { ok: false, status: res.status, error: parsedBody.message };
       }
 
-      // 2. 404 Not Found
       if (res.status === 404) {
         return {
           ok: false,
           status: 404,
-          error:
-            'Backend API endpoint not found (404). If your frontend is on Netlify and backend on Render, ensure NEXT_PUBLIC_API_URL is set in Netlify to your live Render backend URL.',
+          isHtmlOr404: true,
+          error: 'Requested API endpoint was not found (404).',
         };
       }
 
-      // 3. Cold-start or gateway error (502/503/504)
       if (res.status === 502 || res.status === 503 || res.status === 504) {
         return {
           ok: false,
           status: res.status,
+          isHtmlOr404: true,
           error:
-            'The backend server is currently starting up (Render cold start). Please wait 15 seconds and try again.',
+            'The server is waking up (cold start). Please wait 10 seconds and try again.',
         };
       }
 
-      // 4. Raw text fallback error
       if (rawText && rawText.length < 200 && !rawText.includes('<')) {
         return { ok: false, status: res.status, error: rawText.trim() };
       }
@@ -96,7 +128,7 @@ export async function safeFetchJson<T = any>(
       return {
         ok: false,
         status: res.status,
-        error: `Server request failed with status ${res.status}. Please check your connection.`,
+        error: `Request failed with status ${res.status}. Please check your details and try again.`,
       };
     }
 
@@ -107,19 +139,40 @@ export async function safeFetchJson<T = any>(
     };
   } catch (err: any) {
     const msg = err?.message || '';
-    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-      return {
-        ok: false,
-        status: 0,
-        error:
-          'Network connection error: Unable to reach the API server. Please check your internet connection or verify the backend service is running.',
-      };
-    }
-
     return {
       ok: false,
       status: 0,
-      error: msg || 'An unexpected error occurred while communicating with the server.',
+      isHtmlOr404: true,
+      error:
+        msg.includes('Failed to fetch') || msg.includes('NetworkError')
+          ? 'Network error: Unable to reach the server. Please check your internet connection.'
+          : msg || 'An unexpected error occurred while communicating with the server.',
     };
   }
+}
+
+export async function safeFetchJson<T = any>(
+  url: string,
+  options?: RequestInit,
+): Promise<ApiResponse<T>> {
+  const firstAttempt = await executeSingleFetch<T>(url, options);
+
+  // If the first attempt was to an external URL and failed with a 404/HTML/Network error,
+  // automatically fallback to the local same-origin /api/v1 route on Netlify/Next.js
+  if (
+    !firstAttempt.ok &&
+    firstAttempt.isHtmlOr404 &&
+    (url.startsWith('http://') || url.startsWith('https://'))
+  ) {
+    const apiIndex = url.indexOf('/api/v1/');
+    if (apiIndex !== -1) {
+      const localFallbackUrl = url.slice(apiIndex);
+      const fallbackAttempt = await executeSingleFetch<T>(localFallbackUrl, options);
+      if (fallbackAttempt.ok || !fallbackAttempt.isHtmlOr404) {
+        return fallbackAttempt;
+      }
+    }
+  }
+
+  return firstAttempt;
 }
