@@ -1,40 +1,57 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
-import { MessageCircle, ShieldCheck, Phone, Mail, MapPin, Sparkles } from 'lucide-react';
+import { MessageCircle, Mail, MapPin } from 'lucide-react';
+import {
+  getPlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettings,
+} from '@/data/platformStore';
 
 export function Footer() {
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
+
+  useEffect(() => {
+    const sync = () => setSettings(getPlatformSettings());
+    sync();
+    window.addEventListener('sadza-platform-updated', sync);
+    return () => window.removeEventListener('sadza-platform-updated', sync);
+  }, []);
+
   return (
-    <footer className="border-t border-ink-200 dark:border-ink-800/80 bg-ink-50 dark:bg-ink-950 text-ink-700 dark:text-ink-300 pt-16 pb-12 transition-colors">
-      <div className="container-x">
+    <footer className="border-t border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 pt-14 pb-10 transition-colors">
+      <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-10">
         {/* Top Sitemap Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-ink-200 dark:border-ink-800">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-10 border-b border-slate-200 dark:border-slate-800">
           {/* Brand Info (Col Span 2) */}
           <div className="lg:col-span-2 space-y-4">
             <Logo size="md" showTagline={false} />
 
-            <p className="text-sm text-ink-600 dark:text-ink-400 max-w-sm leading-relaxed">
-              Sadza Connect is Zimbabwe&rsquo;s premier digital platform connecting people,
-              verified businesses, marketplace shoppers, job seekers, and tourists across all ten
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm leading-relaxed">
+              {settings.siteName} is Zimbabwe&rsquo;s commercial directory, marketplace, job board,
+              and utility bill settlement platform serving businesses and households across all 10
               provinces.
             </p>
 
-            <div className="space-y-2 pt-2 text-xs text-ink-600 dark:text-ink-400">
+            <div className="space-y-2 pt-1 text-xs text-slate-600 dark:text-slate-400">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-brand-600 dark:text-brand-400 shrink-0" />
-                <span>Head Office: Africdominion Hub, Gweru & Harare, Zimbabwe</span>
+                <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>{settings.hqAddress}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-brand-600 dark:text-brand-400 shrink-0" />
-                <span>support@sadzaconnect.co.zw</span>
+                <Mail className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>{settings.supportEmail}</span>
               </div>
             </div>
 
             <div className="pt-2">
               <a
-                href="https://wa.me/263771000000?text=Hello%20Sadza%20Connect%20Desk"
+                href={`https://wa.me/${settings.supportWhatsApp}?text=Hello%20Sadza%20Connect%20Desk`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-50 dark:bg-brand-950/70 border border-brand-200 dark:border-brand-800 px-3.5 py-2 text-xs font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-600 hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-colors"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span>Official WhatsApp Support Desk</span>
@@ -44,117 +61,166 @@ export function Footer() {
 
           {/* Col 1: Platform Modules */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-brand-400 mb-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
               Platform Modules
             </h4>
-            <ul className="space-y-2.5 text-sm text-ink-600 dark:text-ink-400">
+            <ul className="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
               <li>
-                <Link href="/businesses" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Business Directory & Map
+                <Link
+                  href="/businesses"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Business Directory
                 </Link>
               </li>
               <li>
-                <Link href="/marketplace" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                <Link
+                  href="/marketplace"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
                   Online Marketplace
                 </Link>
               </li>
               <li>
-                <Link href="/jobs" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Jobs & Vacancies
+                <Link
+                  href="/adverts"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Sponsored Adverts &amp; Deals
                 </Link>
               </li>
               <li>
-                <Link href="/bill-payments" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  ZESA Token Settlements
+                <Link
+                  href="/jobs"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Jobs &amp; Vacancies
                 </Link>
               </li>
               <li>
-                <Link href="/adverts" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Sponsored Business Adverts
+                <Link
+                  href="/bill-payments"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  ZESA &amp; Utility Settlements
                 </Link>
               </li>
               <li>
-                <Link href="/#directory" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  10 Provinces Directory
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 2: Business Tools */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-brand-400 mb-4">
-              For Business Owners
-            </h4>
-            <ul className="space-y-2.5 text-sm text-ink-600 dark:text-ink-400">
-              <li>
-                <Link href="/signup?role=business" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors font-medium">
-                  Register Your Business
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Listing Packages & Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  About Sadza Connect
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Help Desk & Contact
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Admin Console
+                <Link
+                  href="/pricing"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Commercial Pricing (${settings.monthlySubscriptionPriceUsd}/mo)
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Col 3: Legal & Trust */}
+          {/* Col 2: Account Portals & Dashboards */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-brand-400 mb-4">
-              Trust & Governance
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
+              Dashboards &amp; Portals
             </h4>
-            <ul className="space-y-2.5 text-sm text-ink-600 dark:text-ink-400">
+            <ul className="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
               <li>
-                <span className="text-xs text-ink-500">WCAG 2.2 AA Compliant</span>
-              </li>
-              <li>
-                <span className="text-xs text-ink-500">ZIMRA Verified Records</span>
-              </li>
-              <li>
-                <span className="text-xs text-ink-500">CR14 Registrar Sync</span>
-              </li>
-              <li>
-                <Link href="/about" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Two-Tier Trust Model
+                <Link
+                  href="/dashboard/business"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  Business Owner Portal
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                  Report Listing Abuse
+                <Link
+                  href="/dashboard/user"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  Regular User Dashboard
                 </Link>
+              </li>
+              <li>
+                <Link
+                  href="/admin"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-semibold text-emerald-700 dark:text-emerald-400"
+                >
+                  Master Admin Console
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/signup?role=business"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Register a Business ({settings.freeGracePeriodDays} Days Free)
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/login"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Sign In to Account
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 3: Corporate & Legal */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
+              Corporate &amp; Legal
+            </h4>
+            <ul className="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
+              <li>
+                <Link
+                  href="/about"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  About {settings.siteName}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Help Desk &amp; Contact
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/terms"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/privacy"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Privacy &amp; Data Policy
+                </Link>
+              </li>
+              <li>
+                <span className="text-xs text-slate-500">
+                  1 USD = {settings.usdToZigRate} ZiG (RBZ Reference)
+                </span>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar: Multilingual Farewell & Attribution */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-500 dark:text-ink-400">
+        {/* Bottom Bar */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-ink-700 dark:text-ink-300">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
               Maita Basa • Siyabonga • Thank you for connecting with Zimbabwe
             </span>
           </div>
 
-          <p>
-            © 2026 Africdominion Group (Pvt) Ltd. All rights reserved. Version 1.0
-          </p>
+          <p>© 2026 Africdominion Group (Pvt) Ltd. All rights reserved. Version 1.0</p>
         </div>
       </div>
     </footer>

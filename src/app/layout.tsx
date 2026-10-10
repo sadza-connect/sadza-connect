@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { CelebrationProvider } from '@/context/CelebrationContext';
+import { ToastProvider } from '@/components/providers/ToastProvider';
 import { CelestialSky } from '@/components/animations/CelestialSky';
 import { AuthCelebrationModal } from '@/components/ui/AuthCelebrationModal';
 
@@ -67,9 +68,11 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <CelebrationProvider>
-              <CelestialSky />
-              {children}
-              <AuthCelebrationModal />
+              <ToastProvider>
+                <CelestialSky />
+                {children}
+                <AuthCelebrationModal />
+              </ToastProvider>
             </CelebrationProvider>
           </AuthProvider>
         </ThemeProvider>

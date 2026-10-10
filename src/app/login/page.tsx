@@ -168,12 +168,12 @@ export default function LoginPage() {
       </div>
 
       {/* RIGHT AUTH FORM PANEL (Desktop 54%) */}
-      <div className="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-14 z-10">
+      <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 lg:p-14 z-10">
         {/* Top navigation */}
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors py-2"
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors py-1.5"
           >
             <ArrowLeftIcon className="h-4 w-4" />
             <span>Back to directory</span>
@@ -185,22 +185,22 @@ export default function LoginPage() {
         </div>
 
         {/* Center Auth Card */}
-        <div className="mx-auto w-full max-w-[420px] py-6">
-          <div className="lg:hidden mb-6 flex justify-center">
+        <div className="mx-auto w-full max-w-[440px] py-4 sm:py-6">
+          <div className="lg:hidden mb-5 flex justify-center">
             <Logo size="md" />
           </div>
 
           <SpotlightCard
             spotlightColor="rgba(16, 185, 129, 0.12)"
             borderColor="rgba(16, 185, 129, 0.3)"
-            className="!p-8 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl"
+            className="!p-5 sm:!p-8 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl"
           >
             {/* Header */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Sign in
               </h2>
-              <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 Enter your registered email address or phone number and password to sign in.
               </p>
             </div>

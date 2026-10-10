@@ -2,7 +2,18 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, PlusCircle, Sparkles, LogOut, User, Loader2, AlertCircle } from 'lucide-react';
+import {
+  Menu,
+  X,
+  PlusCircle,
+  LogOut,
+  User,
+  Loader2,
+  AlertCircle,
+  Building2,
+  ShieldCheck,
+  ChevronDown,
+} from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { RegisterTypeModal } from '@/components/ui/RegisterTypeModal';
@@ -11,6 +22,7 @@ import { useAuth } from '@/context/AuthContext';
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [portalsMenuOpen, setPortalsMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -28,7 +40,9 @@ export function Navbar() {
         setMobileMenuOpen(false);
       }
     } catch (err: unknown) {
-      setLocalError(err instanceof Error ? err.message : 'An unexpected error occurred during logout.');
+      setLocalError(
+        err instanceof Error ? err.message : 'An unexpected error occurred during logout.'
+      );
     } finally {
       setIsLoggingOut(false);
     }
@@ -57,7 +71,7 @@ export function Navbar() {
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="relative z-10 hidden items-center gap-7 text-sm font-semibold text-slate-700 dark:text-slate-200 lg:flex">
+        <nav className="relative z-10 hidden items-center gap-6 text-sm font-semibold text-slate-700 dark:text-slate-200 lg:flex">
           <Link
             href="/businesses"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
@@ -94,6 +108,83 @@ export function Navbar() {
           >
             Pricing
           </Link>
+
+          {/* Dashboards Quick Switcher Dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setPortalsMenuOpen(true)}
+            onMouseLeave={() => setPortalsMenuOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setPortalsMenuOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 border border-slate-800 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
+            >
+              <span>Workspaces</span>
+              <ChevronDown className="w-3.5 h-3.5 text-emerald-400" />
+            </button>
+
+            {portalsMenuOpen && (
+              <div className="absolute right-0 top-full pt-2.5 w-72 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-2 space-y-1">
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Dedicated Portals
+                  </div>
+                  <Link
+                    href="/dashboard/business"
+                    onClick={() => setPortalsMenuOpen(false)}
+                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Business Owner Workspace
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Storefront, SKUs, $20 Adverts &amp; KYC
+                      </div>
+                    </div>
+                  </Link>
+                  <Link
+                    href="/dashboard/user"
+                    onClick={() => setPortalsMenuOpen(false)}
+                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950 text-[#1e57eb] dark:text-blue-400 group-hover:bg-[#1e57eb] group-hover:text-white transition-colors">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Buyer &amp; Career Workspace
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        1-Click ZESA Tokens, Watchlist &amp; CVs
+                      </div>
+                    </div>
+                  </Link>
+                  <Link
+                    href="/admin"
+                    onClick={() => setPortalsMenuOpen(false)}
+                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-[#eef4ff]/60 dark:hover:bg-slate-800/80 transition-colors border-t border-slate-100 dark:border-slate-800 group"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0a1018] text-[#6390ff] group-hover:bg-[#1e57eb] group-hover:text-white transition-colors">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Executive Admin Console
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        13 Modules • Analytics, ID Cards &amp; CMS
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Desktop Action Controls */}
@@ -117,15 +208,16 @@ export function Navbar() {
                 </Link>
               )}
 
-              <span
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 max-w-[130px] truncate"
+              <Link
+                href={user?.role === 'business' ? '/dashboard/business' : '/dashboard/user'}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700 max-w-[130px] truncate hover:border-emerald-500"
                 title={user?.fullName || user?.email || 'User'}
               >
                 <User className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate">
                   {user?.fullName?.split(' ')[0] || user?.email?.split('@')[0] || 'Account'}
                 </span>
-              </span>
+              </Link>
 
               <button
                 type="button"
@@ -203,7 +295,7 @@ export function Navbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="w-full max-w-6xl mt-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-5 lg:hidden shadow-xl animate-in slide-in-from-top-2 duration-200 z-50">
-          <nav className="flex flex-col gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <nav className="flex flex-col gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
             <Link
               href="/businesses"
               onClick={() => setMobileMenuOpen(false)}
@@ -246,6 +338,38 @@ export function Navbar() {
             >
               Pricing
             </Link>
+
+            <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Account Portals
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 mt-1">
+                <Link
+                  href="/dashboard/business"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-emerald-600"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Business Portal</span>
+                </Link>
+                <Link
+                  href="/dashboard/user"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-emerald-600"
+                >
+                  <User className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>User Dashboard</span>
+                </Link>
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-xs font-bold text-emerald-800 dark:text-emerald-300"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Admin Console</span>
+                </Link>
+              </div>
+            </div>
           </nav>
 
           <div className="mt-4 flex flex-col gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -268,15 +392,6 @@ export function Navbar() {
                       </div>
                     </div>
                   </div>
-                  {user?.role === 'admin' && (
-                    <Link
-                      href="/admin"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] shrink-0"
-                    >
-                      Admin HQ
-                    </Link>
-                  )}
                 </div>
 
                 <button

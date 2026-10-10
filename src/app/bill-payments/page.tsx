@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Zap,
   Droplets,
@@ -8,30 +9,33 @@ import {
   CheckCircle2,
   Copy,
   Receipt,
-  ArrowRight,
   ShieldCheck,
-  CreditCard,
-  Building,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { Button } from '@/components/ui/Button';
-import { DEFAULT_USD_TO_ZIG_RATE } from '@/lib/utils/currency';
+import {
+  getPlatformSettings,
+  getStoredUtilityReceipts,
+  saveStoredUtilityReceipts,
+  UtilityReceipt,
+} from '@/data/platformStore';
 
 export default function BillPaymentsPage() {
   const [activeTab, setActiveTab] = useState<'zesa' | 'water' | 'dstv'>('zesa');
+  const [usdToZig, setUsdToZig] = useState<number>(26.5);
+  const [receipts, setReceipts] = useState<UtilityReceipt[]>([]);
 
   // ZESA State
   const [meterNumber, setMeterNumber] = useState('37148920194');
   const [currency, setCurrency] = useState<'USD' | 'ZiG'>('USD');
   const [amount, setAmount] = useState('20');
-  const [phone, setPhone] = useState('0772123456');
+  const [phone, setPhone] = useState('+263772123456');
   const [isGenerating, setIsGenerating] = useState(false);
   const [tokenResult, setTokenResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Water State
-  const [council, setCouncil] = useState('Harare City Council');
+  const [council, setCouncil] = useState('Harare Municipal Water');
   const [accountNumber, setAccountNumber] = useState('ACC-883921');
   const [waterAmount, setWaterAmount] = useState('15');
   const [waterSuccess, setWaterSuccess] = useState(false);
@@ -41,19 +45,101 @@ export default function BillPaymentsPage() {
   const [packageType, setPackageType] = useState('DStv Compact ($39/mo)');
   const [dstvSuccess, setDstvSuccess] = useState(false);
 
+  useEffect(() => {
+    setUsdToZig(getPlatformSettings().usdToZigRate);
+    setReceipts(getStoredUtilityReceipts());
+    const sync = () => {
+      setUsdToZig(getPlatformSettings().usdToZigRate);
+      setReceipts(getStoredUtilityReceipts());
+    };
+    window.addEventListener('sadza-platform-updated', sync);
+    return () => window.removeEventListener('sadza-platform-updated', sync);
+  }, []);
+
+  const calculatedKwh =
+    currency === 'USD'
+      ? (parseFloat(amount || '0') * 6.2).toFixed(1)
+      : ((parseFloat(amount || '0') / usdToZig) * 6.2).toFixed(1);
+
   const handleGenerateToken = (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
     setTimeout(() => {
-      // Generate realistic 20-digit token
       const seg1 = Math.floor(1000 + Math.random() * 9000);
       const seg2 = Math.floor(1000 + Math.random() * 9000);
       const seg3 = Math.floor(1000 + Math.random() * 9000);
       const seg4 = Math.floor(1000 + Math.random() * 9000);
       const seg5 = Math.floor(1000 + Math.random() * 9000);
-      setTokenResult(`${seg1} ${seg2} ${seg3} ${seg4} ${seg5}`);
+      const token = `${seg1} ${seg2} ${seg3} ${seg4} ${seg5}`;
+      setTokenResult(token);
       setIsGenerating(false);
-    }, 1200);
+
+      const newRec: UtilityReceipt = {
+        id: `ut-${Date.now()}`,
+        reference: `ZETDC-${Math.floor(100000 + Math.random() * 900000)}`,
+        service: 'ZESA Prepaid Token',
+        accountOrMeter: meterNumber,
+        customerPhone: phone,
+        currency,
+        amount: parseFloat(amount || '0'),
+        tokenOrConfirmation: token,
+        unitsOrPackage: `${calculatedKwh} kWh`,
+        date: 'Just now',
+        status: 'Completed',
+      };
+      const updated = [newRec, ...getStoredUtilityReceipts()];
+      setReceipts(updated);
+      saveStoredUtilityReceipts(updated);
+    }, 800);
+  };
+
+  const handlePayWater = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newRec: UtilityReceipt = {
+      id: `ut-${Date.now()}`,
+      reference: `MUN-${Math.floor(100000 + Math.random() * 900000)}`,
+      service: 'Municipal Water',
+      accountOrMeter: `${accountNumber} (${council})`,
+      customerPhone: phone,
+      currency: 'USD',
+      amount: parseFloat(waterAmount || '0'),
+      tokenOrConfirmation: `WATER-REC-${accountNumber}`,
+      unitsOrPackage: 'Municipal Water & Rates Settlement',
+      date: 'Just now',
+      status: 'Completed',
+    };
+    const updated = [newRec, ...getStoredUtilityReceipts()];
+    setReceipts(updated);
+    saveStoredUtilityReceipts(updated);
+    setWaterSuccess(true);
+  };
+
+  const handlePayDstv = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = packageType.includes('19')
+      ? 19
+      : packageType.includes('39')
+      ? 39
+      : packageType.includes('55')
+      ? 55
+      : 82;
+    const newRec: UtilityReceipt = {
+      id: `ut-${Date.now()}`,
+      reference: `DSTV-${Math.floor(100000 + Math.random() * 900000)}`,
+      service: 'DStv Subscription',
+      accountOrMeter: smartcard,
+      customerPhone: phone,
+      currency: 'USD',
+      amount: amt,
+      tokenOrConfirmation: 'DSTV-BOUQUET-RENEWED',
+      unitsOrPackage: packageType,
+      date: 'Just now',
+      status: 'Completed',
+    };
+    const updated = [newRec, ...getStoredUtilityReceipts()];
+    setReceipts(updated);
+    saveStoredUtilityReceipts(updated);
+    setDstvSuccess(true);
   };
 
   const copyToClipboard = () => {
@@ -64,117 +150,120 @@ export default function BillPaymentsPage() {
     }
   };
 
-  const calculatedKwh =
-    currency === 'USD'
-      ? (parseFloat(amount || '0') * 6.2).toFixed(1)
-      : ((parseFloat(amount || '0') / DEFAULT_USD_TO_ZIG_RATE) * 6.2).toFixed(1);
-
   return (
-    <div className="min-h-screen bg-white dark:bg-ink-950 text-ink-950 dark:text-ink-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
 
-      <main className="flex-1 py-10">
-        <div className="container-x">
+      <main className="flex-1 py-8 sm:py-12">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="max-w-3xl mb-8">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-gold-50 dark:bg-gold-950/60 text-gold-700 dark:text-gold-300 border border-gold-200 dark:border-gold-800 mb-3">
-              <Zap className="w-3.5 h-3.5 text-gold-500" />
-              Utility Settlements
-            </span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink-950 dark:text-white">
-              Zimbabwe Bill Payments & Token Engine
-            </h1>
-            <p className="mt-2 text-base text-ink-600 dark:text-ink-300">
-              Instant settlement for ZESA prepaid electricity tokens, city council water rates, and DSTV renewals via EcoCash, InnBucks, and Zipit.
-            </p>
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 mb-3">
+                <Zap className="w-3.5 h-3.5" />
+                <span>National Utility Settlements</span>
+              </div>
+              <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                ZESA Tokens, Municipal Water & Bill Payments
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-300">
+                Purchase 20-digit ZETDC prepaid electricity tokens, settle municipal water rates, and renew DStv subscriptions in USD or ZiG. All receipts are saved automatically.
+              </p>
+            </div>
+
+            <Link
+              href="/dashboard/user?tab=utilities"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 hover:border-emerald-500 shrink-0"
+            >
+              <Receipt className="w-4 h-4 text-emerald-600" />
+              <span>View Saved Meters & Receipts ({receipts.length})</span>
+            </Link>
           </div>
 
           {/* Service Tabs */}
-          <div className="flex border-b border-ink-200 dark:border-ink-800 mb-8 gap-4 sm:gap-8">
+          <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-800 mb-8 gap-6">
             <button
               type="button"
               onClick={() => setActiveTab('zesa')}
-              className={`pb-3 font-bold text-sm sm:text-base flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3.5 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'zesa'
-                  ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                  : 'border-transparent text-ink-500 hover:text-ink-800 dark:hover:text-ink-200'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Zap className="w-4 h-4 text-gold-500" />
-              <span>ZESA Electricity Tokens</span>
+              <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>ZESA Prepaid Electricity (ZETDC)</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('water')}
-              className={`pb-3 font-bold text-sm sm:text-base flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3.5 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'water'
-                  ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                  : 'border-transparent text-ink-500 hover:text-ink-800 dark:hover:text-ink-200'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Droplets className="w-4 h-4 text-blue-500" />
-              <span>Municipal Water Rates</span>
+              <Droplets className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Municipal Water & Council Rates</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('dstv')}
-              className={`pb-3 font-bold text-sm sm:text-base flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3.5 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 activeTab === 'dstv'
-                  ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                  : 'border-transparent text-ink-500 hover:text-ink-800 dark:hover:text-ink-200'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <Tv className="w-4 h-4 text-purple-500" />
-              <span>DStv Renewals</span>
+              <Tv className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>DStv Bouquet Renewals</span>
             </button>
           </div>
 
-          {/* Tab 1: ZESA Token Generator */}
+          {/* Tab 1: ZESA */}
           {activeTab === 'zesa' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-7 rounded-3xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-6 sm:p-8 shadow-sm">
-                <h2 className="text-xl font-bold text-ink-950 dark:text-white mb-2 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-gold-500" />
-                  <span>Buy Prepaid Electricity (ZETDC)</span>
+              <div className="lg:col-span-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-1.5">
+                  Buy Prepaid Electricity Token (ZETDC)
                 </h2>
-                <p className="text-xs text-ink-500 mb-6">
-                  Enter your 11-digit or 12-digit ZETDC prepaid meter number to generate an instant token.
+                <p className="text-xs sm:text-sm text-slate-500 mb-6">
+                  Enter your 11-digit or 12-digit ZETDC prepaid meter number to generate an instant recharge voucher.
                 </p>
 
                 <form onSubmit={handleGenerateToken} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      ZETDC Meter Number
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      ZETDC Prepaid Meter Number
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 37148920194"
                       value={meterNumber}
                       onChange={(e) => setMeterNumber(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-sm"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                         Settlement Currency
                       </label>
                       <select
                         value={currency}
                         onChange={(e) => setCurrency(e.target.value as 'USD' | 'ZiG')}
-                        className="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm font-medium"
                       >
                         <option value="USD">USD ($)</option>
-                        <option value="ZiG">ZiG (Zimbabwe Gold)</option>
+                        <option value="ZiG">ZiG (1 USD = {usdToZig} ZiG)</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                         Purchase Amount ({currency})
                       </label>
                       <input
@@ -183,27 +272,29 @@ export default function BillPaymentsPage() {
                         required
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      Notification WhatsApp / SMS (+263)
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      SMS / WhatsApp Receipt Number (+263)
                     </label>
                     <input
                       type="tel"
                       required
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                     />
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-ink-50 dark:bg-ink-950/80 border border-ink-100 dark:border-ink-800 text-xs flex justify-between items-center">
-                    <span className="text-ink-500">Estimated Power Units:</span>
-                    <span className="font-extrabold text-brand-600 dark:text-brand-400">
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Estimated Energy Allocation:
+                    </span>
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400">
                       ≈ {calculatedKwh} kWh
                     </span>
                   </div>
@@ -211,42 +302,46 @@ export default function BillPaymentsPage() {
                   <button
                     type="submit"
                     disabled={isGenerating}
-                    className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors cursor-pointer"
                   >
-                    <Zap className="w-4 h-4 fill-current text-gold-400" />
-                    <span>{isGenerating ? 'Generating Official Token...' : 'Generate 20-Digit Token'}</span>
+                    {isGenerating
+                      ? 'Generating 20-Digit Token...'
+                      : 'Purchase & Generate 20-Digit Token'}
                   </button>
                 </form>
               </div>
 
-              {/* Output Token Receipt */}
               <div className="lg:col-span-5 space-y-6">
-                <div className="rounded-3xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-6 sm:p-8">
-                  <h3 className="text-base font-bold text-ink-950 dark:text-white mb-4 flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-brand-600" />
-                    <span>Official ZETDC Voucher Simulation</span>
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-emerald-600" />
+                    <span>Official Token Voucher</span>
                   </h3>
 
                   {tokenResult ? (
-                    <div className="p-5 rounded-2xl bg-brand-50/70 dark:bg-brand-950/60 border border-brand-200 dark:border-brand-800/80 space-y-4 animate-in zoom-in-95 duration-200">
-                      <div className="flex items-center justify-between text-xs text-brand-800 dark:text-brand-300">
-                        <span className="font-bold">STATUS: COMPLETED</span>
-                        <span>ZETDC METER #{meterNumber}</span>
+                    <div className="p-5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-4">
+                      <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                        <span>STATUS: SETTLED</span>
+                        <span>METER #{meterNumber}</span>
                       </div>
 
                       <div>
-                        <div className="text-[11px] font-semibold text-ink-500 uppercase">Prepaid Recharge Token:</div>
-                        <div className="mt-1 font-mono text-lg sm:text-xl font-black text-brand-700 dark:text-brand-300 tracking-wider">
+                        <div className="text-xs text-slate-500">
+                          20-Digit Prepaid Recharge Token:
+                        </div>
+                        <div className="mt-1 font-mono text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-wider">
                           {tokenResult}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-brand-200 dark:border-brand-800/60 text-xs">
-                        <span className="text-ink-600 dark:text-ink-400">Units: {calculatedKwh} kWh</span>
+                      <div className="flex items-center justify-between pt-3 border-t border-emerald-200/80 dark:border-emerald-800/60 text-xs">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          Units: {calculatedKwh} kWh
+                        </span>
                         <button
                           type="button"
                           onClick={copyToClipboard}
-                          className="inline-flex items-center gap-1 font-bold text-brand-700 dark:text-brand-400 hover:underline"
+                          className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
                         >
                           <Copy className="w-3.5 h-3.5" />
                           <span>{copied ? 'Copied!' : 'Copy Token'}</span>
@@ -254,25 +349,13 @@ export default function BillPaymentsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="py-12 text-center text-xs text-ink-400 space-y-2">
-                      <Zap className="w-8 h-8 text-gold-500/50 mx-auto" />
-                      <div>Fill in the meter number and click generate to test real-time voucher issuance.</div>
+                    <div className="py-10 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                      <Zap className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-xs sm:text-sm text-slate-500">
+                        Submit your meter number and purchase amount on the left to generate your 20-digit token voucher.
+                      </p>
                     </div>
                   )}
-
-                  {/* Payment rail logos */}
-                  <div className="mt-6 pt-4 border-t border-ink-100 dark:border-ink-800">
-                    <div className="text-[11px] font-bold text-ink-400 uppercase tracking-wider mb-2">
-                      Supported Zimbabwean Settlement Rails
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs font-semibold text-ink-700 dark:text-ink-300">
-                      <span className="px-2.5 py-1 rounded-lg bg-ink-100 dark:bg-ink-800">EcoCash USD</span>
-                      <span className="px-2.5 py-1 rounded-lg bg-ink-100 dark:bg-ink-800">EcoCash ZiG</span>
-                      <span className="px-2.5 py-1 rounded-lg bg-ink-100 dark:bg-ink-800">InnBucks</span>
-                      <span className="px-2.5 py-1 rounded-lg bg-ink-100 dark:bg-ink-800">Zipit</span>
-                      <span className="px-2.5 py-1 rounded-lg bg-ink-100 dark:bg-ink-800">Cash USD</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -280,153 +363,146 @@ export default function BillPaymentsPage() {
 
           {/* Tab 2: Municipal Water */}
           {activeTab === 'water' && (
-            <div className="max-w-xl mx-auto rounded-3xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-6 sm:p-8">
-              <h2 className="text-xl font-bold text-ink-950 dark:text-white mb-2 flex items-center gap-2">
-                <Droplets className="w-5 h-5 text-blue-500" />
-                <span>Municipal Water Rates & Council Bills</span>
+            <div className="max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2">
+                Municipal Water & Council Rates Settlement
               </h2>
-              <p className="text-xs text-ink-500 mb-6">
-                Settle municipal utility rates directly to verified city council billing accounts.
+              <p className="text-xs sm:text-sm text-slate-500 mb-6">
+                Settle monthly water and property rate accounts across major municipal authorities.
               </p>
 
               {waterSuccess ? (
-                <div className="py-8 text-center space-y-3">
-                  <CheckCircle2 className="w-12 h-12 text-brand-600 mx-auto" />
-                  <h3 className="text-lg font-bold">Payment Dispatched!</h3>
-                  <p className="text-xs text-ink-500">
-                    Receipt voucher #ZW-WTR-{Math.floor(10000 + Math.random() * 90000)} issued to {council}.
+                <div className="p-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-3">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Municipal Payment Recorded
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                    USD ${waterAmount} credited to account {accountNumber} ({council}).
                   </p>
-                  <Button variant="secondary" onClick={() => setWaterSuccess(false)}>
-                    New Settlement
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setWaterSuccess(false)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold"
+                  >
+                    Make Another Payment
+                  </button>
                 </div>
               ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setWaterSuccess(true);
-                  }}
-                  className="space-y-4"
-                >
+                <form onSubmit={handlePayWater} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      Local Council / Municipality
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Local Authority / Municipality
                     </label>
                     <select
                       value={council}
                       onChange={(e) => setCouncil(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                     >
-                      <option>Harare City Council</option>
-                      <option>City of Bulawayo</option>
-                      <option>City of Gweru</option>
-                      <option>City of Mutare</option>
-                      <option>Masvingo City Council</option>
+                      <option>Harare Municipal Water</option>
+                      <option>Bulawayo Municipal Water</option>
+                      <option>Midlands Municipal Authority</option>
+                      <option>Manicaland Municipal Authority</option>
+                      <option>Masvingo Municipal Authority</option>
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      Council Account Number
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Municipal Account Number
                     </label>
                     <input
                       type="text"
                       required
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      Payment Amount (USD)
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Amount (USD)
                     </label>
                     <input
                       type="number"
+                      min="5"
                       required
                       value={waterAmount}
                       onChange={(e) => setWaterAmount(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                     />
                   </div>
-
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-md transition-colors"
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm cursor-pointer"
                   >
-                    Pay Municipal Rate
+                    Settle Municipal Account
                   </button>
                 </form>
               )}
             </div>
           )}
 
-          {/* Tab 3: DSTV */}
+          {/* Tab 3: DStv */}
           {activeTab === 'dstv' && (
-            <div className="max-w-xl mx-auto rounded-3xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-6 sm:p-8">
-              <h2 className="text-xl font-bold text-ink-950 dark:text-white mb-2 flex items-center gap-2">
-                <Tv className="w-5 h-5 text-purple-500" />
-                <span>DStv Zimbabwe Subscription Renewal</span>
+            <div className="max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2">
+                DStv Bouquet Subscription Renewal
               </h2>
-              <p className="text-xs text-ink-500 mb-6">
-                Instant clearance on MultiChoice DStv Zimbabwe decoders.
+              <p className="text-xs sm:text-sm text-slate-500 mb-6">
+                Instant reconnection and monthly renewal for residential and commercial hospitality decoders.
               </p>
 
               {dstvSuccess ? (
-                <div className="py-8 text-center space-y-3">
-                  <CheckCircle2 className="w-12 h-12 text-brand-600 mx-auto" />
-                  <h3 className="text-lg font-bold">Subscription Activated!</h3>
-                  <p className="text-xs text-ink-500">
-                    Smartcard #{smartcard} renewed with {packageType}. Signal active immediately.
+                <div className="p-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-3">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    DStv Subscription Renewed
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                    Smartcard #{smartcard} activated on {packageType}.
                   </p>
-                  <Button variant="secondary" onClick={() => setDstvSuccess(false)}>
-                    Renew Another
-                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setDstvSuccess(false)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold"
+                  >
+                    Renew Another Smartcard
+                  </button>
                 </div>
               ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setDstvSuccess(true);
-                  }}
-                  className="space-y-4"
-                >
+                <form onSubmit={handlePayDstv} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      Decoder Smartcard Number
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      10-Digit Smartcard / IUC Number
                     </label>
                     <input
                       type="text"
                       required
                       value={smartcard}
                       onChange={(e) => setSmartcard(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-sm"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-ink-700 dark:text-ink-300 mb-1">
-                      Bouquet / Package
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Select Bouquet Package
                     </label>
                     <select
                       value={packageType}
                       onChange={(e) => setPackageType(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                     >
-                      <option>DStv Premium ($85/mo)</option>
-                      <option>DStv Compact Plus ($55/mo)</option>
+                      <option>DStv Family ($19/mo)</option>
                       <option>DStv Compact ($39/mo)</option>
-                      <option>DStv Family ($22/mo)</option>
-                      <option>DStv Access ($13/mo)</option>
+                      <option>DStv Compact Plus ($55/mo)</option>
+                      <option>DStv Premium ($82/mo)</option>
                     </select>
                   </div>
-
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-md transition-colors"
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm cursor-pointer"
                   >
-                    Renew Subscription Now
+                    Complete DStv Renewal
                   </button>
                 </form>
               )}

@@ -301,21 +301,21 @@ function SignupFormContent() {
       </div>
 
       {/* RIGHT AUTH FORM PANEL (Desktop 54%) */}
-      <div className="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-14 z-10">
+      <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 lg:p-14 z-10">
         {/* Top navigation */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors py-2"
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors py-1.5"
           >
             <ArrowLeftIcon className="h-4 w-4" />
             <span>Back to directory</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <ThemeToggle />
-            <div className="text-xs text-slate-600 dark:text-slate-300">
-              Already registered?{' '}
+            <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+              <span className="hidden xs:inline">Already registered? </span>
               <Link href="/login" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
                 Sign in
               </Link>
@@ -327,74 +327,77 @@ function SignupFormContent() {
             STATE 1: SELECTION SCREEN (When no user type is preselected)
             ========================================================================= */}
         {!selectedType ? (
-          <div className="mx-auto w-full max-w-xl py-8">
-            <div className="lg:hidden mb-6 flex justify-center">
+          <div className="mx-auto w-full max-w-xl py-4 sm:py-8">
+            <div className="lg:hidden mb-5 flex justify-center">
               <Logo size="md" />
             </div>
 
             <SpotlightCard
               spotlightColor="rgba(16, 185, 129, 0.12)"
               borderColor="rgba(16, 185, 129, 0.3)"
-              className="!p-8 sm:!p-10 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-3xl"
+              className="!p-5 sm:!p-8 md:!p-10 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl sm:rounded-3xl"
             >
               <div className="text-center">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                  <Sparkles className="h-3 w-3" />
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-3 py-1 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  <Sparkles className="h-3.5 w-3.5" />
                   <span>Choose Your Account Type</span>
                 </div>
 
                 <h2 className="font-display mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                   How would you like to register?
                 </h2>
-                <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto">
+                <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
                   Select your profile type to enter your tailored registration flow.
                 </p>
               </div>
 
               {/* The Two Primary Selection Cards */}
-              <div className="mt-8 grid grid-cols-1 gap-4">
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-4 sm:gap-5">
                 {/* 1. Register as a Business */}
                 <div
                   onClick={() => router.push('/signup?type=business')}
-                  className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/40 p-5 sm:p-6 transition-all duration-200 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 hover:shadow-lg cursor-pointer"
+                  className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700/80 bg-slate-50/80 dark:bg-slate-800/50 p-4 sm:p-6 transition-all duration-200 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 hover:shadow-lg cursor-pointer"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/25 group-hover:scale-105 transition-transform">
-                      <Store className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    {/* Card Header: Icon + Badge & Title */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/25 group-hover:scale-105 transition-transform">
+                        <Store className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-block rounded-full bg-emerald-100 dark:bg-emerald-950/90 border border-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 mb-1">
+                          Companies &amp; SMEs
+                        </span>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors leading-snug">
                           Register as a Business
                         </h3>
-                        <span className="rounded-full bg-emerald-100 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                          Companies & SMEs
-                        </span>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-md">
-                        List your company in the national directory, sell products, post job vacancies, and reach buyers nationwide.
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-300">
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          Directory listing
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          Marketplace sales
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          Verified badge
-                        </span>
-                      </div>
+                    </div>
+
+                    {/* Full-width description & checklist */}
+                    <p className="mt-3 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      List your company in the national directory, sell products, post job vacancies, and reach buyers nationwide.
+                    </p>
+                    <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Directory listing</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Marketplace sales</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Verified badge</span>
+                      </span>
                     </div>
                   </div>
 
-                  <div className="shrink-0 flex items-center justify-end sm:justify-center">
-                    <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white px-4 py-2.5 text-xs font-semibold transition-colors shadow-xs">
+                  <div className="shrink-0 pt-2 sm:pt-0 border-t border-slate-200/70 dark:border-slate-700/60 sm:border-0 flex items-center">
+                    <span className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white px-5 py-2.5 text-xs sm:text-sm font-semibold transition-colors shadow-xs">
                       <span>Select</span>
-                      <ArrowRightIcon className="h-3.5 w-3.5" />
+                      <ArrowRightIcon className="h-4 w-4" />
                     </span>
                   </div>
                 </div>
@@ -402,52 +405,55 @@ function SignupFormContent() {
                 {/* 2. Register as a Regular User */}
                 <div
                   onClick={() => router.push('/signup?type=personal')}
-                  className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/40 p-5 sm:p-6 transition-all duration-200 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 hover:shadow-lg cursor-pointer"
+                  className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700/80 bg-slate-50/80 dark:bg-slate-800/50 p-4 sm:p-6 transition-all duration-200 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 hover:shadow-lg cursor-pointer"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-600/25 group-hover:scale-105 transition-transform">
-                      <User className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          Register as a Regular User
-                        </h3>
-                        <span className="rounded-full bg-blue-100 dark:bg-blue-950 border border-blue-300 dark:border-blue-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-800 dark:text-blue-300">
+                  <div className="flex-1 min-w-0">
+                    {/* Card Header: Icon + Badge & Title */}
+                    <div className="flex items-center gap-3.5">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-600/25 group-hover:scale-105 transition-transform">
+                        <User className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-block rounded-full bg-blue-100 dark:bg-blue-950/90 border border-blue-300 dark:border-blue-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300 mb-1">
                           Individual Shoppers
                         </span>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug">
+                          Register as a Regular User
+                        </h3>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-md">
-                        For everyday citizens and shoppers: buy electricity tokens (ZESA), contact local suppliers, and apply for jobs.
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-300">
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                          ZESA tokens
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                          Verified suppliers
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                          1-min setup
-                        </span>
-                      </div>
+                    </div>
+
+                    {/* Full-width description & checklist */}
+                    <p className="mt-3 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      For everyday citizens and shoppers: buy electricity tokens (ZESA), contact local suppliers, and apply for jobs.
+                    </p>
+                    <div className="mt-3.5 flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span>ZESA tokens</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span>Verified suppliers</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                        <span>1-min setup</span>
+                      </span>
                     </div>
                   </div>
 
-                  <div className="shrink-0 flex items-center justify-end sm:justify-center">
-                    <span className="inline-flex items-center gap-1 rounded-xl bg-blue-600 group-hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-semibold transition-colors shadow-xs">
+                  <div className="shrink-0 pt-2 sm:pt-0 border-t border-slate-200/70 dark:border-slate-700/60 sm:border-0 flex items-center">
+                    <span className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 group-hover:bg-blue-700 text-white px-5 py-2.5 text-xs sm:text-sm font-semibold transition-colors shadow-xs">
                       <span>Select</span>
-                      <ArrowRightIcon className="h-3.5 w-3.5" />
+                      <ArrowRightIcon className="h-4 w-4" />
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Sign in Helper */}
-              <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+              <div className="mt-6 sm:mt-8 text-center text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                 Already have an account?{' '}
                 <Link href="/login" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
                   Sign in here
@@ -459,8 +465,8 @@ function SignupFormContent() {
           /* =========================================================================
               STATE 2: TAILORED REGISTRATION FORM (Dedicated per User Type)
               ========================================================================= */
-          <div className="mx-auto w-full max-w-[480px] py-6">
-            <div className="lg:hidden mb-6 flex justify-center">
+          <div className="mx-auto w-full max-w-[480px] py-4 sm:py-6">
+            <div className="lg:hidden mb-5 flex justify-center">
               <Logo size="md" />
             </div>
 
@@ -475,7 +481,7 @@ function SignupFormContent() {
                   ? 'rgba(16, 185, 129, 0.3)'
                   : 'rgba(59, 130, 246, 0.3)'
               }
-              className="!p-8 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl"
+              className="!p-5 sm:!p-8 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl"
             >
               {/* Form Title & Context Badge */}
               <div className="mb-6">

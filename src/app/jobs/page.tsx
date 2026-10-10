@@ -1,115 +1,196 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Briefcase,
   Search,
   MapPin,
-  DollarSign,
-  Clock,
   Building2,
   CheckCircle2,
-  Send,
   Upload,
   X,
+  Plus,
+  RotateCcw,
+  MessageCircle,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { Button } from '@/components/ui/Button';
-import { SAMPLE_JOBS, JobOpening, ZIMBABWE_PROVINCES } from '@/lib/data/zimbabwe';
+import { SAMPLE_JOBS, JobOpening } from '@/lib/data/zimbabwe';
+import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
+import {
+  getStoredJobs,
+  getStoredJobApplications,
+  saveStoredJobApplications,
+  JobApplicationRecord,
+} from '@/data/platformStore';
 import { createJobInquiryLink } from '@/lib/utils/whatsapp';
 
 export default function JobsPage() {
+  const [jobs, setJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProvince, setSelectedProvince] = useState('All');
-  const [selectedType, setSelectedType] = useState('All');
+  const [selectedProvince, setSelectedProvince] = useState('All Provinces');
+  const [selectedSector, setSelectedSector] = useState('All Sectors');
+  const [selectedType, setSelectedType] = useState('All Types');
+
+  // Application Modal State
   const [applyingJob, setApplyingJob] = useState<JobOpening | null>(null);
   const [applicationSuccess, setApplicationSuccess] = useState(false);
   const [applicantName, setApplicantName] = useState('');
+  const [applicantEmail, setApplicantEmail] = useState('');
   const [applicantPhone, setApplicantPhone] = useState('');
+  const [experienceSummary, setExperienceSummary] = useState('');
+  const [cvFileName, setCvFileName] = useState('');
 
-  const filteredJobs = SAMPLE_JOBS.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.description.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    setJobs(getStoredJobs());
+    const sync = () => setJobs(getStoredJobs());
+    window.addEventListener('sadza-platform-updated', sync);
+    return () => window.removeEventListener('sadza-platform-updated', sync);
+  }, []);
 
-    const matchesProvince =
-      selectedProvince === 'All' || job.province.includes(selectedProvince);
+  const filteredJobs = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return jobs.filter((job) => {
+      const matchesSearch =
+        !q ||
+        job.title.toLowerCase().includes(q) ||
+        job.company.toLowerCase().includes(q) ||
+        job.description.toLowerCase().includes(q);
 
-    const matchesType = selectedType === 'All' || job.type === selectedType;
+      const matchesProvince =
+        selectedProvince === 'All Provinces' || job.province === selectedProvince;
 
-    return matchesSearch && matchesProvince && matchesType;
-  });
+      const matchesSector =
+        selectedSector === 'All Sectors' ||
+        job.category.toLowerCase() === selectedSector.toLowerCase();
+
+      const matchesType =
+        selectedType === 'All Types' || job.type === selectedType;
+
+      return matchesSearch && matchesProvince && matchesSector && matchesType;
+    });
+  }, [jobs, searchTerm, selectedProvince, selectedSector, selectedType]);
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!applyingJob) return;
+
+    const newApp: JobApplicationRecord = {
+      id: `app-${Date.now()}`,
+      jobId: applyingJob.id,
+      jobTitle: applyingJob.title,
+      companyName: applyingJob.company,
+      province: applyingJob.province,
+      applicantName: applicantName.trim(),
+      applicantEmail: applicantEmail.trim() || 'applicant@sadzaconnect.co.zw',
+      applicantPhone: applicantPhone.trim(),
+      experienceSummary:
+        experienceSummary.trim() || 'Qualified candidate applying via Sadza Connect.',
+      cvFileName:
+        cvFileName ||
+        `${applicantName.trim().replace(/\s+/g, '_')}_Curriculum_Vitae.pdf`,
+      appliedDate: 'Just now',
+      status: 'Submitted',
+    };
+
+    const existing = getStoredJobApplications();
+    saveStoredJobApplications([newApp, ...existing]);
+
     setApplicationSuccess(true);
     setTimeout(() => {
       setApplicationSuccess(false);
       setApplyingJob(null);
       setApplicantName('');
+      setApplicantEmail('');
       setApplicantPhone('');
-    }, 2500);
+      setExperienceSummary('');
+      setCvFileName('');
+    }, 2200);
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-ink-950 text-ink-950 dark:text-ink-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar />
 
-      <main className="flex-1 py-10">
-        <div className="container-x">
+      <main className="flex-1 py-8 sm:py-12">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="max-w-3xl mb-8">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 mb-3">
-              <Briefcase className="w-3.5 h-3.5 text-gold-500" />
-              Careers & Opportunities
-            </span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-ink-950 dark:text-white">
-              Zimbabwe Jobs Portal
-            </h1>
-            <p className="mt-2 text-base text-ink-600 dark:text-ink-300">
-              Browse vacancies from verified enterprises across engineering, hospitality, agriculture, culinary arts, and professional services.
-            </p>
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 mb-3">
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>National Employment & Vacancies</span>
+              </div>
+              <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Zimbabwe Commercial Jobs Portal
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-300">
+                Browse verified job vacancies from active companies, SMEs, and cooperatives across all 10 provinces. Apply online or inquire directly via WhatsApp.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <Link
+                href="/dashboard/business?tab=jobs"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Post a Job Vacancy</span>
+              </Link>
+            </div>
           </div>
 
           {/* Search & Filter Bar */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-ink-50 dark:bg-ink-900 border border-ink-200 dark:border-ink-800 mb-8 space-y-4 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="relative md:col-span-6">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-8 space-y-4 shadow-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+              <div className="relative lg:col-span-4">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search job title, solar engineer, chef, agronomist..."
+                  placeholder="Search job title, solar engineer, agronomist, chef..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-emerald-600"
                 />
               </div>
 
-              <div className="relative md:col-span-3">
+              <div className="lg:col-span-3">
                 <select
-                  value={selectedProvince}
-                  onChange={(e) => setSelectedProvince(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  value={selectedSector}
+                  onChange={(e) => setSelectedSector(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-emerald-600"
                 >
-                  <option value="All">All Provinces</option>
-                  {ZIMBABWE_PROVINCES.map((p) => (
-                    <option key={p.id} value={p.name.split(' ')[0]}>
-                      {p.name}
+                  <option value="All Sectors">All Commercial Sectors (20)</option>
+                  {COMMERCIAL_SECTORS.map((sec) => (
+                    <option key={sec.name} value={sec.name}>
+                      {sec.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="relative md:col-span-3">
+              <div className="lg:col-span-3">
+                <select
+                  value={selectedProvince}
+                  onChange={(e) => setSelectedProvince(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-emerald-600"
+                >
+                  {CLEAN_PROVINCES.map((prov) => (
+                    <option key={prov} value={prov}>
+                      {prov}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lg:col-span-2">
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-950 text-ink-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-emerald-600"
                 >
-                  <option value="All">All Employment Types</option>
+                  <option value="All Types">All Job Types</option>
                   <option value="Full-time">Full-time</option>
                   <option value="Contract">Contract</option>
                   <option value="Part-time">Part-time</option>
@@ -118,8 +199,32 @@ export default function JobsPage() {
               </div>
             </div>
 
-            <div className="text-xs text-ink-500 pt-2 border-t border-ink-200 dark:border-ink-800">
-              Showing <span className="font-bold text-ink-900 dark:text-white">{filteredJobs.length}</span> open position{filteredJobs.length === 1 ? '' : 's'}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+              <div>
+                Showing{' '}
+                <strong className="text-slate-900 dark:text-white">
+                  {filteredJobs.length}
+                </strong>{' '}
+                open position{filteredJobs.length === 1 ? '' : 's'}
+              </div>
+              {(searchTerm ||
+                selectedProvince !== 'All Provinces' ||
+                selectedSector !== 'All Sectors' ||
+                selectedType !== 'All Types') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedProvince('All Provinces');
+                    setSelectedSector('All Sectors');
+                    setSelectedType('All Types');
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset filters</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -128,48 +233,89 @@ export default function JobsPage() {
             {filteredJobs.map((job) => (
               <div
                 key={job.id}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 shadow-sm hover:border-brand-500 transition-colors"
+                className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:border-emerald-500/70 transition-colors"
               >
-                <div className="space-y-2">
+                <div className="space-y-2.5 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       {job.type}
                     </span>
-                    <span className="text-xs text-ink-400">• Posted {job.postedDate}</span>
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      {job.category}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Posted {job.postedDate}
+                    </span>
                   </div>
 
-                  <h2 className="text-xl font-bold text-ink-950 dark:text-white">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                     {job.title}
                   </h2>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-ink-600 dark:text-ink-300">
-                    <span className="flex items-center gap-1 font-semibold text-ink-900 dark:text-white">
-                      <Building2 className="w-4 h-4 text-brand-600" />
-                      {job.company}
-                    </span>
-                    <span>•</span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                    {job.companySlug ? (
+                      <Link
+                        href={`/businesses/${job.companySlug}`}
+                        className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white hover:text-emerald-600"
+                      >
+                        <Building2 className="w-4 h-4 text-emerald-600" />
+                        <span>{job.company}</span>
+                      </Link>
+                    ) : (
+                      <span className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                        <Building2 className="w-4 h-4 text-emerald-600" />
+                        <span>{job.company}</span>
+                      </span>
+                    )}
                     <span className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4 text-ink-400" />
-                      {job.city}, {job.province}
+                      <MapPin className="w-4 h-4 text-slate-400" />
+                      {job.province}
                     </span>
-                    <span>•</span>
-                    <span className="font-semibold text-brand-700 dark:text-brand-400">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400">
                       {job.salaryUsd}
                     </span>
                   </div>
 
-                  <p className="text-sm text-ink-600 dark:text-ink-300 max-w-2xl line-clamp-2">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed">
                     {job.description}
                   </p>
+
+                  {job.requirements && job.requirements.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {job.requirements.map((req, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 rounded-md bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300"
+                        >
+                          • {req}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800">
+                  {job.whatsapp && (
+                    <a
+                      href={createJobInquiryLink(
+                        job.title,
+                        job.company,
+                        job.whatsapp
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                      <span>WhatsApp HR</span>
+                    </a>
+                  )}
                   <button
                     type="button"
                     onClick={() => setApplyingJob(job)}
-                    className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-sm transition-colors"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
                   >
-                    Quick Apply
+                    Apply Now
                   </button>
                 </div>
               </div>
@@ -180,22 +326,24 @@ export default function JobsPage() {
 
       {/* Application Modal */}
       {applyingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-6 sm:p-8 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-ink-100 dark:border-ink-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-2xl">
+            <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <span className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">
-                  Job Application
+                <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
+                  Direct Job Application
                 </span>
-                <h3 className="text-lg font-bold text-ink-950 dark:text-white">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
                   {applyingJob.title}
                 </h3>
-                <p className="text-xs text-ink-500">{applyingJob.company}</p>
+                <p className="text-xs text-slate-500">
+                  {applyingJob.company} • {applyingJob.province}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setApplyingJob(null)}
-                className="p-1 rounded-lg text-ink-400 hover:text-ink-700 dark:hover:text-white"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -203,63 +351,107 @@ export default function JobsPage() {
 
             {applicationSuccess ? (
               <div className="py-8 text-center space-y-3">
-                <CheckCircle2 className="w-12 h-12 text-brand-600 mx-auto animate-bounce" />
-                <h4 className="text-lg font-bold text-ink-950 dark:text-white">
-                  Application Submitted!
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+                <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Application Dispatched!
                 </h4>
-                <p className="text-xs text-ink-600 dark:text-ink-300">
-                  Your profile and simulated CV have been dispatched directly to {applyingJob.company}.
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+                  Your application and CV have been sent to {applyingJob.company} and saved to your User Dashboard.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleApply} className="space-y-4 pt-4">
                 <div>
-                  <label className="block text-xs font-semibold text-ink-700 dark:text-ink-300 mb-1">
-                    Your Full Name
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Full Name *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Tinashe Moyo"
+                    placeholder="e.g. Tinashe Sibanda"
                     value={applicantName}
                     onChange={(e) => setApplicantName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 dark:text-ink-300 mb-1">
-                    WhatsApp Phone Number (+263)
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+263 77 123 4567"
-                    value={applicantPhone}
-                    onChange={(e) => setApplicantPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-ink-700 dark:text-ink-300 mb-1">
-                    Upload Curriculum Vitae (PDF / Word)
-                  </label>
-                  <div className="border-2 border-dashed border-ink-200 dark:border-ink-700 rounded-2xl p-4 text-center hover:border-brand-500 cursor-pointer">
-                    <Upload className="w-6 h-6 text-brand-600 mx-auto mb-1" />
-                    <span className="text-xs font-medium text-ink-600 dark:text-ink-300">
-                      Click to attach CV or drag & drop file (max 5MB)
-                    </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="you@gmail.com"
+                      value={applicantEmail}
+                      onChange={(e) => setApplicantEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      WhatsApp Phone (+263) *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+263 77 123 4567"
+                      value={applicantPhone}
+                      onChange={(e) => setApplicantPhone(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
+                    />
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Relevant Experience & Qualifications *
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Briefly summarize your qualifications and years of experience..."
+                    value={experienceSummary}
+                    onChange={(e) => setExperienceSummary(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Attach Curriculum Vitae (PDF / DOCX)
+                  </label>
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center hover:border-emerald-500 cursor-pointer">
+                    <Upload className="w-5 h-5 text-emerald-600 mb-1" />
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      {cvFileName || 'Click to select your CV document'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setCvFileName(file.name);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setApplyingJob(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300"
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
                   >
-                    <Send className="w-4 h-4" />
-                    <span>Send Application</span>
+                    Submit Application
                   </button>
                 </div>
               </form>

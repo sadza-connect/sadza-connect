@@ -1,19 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
   X,
-  Radio,
   Building2,
   Coins,
   ShieldCheck,
   Briefcase,
   Zap,
 } from 'lucide-react';
+import {
+  getPlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettings,
+} from '@/data/platformStore';
 
 interface ActivityTickerItem {
   id: string;
@@ -25,60 +29,71 @@ interface ActivityTickerItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const PLATFORM_ACTIVITIES: ActivityTickerItem[] = [
-  {
-    id: 'provinces',
-    tag: 'National Network',
-    badge: '10 Provinces Live',
-    title: 'Provincial Directory Active',
-    summary: 'Commercial directory listings active across Harare, Bulawayo, Midlands & 7 regional hubs.',
-    href: '/businesses',
-    icon: Building2,
-  },
-  {
-    id: 'dual-currency',
-    tag: 'Multi-Currency',
-    badge: 'USD & ZiG',
-    title: 'Dual-Currency Commerce',
-    summary: 'Accepting and settling in both USD & Zimbabwe Gold with RBZ compliance standards.',
-    href: '/pricing',
-    icon: Coins,
-  },
-  {
-    id: 'compliance',
-    tag: 'Verified Registry',
-    badge: 'CR14 & ZIMRA',
-    title: 'Merchant Verification',
-    summary: 'Formal businesses & sole proprietors certified with verified merchant badges.',
-    href: '/signup',
-    icon: ShieldCheck,
-  },
-  {
-    id: 'marketplace',
-    tag: 'Commercial Exchange',
-    badge: 'Active Listings',
-    title: 'Marketplace & Tenders',
-    summary: 'Commercial wholesale, industrial supplies, and trade jobs updated daily across Zimbabwe.',
-    href: '/marketplace',
-    icon: Briefcase,
-  },
-  {
-    id: 'utilities',
-    tag: 'Instant Payments',
-    badge: '24/7 Automated',
-    title: 'Utility Clearing Desk',
-    summary: 'Prepaid ZESA electricity tokens & municipal council bill clearing via EcoCash & Innbucks.',
-    href: '/bill-payments',
-    icon: Zap,
-  },
-];
-
 export function AnnouncementBar() {
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  const total = PLATFORM_ACTIVITIES.length;
+  useEffect(() => {
+    const sync = () => setSettings(getPlatformSettings());
+    sync();
+    window.addEventListener('sadza-platform-updated', sync);
+    return () => window.removeEventListener('sadza-platform-updated', sync);
+  }, []);
+
+  const activities: ActivityTickerItem[] = useMemo(
+    () => [
+      {
+        id: 'notice',
+        tag: 'Commercial Notice',
+        badge: `${settings.freeGracePeriodDays}-Day Free Grace`,
+        title: 'Business Onboarding',
+        summary: settings.announcementText,
+        href: '/pricing',
+        icon: Building2,
+      },
+      {
+        id: 'dual-currency',
+        tag: 'Multi-Currency',
+        badge: `1 USD = ${settings.usdToZigRate} ZiG`,
+        title: 'Dual-Currency Commerce',
+        summary: `Active listings ($${settings.monthlySubscriptionPriceUsd}/mo) and sponsored adverts ($${settings.sponsoredAdvertPriceUsd}/mo) settle in USD or ZiG.`,
+        href: '/pricing',
+        icon: Coins,
+      },
+      {
+        id: 'compliance',
+        tag: 'Verified Registry',
+        badge: 'CR14 & ZIMRA',
+        title: 'Merchant Verification',
+        summary: 'Registered companies, SMEs, cooperatives & sole proprietors verified across 10 provinces.',
+        href: '/businesses',
+        icon: ShieldCheck,
+      },
+      {
+        id: 'marketplace',
+        tag: 'Commercial Exchange',
+        badge: '20 Sectors Live',
+        title: 'Marketplace & Tenders',
+        summary: 'Commercial wholesale, solar systems, agro inputs, and trade jobs updated daily.',
+        href: '/marketplace',
+        icon: Briefcase,
+      },
+      {
+        id: 'utilities',
+        tag: 'Instant Payments',
+        badge: '24/7 Automated',
+        title: 'Utility Clearing Desk',
+        summary: 'Prepaid ZESA electricity tokens, Municipal Water & DStv clearing with instant receipts.',
+        href: '/bill-payments',
+        icon: Zap,
+      },
+    ],
+    [settings]
+  );
+
+  const total = activities.length;
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % total);
@@ -90,17 +105,15 @@ export function AnnouncementBar() {
 
   useEffect(() => {
     if (isPaused) return;
-
     const timer = setInterval(() => {
       nextSlide();
     }, 4500);
-
     return () => clearInterval(timer);
   }, [isPaused, nextSlide]);
 
   if (dismissed) return null;
 
-  const current = PLATFORM_ACTIVITIES[currentIndex];
+  const current = activities[currentIndex] || activities[0];
   const Icon = current.icon;
 
   return (
