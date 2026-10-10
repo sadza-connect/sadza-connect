@@ -113,7 +113,7 @@ export function AnnouncementBar() {
       onBlur={() => setIsPaused(false)}
       className="relative z-50 w-full border-b border-emerald-950/40 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-2 sm:px-4 py-1.5 text-xs text-white shadow-xs"
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-[1680px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Left Ticker Indicator Badge */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="flex h-5 items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 text-[10px] font-bold uppercase tracking-wider text-emerald-300">

@@ -37,8 +37,8 @@ export function Navbar() {
   const activeError = localError || logoutError;
 
   return (
-    <header className="sticky top-3 z-40 w-full flex flex-col items-center px-3 sm:px-6 transition-all duration-300">
-      <div className="relative isolate flex h-16 w-full max-w-6xl items-center justify-between rounded-full px-4 sm:px-6">
+    <header className="sticky top-3 z-40 w-full flex flex-col items-center px-3 sm:px-6 lg:px-8 transition-all duration-300">
+      <div className="relative isolate flex h-16 w-full max-w-[1680px] items-center justify-between rounded-full px-5 sm:px-7">
         {/* Outer Conic Metallic Rim (Mirror Aesthetic) */}
         <span
           aria-hidden="true"
@@ -57,7 +57,7 @@ export function Navbar() {
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="relative z-10 hidden items-center gap-6 text-xs font-semibold text-slate-700 dark:text-slate-200 lg:flex">
+        <nav className="relative z-10 hidden items-center gap-7 text-sm font-semibold text-slate-700 dark:text-slate-200 lg:flex">
           <Link
             href="/businesses"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
@@ -69,6 +69,12 @@ export function Navbar() {
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
             Marketplace
+          </Link>
+          <Link
+            href="/adverts"
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+          >
+            Adverts &amp; Deals
           </Link>
           <Link
             href="/jobs"
@@ -86,7 +92,7 @@ export function Navbar() {
             href="/pricing"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
-            Pricing &amp; Adverts
+            Pricing
           </Link>
         </nav>
 
@@ -213,6 +219,13 @@ export function Navbar() {
               Marketplace
             </Link>
             <Link
+              href="/adverts"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+            >
+              Adverts &amp; Deals
+            </Link>
+            <Link
               href="/jobs"
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
@@ -231,7 +244,7 @@ export function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
             >
-              Pricing &amp; Adverts
+              Pricing
             </Link>
           </nav>
 

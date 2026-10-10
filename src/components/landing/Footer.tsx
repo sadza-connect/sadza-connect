@@ -69,7 +69,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/#commercial-portal" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                <Link href="/adverts" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
                   Sponsored Business Adverts
                 </Link>
               </li>

@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   Building2,
-  ShoppingBag,
   Briefcase,
   MapPin,
   MessageCircle,
@@ -14,8 +13,6 @@ import {
   Clock,
   ArrowUpRight,
   Search,
-  Filter,
-  Sparkles,
   CheckCircle2,
   AlertTriangle,
   Lock,
@@ -28,8 +25,6 @@ import {
   Star,
   ChevronRight,
   X,
-  Tag,
-  TrendingUp,
   Package,
   Store,
   Users,
@@ -44,38 +39,14 @@ import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-
-// ---------------------------------------------------------------------------
-// STRICT CLEAN PROVINCES LIST (No bracketed city lists as requested)
-// ---------------------------------------------------------------------------
-const PROVINCES = [
-  'All Provinces',
-  'Harare',
-  'Bulawayo',
-  'Midlands',
-  'Manicaland',
-  'Masvingo',
-  'Mashonaland East',
-  'Mashonaland West',
-  'Mashonaland Central',
-  'Matabeleland North',
-  'Matabeleland South',
-] as const;
-
-const BUSINESS_SECTORS = [
-  { id: 'All', label: 'All Commercial Sectors', count: 5240 },
-  { id: 'Solar & Clean Energy', label: 'Solar & Clean Energy', count: 412 },
-  { id: 'Agriculture & Farm Inputs', label: 'Agriculture & Farm Inputs', count: 685 },
-  { id: 'Hardware & Construction', label: 'Hardware & Construction', count: 530 },
-  { id: 'Wholesale & FMCG', label: 'Wholesale & FMCG', count: 490 },
-  { id: 'ICT & Electronics', label: 'ICT & Electronics', count: 380 },
-  { id: 'Automotive & Spares', label: 'Automotive & Spares', count: 445 },
-  { id: 'Restaurants & Dining', label: 'Restaurants & Dining', count: 610 },
-  { id: 'Hotels & Tourism', label: 'Hotels & Tourism', count: 295 },
-  { id: 'Healthcare & Pharmacies', label: 'Healthcare & Pharmacies', count: 310 },
-  { id: 'Professional Services', label: 'Professional Services', count: 520 },
-  { id: 'Logistics & Transport', label: 'Logistics & Transport', count: 268 },
-] as const;
+import {
+  PaidAdvertItem,
+  CLEAN_PROVINCES,
+  COMMERCIAL_SECTORS,
+  DEFAULT_PAID_ADVERTS,
+  loadStoredAdverts,
+  saveStoredAdverts,
+} from '@/data/advertsStore';
 
 const BUSINESS_SCALES = [
   { id: 'All', label: 'All Business Types', icon: Layers },
@@ -100,7 +71,11 @@ interface ProductListing {
   postedAgo: string;
   stockNote: string;
   sellerName: string;
-  sellerType: 'Registered Company (Pvt Ltd)' | 'SME / Partnership' | 'Sole Proprietor' | 'Cooperative / Association';
+  sellerType:
+    | 'Registered Company (Pvt Ltd)'
+    | 'SME / Partnership'
+    | 'Sole Proprietor'
+    | 'Cooperative / Association';
   sellerPlan: 'Paid Subscriber' | 'Month 1 Free Grace';
   whatsapp: string;
   image: string;
@@ -123,8 +98,10 @@ const INITIAL_PRODUCTS: ProductListing[] = [
     sellerType: 'Registered Company (Pvt Ltd)',
     sellerPlan: 'Paid Subscriber',
     whatsapp: '263773333444',
-    image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=700&q=80',
-    description: 'Complete 5kVA 48V hybrid solar system with 5.12kWh LiFePO4 battery, 6x 450W Mono panels, and protection box.',
+    image:
+      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=700&q=80',
+    description:
+      'Complete 5kVA 48V hybrid solar system with 5.12kWh LiFePO4 battery, 6x 450W Mono panels, and protection box.',
   },
   {
     id: 'p2',
@@ -141,8 +118,10 @@ const INITIAL_PRODUCTS: ProductListing[] = [
     sellerType: 'Registered Company (Pvt Ltd)',
     sellerPlan: 'Paid Subscriber',
     whatsapp: '263776777888',
-    image: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=700&q=80',
-    description: 'Freshly manufactured ZFC/Windmill standard Compound D and AN top-dressing fertilizer ready for collection or farm dispatch.',
+    image:
+      'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=700&q=80',
+    description:
+      'Freshly manufactured ZFC/Windmill standard Compound D and AN top-dressing fertilizer ready for collection or farm dispatch.',
   },
   {
     id: 'p3',
@@ -159,8 +138,10 @@ const INITIAL_PRODUCTS: ProductListing[] = [
     sellerType: 'Registered Company (Pvt Ltd)',
     sellerPlan: 'Paid Subscriber',
     whatsapp: '263775666777',
-    image: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80',
-    description: 'High-strength 42.5N structural cement and 0.40mm / 0.58mm Chromadek IBR sheets cut to customer roof specification.',
+    image:
+      'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80',
+    description:
+      'High-strength 42.5N structural cement and 0.40mm / 0.58mm Chromadek IBR sheets cut to customer roof specification.',
   },
   {
     id: 'p4',
@@ -177,8 +158,10 @@ const INITIAL_PRODUCTS: ProductListing[] = [
     sellerType: 'SME / Partnership',
     sellerPlan: 'Month 1 Free Grace',
     whatsapp: '263772111222',
-    image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=700&q=80',
-    description: '11th Gen Intel Core i7, 16GB DDR4 RAM, 512GB NVMe SSD, backlit keyboard, genuine Windows 11 Pro.',
+    image:
+      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=700&q=80',
+    description:
+      '11th Gen Intel Core i7, 16GB DDR4 RAM, 512GB NVMe SSD, backlit keyboard, genuine Windows 11 Pro.',
   },
   {
     id: 'p5',
@@ -195,8 +178,10 @@ const INITIAL_PRODUCTS: ProductListing[] = [
     sellerType: 'Cooperative / Association',
     sellerPlan: 'Month 1 Free Grace',
     whatsapp: '263778999000',
-    image: 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=700&q=80',
-    description: 'Pure raw montane forest honey and vacuum-packed macadamia nuts harvested by 85 smallholder farmers in Manicaland.',
+    image:
+      'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=700&q=80',
+    description:
+      'Pure raw montane forest honey and vacuum-packed macadamia nuts harvested by 85 smallholder farmers in Manicaland.',
   },
   {
     id: 'p6',
@@ -213,8 +198,10 @@ const INITIAL_PRODUCTS: ProductListing[] = [
     sellerType: 'Sole Proprietor',
     sellerPlan: 'Paid Subscriber',
     whatsapp: '263774123987',
-    image: 'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&w=700&q=80',
-    description: 'OEM oil, fuel, air and cabin filters plus heavy-duty shock absorbers and brake pads for Toyota GD-6 and Ford Ranger.',
+    image:
+      'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&w=700&q=80',
+    description:
+      'OEM oil, fuel, air and cabin filters plus heavy-duty shock absorbers and brake pads for Toyota GD-6 and Ford Ranger.',
   },
 ];
 
@@ -227,7 +214,11 @@ interface DirectoryBusiness {
   category: string;
   province: string;
   address: string;
-  businessType: 'Registered Company (Pvt Ltd)' | 'SME / Partnership' | 'Sole Proprietor' | 'Cooperative / Association';
+  businessType:
+    | 'Registered Company (Pvt Ltd)'
+    | 'SME / Partnership'
+    | 'Sole Proprietor'
+    | 'Cooperative / Association';
   subscriptionStatus: 'Paid Subscriber' | 'Month 1 Grace Period';
   verifiedCR14: boolean;
   rating: number;
@@ -255,10 +246,12 @@ const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
     verifiedCR14: true,
     rating: 4.9,
     reviews: 128,
-    specialty: 'Commercial & domestic hybrid solar installations, borehole solar pumps & lithium battery banks.',
+    specialty:
+      'Commercial & domestic hybrid solar installations, borehole solar pumps & lithium battery banks.',
     whatsapp: '263773333444',
     phone: '+263773333444',
-    image: 'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=700&q=80',
+    image:
+      'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=700&q=80',
     lat: -19.4522,
     lng: 29.8167,
     mapX: 48,
@@ -276,10 +269,12 @@ const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
     verifiedCR14: true,
     rating: 4.9,
     reviews: 218,
-    specialty: 'Authentic Zimbabwean cuisine, sadza rezviyo, road runner chicken, oxtail & corporate catering.',
+    specialty:
+      'Authentic Zimbabwean cuisine, sadza rezviyo, road runner chicken, oxtail & corporate catering.',
     whatsapp: '263772111222',
     phone: '+263772111222',
-    image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=700&q=80',
+    image:
+      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=700&q=80',
     lat: -17.8012,
     lng: 31.0421,
     mapX: 62,
@@ -297,10 +292,12 @@ const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
     verifiedCR14: true,
     rating: 4.8,
     reviews: 94,
-    specialty: 'Bulk cement, structural roofing timber, IBR Chromadek sheets, steel window frames & plumbing.',
+    specialty:
+      'Bulk cement, structural roofing timber, IBR Chromadek sheets, steel window frames & plumbing.',
     whatsapp: '263775666777',
     phone: '+263775666777',
-    image: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80',
+    image:
+      'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80',
     lat: -20.15,
     lng: 28.5833,
     mapX: 38,
@@ -318,10 +315,12 @@ const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
     verifiedCR14: true,
     rating: 4.9,
     reviews: 137,
-    specialty: 'Certified hybrid maize seed, Compound D & AN fertilizers, drip irrigation kits & crop chemicals.',
+    specialty:
+      'Certified hybrid maize seed, Compound D & AN fertilizers, drip irrigation kits & crop chemicals.',
     whatsapp: '263776777888',
     phone: '+263776777888',
-    image: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=700&q=80',
+    image:
+      'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=700&q=80',
     lat: -17.5167,
     lng: 30.9833,
     mapX: 64,
@@ -339,10 +338,12 @@ const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
     verifiedCR14: true,
     rating: 5.0,
     reviews: 412,
-    specialty: 'Conference packages, luxury safari lodges, Zambezi sunset cruises & airport transfers.',
+    specialty:
+      'Conference packages, luxury safari lodges, Zambezi sunset cruises & airport transfers.',
     whatsapp: '263774555666',
     phone: '+263832843211',
-    image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=700&q=80',
+    image:
+      'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=700&q=80',
     lat: -17.9317,
     lng: 25.8307,
     mapX: 18,
@@ -360,70 +361,17 @@ const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
     verifiedCR14: false,
     rating: 4.7,
     reviews: 41,
-    specialty: 'Farmer cooperative supplying macadamia nuts, avocados, timber poles & raw montane honey.',
+    specialty:
+      'Farmer cooperative supplying macadamia nuts, avocados, timber poles & raw montane honey.',
     whatsapp: '263778999000',
     phone: '+263778999000',
-    image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=700&q=80',
+    image:
+      'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=700&q=80',
     lat: -18.9707,
     lng: 32.6709,
     mapX: 82,
     mapY: 46,
     activeProductsCount: 11,
-  },
-];
-
-// ---------------------------------------------------------------------------
-// PAID BUSINESS ADVERTS (Right Sidebar — Only Paid Subscribers)
-// ---------------------------------------------------------------------------
-interface PaidAdvert {
-  id: string;
-  businessName: string;
-  province: string;
-  headline: string;
-  offerText: string;
-  promoBadge: string;
-  validUntil: string;
-  whatsapp: string;
-  image: string;
-  category: string;
-}
-
-const INITIAL_PAID_ADVERTS: PaidAdvert[] = [
-  {
-    id: 'ad1',
-    businessName: 'Midlands Solar & Power Systems',
-    province: 'Midlands',
-    headline: 'Zero-Loadshedding Commercial 10kVA Solar Package',
-    offerText: 'Free nationwide installation + 5-year inverter warranty for businesses ordering this month.',
-    promoBadge: 'SAVE $250 USD',
-    validUntil: 'Valid 6 days left',
-    whatsapp: '263773333444',
-    image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=600&q=80',
-    category: 'Solar & Clean Energy',
-  },
-  {
-    id: 'ad2',
-    businessName: 'Batanai Building Supplies & Timber',
-    province: 'Bulawayo',
-    headline: 'Contractor Bulk Cement & Roofing Clearance',
-    offerText: 'Order 100+ bags of PPC 42.5N Cement and get free flatbed delivery within 40km.',
-    promoBadge: 'CONTRACTOR DEAL',
-    validUntil: 'Limited Depot Stock',
-    whatsapp: '263775666777',
-    image: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=600&q=80',
-    category: 'Hardware & Construction',
-  },
-  {
-    id: 'ad3',
-    businessName: 'Mazowe Citrus & Agro Supplies',
-    province: 'Mashonaland Central',
-    headline: 'Summer Cropping Seed & Fertilizer Combo',
-    offerText: 'Pre-book Compound D, AN, and SC727 Maize Seed at direct factory wholesale rates.',
-    promoBadge: 'WHOLESALE RATE',
-    validUntil: 'Ends 30 Nov',
-    whatsapp: '263776777888',
-    image: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=600&q=80',
-    category: 'Agriculture & Farm Inputs',
   },
 ];
 
@@ -463,13 +411,18 @@ const LATEST_JOBS = [
   },
 ];
 
-type AccountViewMode = 'visitor' | 'grace_active' | 'grace_expiring' | 'grace_expired' | 'paid_subscriber';
+type AccountViewMode =
+  | 'visitor'
+  | 'grace_active'
+  | 'grace_expiring'
+  | 'grace_expired'
+  | 'paid_subscriber';
 type FeedFocusTab = 'all' | 'products' | 'businesses' | 'jobs' | 'adverts';
 
 export function CommercialPortalWorkspace() {
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
 
-  // Interactive Account Status Mode (defaults to visitor or business user state, with quick preview switcher)
+  // Interactive Account Status Mode
   const [accountMode, setAccountMode] = useState<AccountViewMode>('visitor');
 
   // Filtering State
@@ -477,8 +430,21 @@ export function CommercialPortalWorkspace() {
   const [selectedProvince, setSelectedProvince] = useState<string>('All Provinces');
   const [selectedScale, setSelectedScale] = useState<string>('All');
   const [feedFocus, setFeedFocus] = useState<FeedFocusTab>('all');
-  const [productFilterPill, setProductFilterPill] = useState<'All' | 'Just Arrived' | 'Fast Moving' | 'Bulk Stock'>('All');
+  const [productFilterPill, setProductFilterPill] = useState<
+    'All' | 'Just Arrived' | 'Fast Moving' | 'Bulk Stock'
+  >('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Adverts State & Filtering Mode
+  const [paidAdverts, setPaidAdverts] = useState<PaidAdvertItem[]>(DEFAULT_PAID_ADVERTS);
+  const [advertFilterMode, setAdvertFilterMode] = useState<'matching' | 'all'>('matching');
+
+  useEffect(() => {
+    setPaidAdverts(loadStoredAdverts());
+    const handleSync = () => setPaidAdverts(loadStoredAdverts());
+    window.addEventListener('sadza-adverts-updated', handleSync);
+    return () => window.removeEventListener('sadza-adverts-updated', handleSync);
+  }, []);
 
   // Directory View Mode (List vs Interactive Map)
   const [directoryView, setDirectoryView] = useState<'list' | 'map'>('list');
@@ -489,11 +455,24 @@ export function CommercialPortalWorkspace() {
 
   // Interactive Modals State
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedPaymentPlan, setSelectedPaymentPlan] = useState<'monthly_listing' | 'Listing_plus_advert'>('monthly_listing');
+  const [selectedPaymentPlan, setSelectedPaymentPlan] = useState<
+    'monthly_listing' | 'Listing_plus_advert'
+  >('monthly_listing');
   const [paymentMethod, setPaymentMethod] = useState<'ecocash' | 'innbucks' | 'card'>('ecocash');
   const [paymentCurrency, setPaymentCurrency] = useState<'USD' | 'ZiG'>('USD');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Publish New Paid Advert Modal State
+  const [createAdvertOpen, setCreateAdvertOpen] = useState(false);
+  const [adBizName, setAdBizName] = useState('');
+  const [adCategory, setAdCategory] = useState('Solar & Clean Energy');
+  const [adProvince, setAdProvince] = useState('Harare');
+  const [adHeadline, setAdHeadline] = useState('');
+  const [adOfferText, setAdOfferText] = useState('');
+  const [adBadge, setAdBadge] = useState('SPECIAL OFFER');
+  const [adPriceUSD, setAdPriceUSD] = useState('');
+  const [adWhatsapp, setAdWhatsapp] = useState('263772111222');
 
   // Upload Product Modal State
   const [uploadProductOpen, setUploadProductOpen] = useState(false);
@@ -520,7 +499,8 @@ export function CommercialPortalWorkspace() {
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {
       const matchSector = selectedSector === 'All' || item.category === selectedSector;
-      const matchProvince = selectedProvince === 'All Provinces' || item.province === selectedProvince;
+      const matchProvince =
+        selectedProvince === 'All Provinces' || item.province === selectedProvince;
       const matchScale = selectedScale === 'All' || item.sellerType === selectedScale;
       const matchPill = productFilterPill === 'All' || item.movementBadge === productFilterPill;
       const matchQuery =
@@ -536,7 +516,8 @@ export function CommercialPortalWorkspace() {
   const filteredBusinesses = useMemo(() => {
     return DIRECTORY_BUSINESSES.filter((biz) => {
       const matchSector = selectedSector === 'All' || biz.category === selectedSector;
-      const matchProvince = selectedProvince === 'All Provinces' || biz.province === selectedProvince;
+      const matchProvince =
+        selectedProvince === 'All Provinces' || biz.province === selectedProvince;
       const matchScale = selectedScale === 'All' || biz.businessType === selectedScale;
       const matchQuery =
         !searchQuery.trim() ||
@@ -551,7 +532,8 @@ export function CommercialPortalWorkspace() {
   const filteredJobs = useMemo(() => {
     return LATEST_JOBS.filter((job) => {
       const matchSector = selectedSector === 'All' || job.category === selectedSector;
-      const matchProvince = selectedProvince === 'All Provinces' || job.province === selectedProvince;
+      const matchProvince =
+        selectedProvince === 'All Provinces' || job.province === selectedProvince;
       const matchQuery =
         !searchQuery.trim() ||
         job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -559,6 +541,31 @@ export function CommercialPortalWorkspace() {
       return matchSector && matchProvince && matchQuery;
     });
   }, [selectedSector, selectedProvince, searchQuery]);
+
+  // Filtered Paid Adverts in Right Sidebar
+  const displayedAdverts = useMemo(() => {
+    if (advertFilterMode === 'all') {
+      return paidAdverts.slice(0, 4);
+    }
+    const matching = paidAdverts.filter((ad) => {
+      const matchSector = selectedSector === 'All' || ad.category === selectedSector;
+      const matchProv = selectedProvince === 'All Provinces' || ad.province === selectedProvince;
+      const matchQuery =
+        !searchQuery.trim() ||
+        ad.headline.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ad.businessName.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchSector && matchProv && matchQuery;
+    });
+    return matching.length > 0 ? matching.slice(0, 4) : paidAdverts.slice(0, 4);
+  }, [paidAdverts, advertFilterMode, selectedSector, selectedProvince, searchQuery]);
+
+  const hasExactMatchingAdverts = useMemo(() => {
+    return paidAdverts.some((ad) => {
+      const matchSector = selectedSector === 'All' || ad.category === selectedSector;
+      const matchProv = selectedProvince === 'All Provinces' || ad.province === selectedProvince;
+      return matchSector && matchProv;
+    });
+  }, [paidAdverts, selectedSector, selectedProvince]);
 
   const selectedMapBusiness =
     filteredBusinesses.find((b) => b.id === selectedMapBusinessId) ||
@@ -605,7 +612,8 @@ export function CommercialPortalWorkspace() {
       sellerType: 'Registered Company (Pvt Ltd)',
       sellerPlan: accountMode === 'paid_subscriber' ? 'Paid Subscriber' : 'Month 1 Free Grace',
       whatsapp: '263772111222',
-      image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=700&q=80',
+      image:
+        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=700&q=80',
       description: newProdDesc.trim() || 'Uploaded directly via Sadza Connect Commercial Portal.',
     };
     setProducts([created, ...products]);
@@ -615,6 +623,41 @@ export function CommercialPortalWorkspace() {
     setNewProdDesc('');
   };
 
+  const handlePublishNewAdvert = (e: React.FormEvent) => {
+    e.preventDefault();
+    const usd = parseFloat(adPriceUSD) || undefined;
+    const createdAd: PaidAdvertItem = {
+      id: `ad-${Date.now()}`,
+      businessName: adBizName.trim() || user?.fullName || 'Verified Business Partner',
+      businessType: 'Registered Company (Pvt Ltd)',
+      province: adProvince,
+      category: adCategory,
+      offerType: 'Special Package',
+      headline: adHeadline.trim() || 'Commercial Promotional Offer',
+      offerText:
+        adOfferText.trim() ||
+        'Direct wholesale and commercial supply promotion available via WhatsApp.',
+      promoBadge: adBadge.trim().toUpperCase() || 'PAID PROMO',
+      promoPriceUSD: usd,
+      priceZiG: usd ? Math.round(usd * 26.5) : undefined,
+      validUntil: 'Valid 30 days',
+      whatsapp: adWhatsapp.replace(/\D/g, '') || '263772111222',
+      phone: `+${adWhatsapp.replace(/\D/g, '') || '263772111222'}`,
+      image:
+        'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
+      featuredOnHome: true,
+      postedAt: 'Just now',
+    };
+    const nextAdverts = [createdAd, ...paidAdverts];
+    setPaidAdverts(nextAdverts);
+    saveStoredAdverts(nextAdverts);
+    setCreateAdvertOpen(false);
+    setAccountMode('paid_subscriber');
+    setAdHeadline('');
+    setAdOfferText('');
+    setAdPriceUSD('');
+  };
+
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessingPayment(true);
@@ -622,29 +665,29 @@ export function CommercialPortalWorkspace() {
       setIsProcessingPayment(false);
       setPaymentSuccess(true);
       setAccountMode('paid_subscriber');
-    }, 900);
+    }, 800);
   };
 
   return (
     <section
       id="commercial-portal"
       aria-label="Sadza Connect Commercial Portal"
-      className="relative bg-slate-100/90 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 pb-20 transition-colors"
+      className="relative bg-slate-100/90 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 pb-24 transition-colors"
     >
       {/* =====================================================================
           1. TOP BUSINESS & 1-MONTH GRACE PERIOD NOTIFICATION STRIP
       ===================================================================== */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-2xs">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          {/* Interactive Role/Status Switcher Bar so Business & Normal User Flows are 100% Transparent */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-100 dark:border-slate-800/80 text-[11px]">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
-                Commercial Feed &amp; Subscription Engine:
+        <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-3.5">
+          {/* Interactive Role/Status Switcher Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800/80 text-xs">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                Account &amp; 1-Month Grace Period Simulator:
               </span>
-              <span className="hidden sm:inline">
-                Preview how normal buyers and businesses (in 1-month grace or expired) see notices:
+              <span className="hidden md:inline">
+                Click any state below to preview how normal users and businesses are notified:
               </span>
             </div>
 
@@ -662,10 +705,10 @@ export function CommercialPortalWorkspace() {
                   key={mode.id}
                   type="button"
                   onClick={() => setAccountMode(mode.id)}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     accountMode === mode.id
-                      ? 'bg-slate-900 text-white dark:bg-emerald-600'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      ? 'bg-slate-900 text-white dark:bg-emerald-600 shadow-2xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
                   {mode.label}
@@ -676,78 +719,74 @@ export function CommercialPortalWorkspace() {
 
           {/* Contextual Banner based on Account / Grace Period State */}
           {accountMode === 'visitor' && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 px-4 py-3">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
-                  <Store className="h-4.5 w-4.5" />
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 px-5 py-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                  <Store className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                       Own a Business in Zimbabwe? Enjoy a 1-Month Free Grace Period
                     </span>
-                    <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                       First 30 Days Free
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                    Register your Sole Proprietorship, SME, Pvt Ltd Company, or Cooperative today. Get listed and upload products free for 30 days before any subscription payment is required.
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                    Register your Sole Proprietorship, SME, Pvt Ltd Company, or Cooperative today. Get listed in the directory and upload products free for 30 days before any monthly payment is required.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <Link
                   href="/signup?role=business"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition-colors"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-4 w-4" />
                   <span>Register Business (30 Days Free)</span>
                 </Link>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedPaymentPlan('Listing_plus_advert');
-                    setPaymentSuccess(false);
-                    setPaymentModalOpen(true);
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer"
+                  onClick={() => setCreateAdvertOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
                 >
-                  <Megaphone className="h-3.5 w-3.5 text-amber-600" />
-                  <span>Pricing &amp; Paid Adverts</span>
+                  <Megaphone className="h-4 w-4 text-amber-600" />
+                  <span>Advertise a Product / Deal</span>
                 </button>
               </div>
             </div>
           )}
 
           {accountMode === 'grace_active' && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 px-4 py-3">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 px-5 py-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                       1-Month Free Grace Period Active — 24 Days Remaining
                     </span>
-                    <span className="rounded-md bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold">
+                    <span className="rounded-md bg-emerald-600 text-white px-2.5 py-0.5 text-xs font-bold">
                       Day 6 of 30
                     </span>
                   </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
+                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">
                     Your business directory profile and product uploads are live across Zimbabwe. Your first monthly subscription ($15/mo) will only be due after your 30-day grace period ends.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleUploadProductAction}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 text-white px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 text-white px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-4 w-4" />
                   <span>Upload Product Now</span>
                 </button>
                 <button
@@ -757,9 +796,9 @@ export function CommercialPortalWorkspace() {
                     setPaymentSuccess(false);
                     setPaymentModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
                 >
-                  <CreditCard className="h-3.5 w-3.5" />
+                  <CreditCard className="h-4 w-4" />
                   <span>Pay Subscription Early</span>
                 </button>
               </div>
@@ -767,27 +806,27 @@ export function CommercialPortalWorkspace() {
           )}
 
           {accountMode === 'grace_expiring' && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-4 py-3">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-5 py-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white">
                   <AlertTriangle className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                       Renewal Reminder: Your 1-Month Grace Period Ends in 3 Days
                     </span>
-                    <span className="rounded-md bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 px-2 py-0.5 text-[10px] font-bold">
+                    <span className="rounded-md bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 text-xs font-bold">
                       Action Required Soon
                     </span>
                   </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
+                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">
                     Activate your monthly business subscription ($15 USD / ZiG equivalent) via EcoCash, InnBucks, or Card so your business listing and marketplace products remain live without interruption.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -795,9 +834,9 @@ export function CommercialPortalWorkspace() {
                     setPaymentSuccess(false);
                     setPaymentModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
                 >
-                  <CreditCard className="h-3.5 w-3.5" />
+                  <CreditCard className="h-4 w-4" />
                   <span>Make Payment Now ($15/mo)</span>
                 </button>
               </div>
@@ -805,27 +844,27 @@ export function CommercialPortalWorkspace() {
           )}
 
           {accountMode === 'grace_expired' && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 px-4 py-3">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-white">
-                  <Lock className="h-4.5 w-4.5" />
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 px-5 py-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white">
+                  <Lock className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs sm:text-sm font-bold text-rose-950 dark:text-white">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-rose-950 dark:text-white">
                       Your 1-Month Free Grace Period Has Ended — Subscription Payment Required
                     </span>
-                    <span className="rounded-md bg-rose-600 text-white px-2 py-0.5 text-[10px] font-bold uppercase">
+                    <span className="rounded-md bg-rose-600 text-white px-2.5 py-0.5 text-xs font-bold uppercase">
                       Listing Paused
                     </span>
                   </div>
-                  <p className="text-xs text-rose-900 dark:text-rose-200 mt-0.5">
+                  <p className="text-xs sm:text-sm text-rose-900 dark:text-rose-200 mt-1">
                     Your 30-day free trial is complete. Complete your monthly payment to restore your public directory visibility and unlock new product &amp; advert uploads.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -833,9 +872,9 @@ export function CommercialPortalWorkspace() {
                     setPaymentSuccess(false);
                     setPaymentModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
                 >
-                  <CreditCard className="h-3.5 w-3.5" />
+                  <CreditCard className="h-4 w-4" />
                   <span>Pay Subscription to Unlock</span>
                 </button>
               </div>
@@ -843,46 +882,42 @@ export function CommercialPortalWorkspace() {
           )}
 
           {accountMode === 'paid_subscriber' && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-xl bg-slate-900 text-white px-4 py-3">
-              <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-slate-950">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-slate-900 text-white px-5 py-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-slate-950">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs sm:text-sm font-bold text-white">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-white">
                       Verified Paid Business Account — Priority Directory &amp; Marketplace Access
                     </span>
-                    <span className="rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
+                    <span className="rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 px-2.5 py-0.5 text-xs font-bold">
                       Subscription Active
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300 mt-0.5">
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
                     Your business and products receive priority placement. You can upload unlimited stock and publish sponsored sidebar adverts.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleUploadProductAction}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-4 w-4" />
                   <span>Upload Product</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedPaymentPlan('Listing_plus_advert');
-                    setPaymentSuccess(false);
-                    setPaymentModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer"
+                  onClick={() => setCreateAdvertOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
                 >
-                  <Megaphone className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Boost with Paid Advert</span>
+                  <Megaphone className="h-4 w-4 text-amber-400" />
+                  <span>Publish Paid Advert</span>
                 </button>
               </div>
             </div>
@@ -892,35 +927,34 @@ export function CommercialPortalWorkspace() {
 
       {/* =====================================================================
           2. MOBILE & TABLET STICKY QUICK TOOLBAR (< 1024px)
-          Ensures Palmtops, Tablets, and Phones have effortless navigation
       ===================================================================== */}
-      <div className="lg:hidden sticky top-[72px] z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 shadow-xs">
-        <div className="max-w-[1440px] mx-auto flex flex-col gap-2">
+      <div className="lg:hidden sticky top-[72px] z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-xs">
+        <div className="w-full max-w-[1760px] mx-auto flex flex-col gap-2.5">
           <div className="flex items-center justify-between gap-2">
             {/* Filter Drawer Button */}
             <button
               type="button"
               onClick={() => setMobileFiltersOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-emerald-600" />
+              <SlidersHorizontal className="h-4 w-4 text-emerald-600" />
               <span>Sectors &amp; Provinces</span>
               {activeFiltersCount > 0 && (
-                <span className="ml-0.5 rounded-full bg-emerald-600 text-white px-1.5 py-0.2 text-[10px]">
+                <span className="ml-0.5 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[11px]">
                   {activeFiltersCount}
                 </span>
               )}
             </button>
 
             {/* Quick Province Select for Mobile/Tablet */}
-            <div className="relative flex-1 max-w-[200px]">
+            <div className="relative flex-1 max-w-[220px]">
               <select
                 aria-label="Select Province"
                 value={selectedProvince}
                 onChange={(e) => setSelectedProvince(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-2.5 pr-7 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-600"
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-2 pl-3 pr-7 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-600"
               >
-                {PROVINCES.map((prov) => (
+                {CLEAN_PROVINCES.map((prov) => (
                   <option key={prov} value={prov}>
                     {prov}
                   </option>
@@ -932,29 +966,29 @@ export function CommercialPortalWorkspace() {
             <button
               type="button"
               onClick={handleUploadProductAction}
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-bold shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs sm:text-sm font-bold shrink-0"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
               <span>Sell</span>
             </button>
           </div>
 
           {/* Horizontal Scrollable Section Pills on Mobile/Tablet */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
             {(
               [
                 { id: 'all', label: 'All Activity' },
                 { id: 'products', label: `Products (${filteredProducts.length})` },
                 { id: 'businesses', label: `Businesses (${filteredBusinesses.length})` },
                 { id: 'jobs', label: `Jobs (${filteredJobs.length})` },
-                { id: 'adverts', label: `Paid Adverts (${INITIAL_PAID_ADVERTS.length})` },
+                { id: 'adverts', label: `Paid Adverts (${paidAdverts.length})` },
               ] as const
             ).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setFeedFocus(tab.id)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-colors ${
                   feedFocus === tab.id
                     ? 'bg-slate-900 text-white dark:bg-emerald-600'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -968,23 +1002,23 @@ export function CommercialPortalWorkspace() {
       </div>
 
       {/* =====================================================================
-          3. MAIN 3-COLUMN COMMERCIAL PORTAL WORKSPACE
-          Left Sidebar (3 cols) | Center Feed (6 cols) | Right Sidebar (3 cols)
+          3. MAIN 3-COLUMN COMMERCIAL PORTAL WORKSPACE (WIDE DESKTOP CONTAINER)
+          Utilizes desktop screen width comfortably (`max-w-[1760px]`) with
+          audible, comfortable typography across Left, Center & Right columns
       ===================================================================== */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-7">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-start">
           {/* =================================================================
               LEFT SIDEBAR: DIRECTORY SECTORS, 10 PROVINCES & BUSINESS SCALE
-              (Visible on lg+ desktops; accessible via slide-over on <lg)
           ================================================================= */}
           <aside
             aria-label="Directory Navigation and Filters"
-            className="hidden lg:block lg:col-span-3 sticky top-24 space-y-5"
+            className="hidden lg:block lg:col-span-3 sticky top-24 space-y-6"
           >
             {/* Active Filters Reset Banner */}
             {activeFiltersCount > 0 && (
-              <div className="flex items-center justify-between rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-3.5 py-2.5">
-                <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+              <div className="flex items-center justify-between rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-4 py-3">
+                <span className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
                   {activeFiltersCount} Active Filter{activeFiltersCount > 1 ? 's' : ''}
                 </span>
                 <button
@@ -999,41 +1033,41 @@ export function CommercialPortalWorkspace() {
 
             {/* Card 1: Commercial Sectors */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
-              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-emerald-600" />
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-5 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Layers className="h-4.5 w-4.5 text-emerald-600" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                     Commercial Sectors
                   </h2>
                 </div>
                 <Link
                   href="/businesses"
-                  className="text-[11px] font-semibold text-emerald-600 hover:underline"
+                  className="text-xs font-bold text-emerald-600 hover:underline"
                 >
                   All 20 →
                 </Link>
               </div>
 
-              <div className="p-2 max-h-[340px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
-                {BUSINESS_SECTORS.map((sector) => {
+              <div className="p-2.5 max-h-[420px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+                {COMMERCIAL_SECTORS.map((sector) => {
                   const active = selectedSector === sector.id;
                   return (
                     <button
                       key={sector.id}
                       type="button"
                       onClick={() => setSelectedSector(sector.id)}
-                      className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                      className={`w-full flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                         active
-                          ? 'bg-emerald-600 text-white font-bold'
+                          ? 'bg-emerald-600 text-white font-bold shadow-2xs'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium'
                       }`}
                     >
                       <span className="truncate">{sector.label}</span>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                           active
                             ? 'bg-emerald-700 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                         }`}
                       >
                         {sector.count}
@@ -1046,32 +1080,34 @@ export function CommercialPortalWorkspace() {
 
             {/* Card 2: Browse by Province (Strictly Clean Province Names) */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
-              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-emerald-600" />
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-5 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="h-4.5 w-4.5 text-emerald-600" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                     Filter by Province
                   </h2>
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">10 Provinces</span>
+                <span className="text-xs font-semibold text-slate-500">10 Provinces</span>
               </div>
 
               <div className="p-2.5 grid grid-cols-1 gap-1">
-                {PROVINCES.map((province) => {
+                {CLEAN_PROVINCES.map((province) => {
                   const active = selectedProvince === province;
                   return (
                     <button
                       key={province}
                       type="button"
                       onClick={() => setSelectedProvince(province)}
-                      className={`w-full flex items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs transition-colors cursor-pointer ${
+                      className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-left text-sm transition-colors cursor-pointer ${
                         active
                           ? 'bg-slate-900 text-white dark:bg-emerald-600 font-bold'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium'
                       }`}
                     >
                       <span className="truncate">{province}</span>
-                      {active && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400 dark:text-white" />}
+                      {active && (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 dark:text-white" />
+                      )}
                     </button>
                   );
                 })}
@@ -1080,9 +1116,9 @@ export function CommercialPortalWorkspace() {
 
             {/* Card 3: Filter by Business Structure */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
-              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-4 py-3 flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-emerald-600" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-5 py-3.5 flex items-center gap-2.5">
+                <Building2 className="h-4.5 w-4.5 text-emerald-600" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                   Business Classification
                 </h2>
               </div>
@@ -1096,13 +1132,13 @@ export function CommercialPortalWorkspace() {
                       key={scale.id}
                       type="button"
                       onClick={() => setSelectedScale(scale.id)}
-                      className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
+                      className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm transition-colors cursor-pointer ${
                         active
                           ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium'
                       }`}
                     >
-                      <Icon className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                      <Icon className="h-4 w-4 shrink-0 text-emerald-600" />
                       <span className="truncate">{scale.label}</span>
                     </button>
                   );
@@ -1113,20 +1149,17 @@ export function CommercialPortalWorkspace() {
 
           {/* =================================================================
               CENTER MAIN COMMERCIAL FEED (6 cols on Desktop, Full width on <lg)
-              1. Products Coming & Going (Live Marketplace Stream)
-              2. Active & Verified Businesses (List + Map Toggle)
-              3. Latest Commercial Job Vacancies
           ================================================================= */}
           <div
             className={`${
               feedFocus === 'adverts' ? 'hidden lg:block' : 'block'
-            } lg:col-span-6 space-y-6 min-w-0`}
+            } lg:col-span-6 space-y-7 min-w-0`}
           >
             {/* Top Feed Control Bar */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-2xs space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-3.5">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
                 {/* Desktop Section Tabs */}
-                <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                <div className="hidden lg:flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
                   {(
                     [
                       { id: 'all', label: 'All Activity' },
@@ -1139,7 +1172,7 @@ export function CommercialPortalWorkspace() {
                       key={tab.id}
                       type="button"
                       onClick={() => setFeedFocus(tab.id)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                      className={`rounded-lg px-3.5 py-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                         feedFocus === tab.id
                           ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -1151,50 +1184,50 @@ export function CommercialPortalWorkspace() {
                 </div>
 
                 {/* Instant Keyword Filter within Feed */}
-                <div className="relative flex-1 max-w-xs">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <div className="relative flex-1 xl:max-w-xs">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Filter products, companies, specs..."
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 py-1.5 pl-8 pr-7 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 py-2 pl-9 pr-8 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
                       aria-label="Clear filter"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-4 w-4" />
                     </button>
                   )}
                 </div>
               </div>
 
               {/* Active Breadcrumb Pills */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                <div className="flex flex-wrap items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                  <span className="font-semibold text-slate-900 dark:text-slate-200">Showing:</span>
-                  <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-semibold text-slate-800 dark:text-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs sm:text-sm">
+                <div className="flex flex-wrap items-center gap-2 text-slate-600 dark:text-slate-400">
+                  <span className="font-bold text-slate-900 dark:text-slate-200">Showing:</span>
+                  <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 font-semibold text-slate-800 dark:text-slate-200">
                     {selectedSector === 'All' ? 'All Sectors' : selectedSector}
                   </span>
                   <span>•</span>
-                  <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 font-semibold text-slate-800 dark:text-slate-200">
                     {selectedProvince}
                   </span>
                   {selectedScale !== 'All' && (
                     <>
                       <span>•</span>
-                      <span className="rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 font-semibold">
+                      <span className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 font-semibold">
                         {selectedScale}
                       </span>
                     </>
                   )}
                 </div>
 
-                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
                   Dual Pricing: USD &amp; ZiG
                 </span>
               </div>
@@ -1206,88 +1239,88 @@ export function CommercialPortalWorkspace() {
             {(feedFocus === 'all' || feedFocus === 'products') && (
               <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
                 {/* Section Header */}
-                <div className="border-b border-slate-200 dark:border-slate-800 px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
+                <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-2.5 w-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="relative flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600" />
                       </span>
-                      <h2 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                         Live Marketplace — Products Coming &amp; Going
                       </h2>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                       Fresh commercial stock uploaded by verified &amp; active businesses across Zimbabwe
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleUploadProductAction}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-2xs transition-colors cursor-pointer"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-4 w-4" />
                       <span>Upload Product</span>
                     </button>
                     <Link
                       href="/marketplace"
-                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors"
                     >
                       <span>View All</span>
-                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      <ArrowUpRight className="h-4 w-4" />
                     </Link>
                   </div>
                 </div>
 
                 {/* Movement Sub-Filter Bar */}
-                <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar bg-white dark:bg-slate-900">
-                  <div className="flex items-center gap-1.5">
+                <div className="px-5 sm:px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar bg-white dark:bg-slate-900">
+                  <div className="flex items-center gap-2">
                     {(['All', 'Just Arrived', 'Fast Moving', 'Bulk Stock'] as const).map((pill) => (
                       <button
                         key={pill}
                         type="button"
                         onClick={() => setProductFilterPill(pill)}
-                        className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                        className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
                           productFilterPill === pill
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
                         }`}
                       >
                         {pill === 'All' ? 'All Live Stock' : pill}
                       </button>
                     ))}
                   </div>
-                  <span className="text-[11px] text-slate-400 shrink-0 hidden sm:inline">
+                  <span className="text-xs font-semibold text-slate-400 shrink-0 hidden sm:inline">
                     {filteredProducts.length} items matching
                   </span>
                 </div>
 
                 {/* Products Grid */}
                 {filteredProducts.length === 0 ? (
-                  <div className="p-8 text-center space-y-3">
-                    <Package className="h-8 w-8 text-slate-400 mx-auto" />
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  <div className="p-10 text-center space-y-3">
+                    <Package className="h-9 w-9 text-slate-400 mx-auto" />
+                    <p className="text-base font-bold text-slate-800 dark:text-slate-200">
                       No products match your current filter combination
                     </p>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    <p className="text-sm text-slate-500 max-w-sm mx-auto">
                       Try clearing the sector or province filter to see all live products moving across Zimbabwe.
                     </p>
                     <button
                       type="button"
                       onClick={resetAllFilters}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white px-3.5 py-1.5 text-xs font-bold"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 text-white px-4 py-2 text-xs sm:text-sm font-bold"
                     >
                       Reset Filters
                     </button>
                   </div>
                 ) : (
-                  <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {filteredProducts.map((item) => (
                       <article
                         key={item.id}
-                        className="group flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500/60 dark:hover:border-emerald-500/50 transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-md"
+                        className="group flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500/60 dark:hover:border-emerald-500/50 transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-md"
                       >
                         <div>
                           {/* Product Image & Top Badges */}
@@ -1300,9 +1333,9 @@ export function CommercialPortalWorkspace() {
                               className="object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                             {/* Left Badge: Movement Status */}
-                            <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5">
+                            <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
                               <span
-                                className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-xs ${
+                                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide shadow-xs ${
                                   item.movementBadge === 'Fast Moving'
                                     ? 'bg-amber-500 text-slate-950'
                                     : item.movementBadge === 'Just Arrived'
@@ -1312,74 +1345,74 @@ export function CommercialPortalWorkspace() {
                               >
                                 {item.movementBadge}
                               </span>
-                              <span className="rounded-md bg-white/95 dark:bg-slate-900/95 px-2 py-0.5 text-[10px] font-bold text-slate-800 dark:text-slate-200 shadow-xs">
+                              <span className="rounded-lg bg-white/95 dark:bg-slate-900/95 px-2.5 py-1 text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-xs">
                                 {item.province}
                               </span>
                             </div>
 
                             {/* Right Badge: Time Posted */}
-                            <div className="absolute bottom-2 right-2">
-                              <span className="inline-flex items-center gap-1 rounded-md bg-slate-950/80 backdrop-blur-xs px-2 py-0.5 text-[10px] font-medium text-white">
-                                <Clock className="h-2.5 w-2.5 text-emerald-400" />
+                            <div className="absolute bottom-2.5 right-2.5">
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-slate-950/80 backdrop-blur-xs px-2.5 py-1 text-[11px] font-medium text-white">
+                                <Clock className="h-3 w-3 text-emerald-400" />
                                 {item.postedAgo}
                               </span>
                             </div>
                           </div>
 
                           {/* Product Content */}
-                          <div className="p-3.5 sm:p-4">
-                            <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                              <span className="font-semibold text-emerald-700 dark:text-emerald-400 truncate">
+                          <div className="p-4 sm:p-5">
+                            <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                              <span className="font-bold text-emerald-700 dark:text-emerald-400 truncate">
                                 {item.category}
                               </span>
-                              <span className="shrink-0 font-medium text-slate-500">
+                              <span className="shrink-0 font-semibold text-slate-500">
                                 {item.unit}
                               </span>
                             </div>
 
-                            <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white mt-1 line-clamp-2 leading-snug group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
+                            <h3 className="font-display text-base font-bold text-slate-900 dark:text-white mt-1.5 line-clamp-2 leading-snug group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                               {item.title}
                             </h3>
 
                             {/* Dual Currency Price Box */}
-                            <div className="mt-2.5 flex items-baseline justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/70 px-2.5 py-1.5 border border-slate-100 dark:border-slate-800">
+                            <div className="mt-3 flex items-baseline justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border border-slate-100 dark:border-slate-800">
                               <div>
-                                <span className="font-display text-base font-extrabold text-slate-900 dark:text-white">
+                                <span className="font-display text-lg font-extrabold text-slate-900 dark:text-white">
                                   USD ${item.priceUSD.toLocaleString()}
                                 </span>
-                                <span className="ml-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                <span className="ml-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                   / {item.priceZiG.toLocaleString()} ZiG
                                 </span>
                               </div>
                             </div>
 
-                            <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium truncate">
+                            <p className="mt-2.5 text-xs text-emerald-700 dark:text-emerald-400 font-semibold truncate">
                               • {item.stockNote}
                             </p>
                           </div>
                         </div>
 
                         {/* Seller Info & Action Footer */}
-                        <div className="px-3.5 sm:px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                        <div className="px-4 sm:px-5 py-3 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                            <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
                               {item.sellerName}
                             </p>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                                 {item.sellerType}
                               </span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             <button
                               type="button"
                               onClick={() => setQuickViewProduct(item)}
                               title="Quick view details"
-                              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 cursor-pointer"
+                              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 cursor-pointer"
                             >
-                              <Eye className="h-3.5 w-3.5" />
+                              <Eye className="h-4 w-4" />
                             </button>
                             <a
                               href={`https://wa.me/${item.whatsapp}?text=Hi%20${encodeURIComponent(
@@ -1389,7 +1422,7 @@ export function CommercialPortalWorkspace() {
                               )}"%20(USD%20$${item.priceUSD})%20on%20Sadza%20Connect.`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 text-xs font-bold transition-colors"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition-colors"
                             >
                               <MessageCircle className="h-3.5 w-3.5" />
                               <span>Inquire</span>
@@ -1405,7 +1438,6 @@ export function CommercialPortalWorkspace() {
 
             {/* ---------------------------------------------------------------
                 FEED SECTION B: VERIFIED & ACTIVE BUSINESSES DIRECTORY
-                (With Instant Switch between Directory List & Interactive Map)
             --------------------------------------------------------------- */}
             {(feedFocus === 'all' || feedFocus === 'businesses') && (
               <div
@@ -1413,54 +1445,54 @@ export function CommercialPortalWorkspace() {
                 className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
               >
                 {/* Section Header */}
-                <div className="border-b border-slate-200 dark:border-slate-800 px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
+                <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4.5 w-4.5 text-emerald-600" />
-                      <h2 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="h-5 w-5 text-emerald-600" />
+                      <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                         Active &amp; Verified Businesses Directory
                       </h2>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                       Subscribed enterprises and newly onboarded businesses (in 30-day free grace period)
                     </p>
                   </div>
 
                   {/* List vs Map Toggle */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5">
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1">
                       <button
                         type="button"
                         onClick={() => setDirectoryView('list')}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
                           directoryView === 'list'
                             ? 'bg-slate-900 text-white dark:bg-emerald-600'
                             : 'text-slate-600 dark:text-slate-300'
                         }`}
                       >
-                        <List className="h-3.5 w-3.5" />
+                        <List className="h-4 w-4" />
                         <span>List</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setDirectoryView('map')}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
                           directoryView === 'map'
                             ? 'bg-slate-900 text-white dark:bg-emerald-600'
                             : 'text-slate-600 dark:text-slate-300'
                         }`}
                       >
-                        <MapIcon className="h-3.5 w-3.5" />
+                        <MapIcon className="h-4 w-4" />
                         <span>Map View</span>
                       </button>
                     </div>
 
                     <Link
                       href="/businesses"
-                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors"
                     >
                       <span>Full Directory</span>
-                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      <ArrowUpRight className="h-4 w-4" />
                     </Link>
                   </div>
                 </div>
@@ -1469,15 +1501,15 @@ export function CommercialPortalWorkspace() {
                 {directoryView === 'list' ? (
                   <div className="divide-y divide-slate-200 dark:divide-slate-800">
                     {filteredBusinesses.length === 0 ? (
-                      <div className="p-8 text-center space-y-2">
-                        <Building2 className="h-8 w-8 text-slate-400 mx-auto" />
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      <div className="p-10 text-center space-y-2">
+                        <Building2 className="h-9 w-9 text-slate-400 mx-auto" />
+                        <p className="text-base font-bold text-slate-800 dark:text-slate-200">
                           No businesses found for this filter
                         </p>
                         <button
                           type="button"
                           onClick={resetAllFilters}
-                          className="text-xs font-bold text-emerald-600 hover:underline"
+                          className="text-xs sm:text-sm font-bold text-emerald-600 hover:underline"
                         >
                           Show all provinces &amp; sectors
                         </button>
@@ -1486,19 +1518,19 @@ export function CommercialPortalWorkspace() {
                       filteredBusinesses.map((biz) => (
                         <div
                           key={biz.id}
-                          className="p-4 sm:p-5 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors flex flex-col sm:flex-row gap-4"
+                          className="p-5 sm:p-6 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors flex flex-col sm:flex-row gap-5"
                         >
                           {/* Thumbnail */}
-                          <div className="relative h-36 sm:h-28 sm:w-36 shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                          <div className="relative h-40 sm:h-32 sm:w-44 shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                             <Image
                               src={biz.image}
                               alt={biz.name}
                               fill
-                              sizes="(max-width: 640px) 100vw, 150px"
+                              sizes="(max-width: 640px) 100vw, 180px"
                               className="object-cover"
                             />
-                            <div className="absolute top-2 left-2">
-                              <span className="rounded-md bg-white/95 dark:bg-slate-900/95 px-2 py-0.5 text-[10px] font-bold text-slate-900 dark:text-white shadow-2xs">
+                            <div className="absolute top-2.5 left-2.5">
+                              <span className="rounded-lg bg-white/95 dark:bg-slate-900/95 px-2.5 py-1 text-[11px] font-bold text-slate-900 dark:text-white shadow-2xs">
                                 {biz.province}
                               </span>
                             </div>
@@ -1508,55 +1540,63 @@ export function CommercialPortalWorkspace() {
                           <div className="flex-1 min-w-0 flex flex-col justify-between">
                             <div>
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
                                     {biz.businessType}
                                   </span>
                                   {biz.verifiedCR14 ? (
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                                      <ShieldCheck className="h-3 w-3" />
+                                    <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                      <ShieldCheck className="h-3.5 w-3.5" />
                                       CR14 Verified
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                                    <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
                                       New Listing • Month 1 Grace
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="flex items-center gap-1 text-xs font-bold text-slate-800 dark:text-slate-200">
-                                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                                   <span>{biz.rating.toFixed(1)}</span>
-                                  <span className="text-slate-400 font-normal">({biz.reviews})</span>
+                                  <span className="text-slate-400 font-normal">
+                                    ({biz.reviews})
+                                  </span>
                                 </div>
                               </div>
 
-                              <h3 className="font-display text-base font-bold text-slate-900 dark:text-white mt-1.5">
+                              <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-2">
                                 {biz.name}
                               </h3>
 
-                              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                                <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
+                                <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
                                 <span className="truncate">
-                                  {biz.address} • <strong className="text-slate-700 dark:text-slate-300">{biz.province}</strong>
+                                  {biz.address} •{' '}
+                                  <strong className="text-slate-700 dark:text-slate-300">
+                                    {biz.province}
+                                  </strong>
                                 </span>
                               </p>
 
-                              <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 line-clamp-2">
+                              <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 line-clamp-2 leading-relaxed">
                                 {biz.specialty}
                               </p>
                             </div>
 
                             {/* Bottom Actions Bar */}
-                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
-                              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                                <strong className="text-slate-800 dark:text-slate-200">{biz.activeProductsCount}</strong> products in marketplace
+                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                <strong className="text-slate-800 dark:text-slate-200">
+                                  {biz.activeProductsCount}
+                                </strong>{' '}
+                                products in marketplace
                               </span>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2.5">
                                 <a
                                   href={`tel:${biz.phone}`}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
                                 >
                                   <Phone className="h-3.5 w-3.5" />
                                   <span>Call</span>
@@ -1567,7 +1607,7 @@ export function CommercialPortalWorkspace() {
                                   )},%20I%20found%20your%20business%20on%20Sadza%20Connect`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold transition-colors"
+                                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold transition-colors"
                                 >
                                   <MessageCircle className="h-3.5 w-3.5" />
                                   <span>WhatsApp</span>
@@ -1581,12 +1621,30 @@ export function CommercialPortalWorkspace() {
                   </div>
                 ) : (
                   /* Interactive Map View inside the Center Feed */
-                  <div className="p-4 space-y-4">
-                    <div className="relative h-[380px] w-full rounded-xl bg-[#182338] overflow-hidden border border-slate-300 dark:border-slate-700">
-                      <svg className="absolute inset-0 h-full w-full opacity-30" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M 0,180 Q 150,160 300,140 T 600,220" fill="none" stroke="#60a5fa" strokeWidth="3" />
-                        <path d="M 120,0 Q 200,200 240,400" fill="none" stroke="#facc15" strokeWidth="2.5" />
-                        <path d="M 350,40 Q 300,220 400,400" fill="none" stroke="#4ade80" strokeWidth="2" />
+                  <div className="p-5 space-y-4">
+                    <div className="relative h-[420px] w-full rounded-2xl bg-[#182338] overflow-hidden border border-slate-300 dark:border-slate-700">
+                      <svg
+                        className="absolute inset-0 h-full w-full opacity-30"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M 0,180 Q 150,160 300,140 T 600,220"
+                          fill="none"
+                          stroke="#60a5fa"
+                          strokeWidth="3"
+                        />
+                        <path
+                          d="M 120,0 Q 200,200 240,400"
+                          fill="none"
+                          stroke="#facc15"
+                          strokeWidth="2.5"
+                        />
+                        <path
+                          d="M 350,40 Q 300,220 400,400"
+                          fill="none"
+                          stroke="#4ade80"
+                          strokeWidth="2"
+                        />
                       </svg>
 
                       {filteredBusinesses.map((biz) => {
@@ -1602,13 +1660,13 @@ export function CommercialPortalWorkspace() {
                             <div
                               className={`flex items-center justify-center rounded-full border-2 border-white shadow-lg transition-transform ${
                                 isSelected
-                                  ? 'h-10 w-10 bg-emerald-600 text-white scale-110 ring-4 ring-emerald-500/40'
-                                  : 'h-8 w-8 bg-slate-900 text-amber-400 hover:scale-110'
+                                  ? 'h-11 w-11 bg-emerald-600 text-white scale-110 ring-4 ring-emerald-500/40'
+                                  : 'h-9 w-9 bg-slate-900 text-amber-400 hover:scale-110'
                               }`}
                             >
-                              <MapPin className="h-4 w-4" />
+                              <MapPin className="h-4.5 w-4.5" />
                             </div>
-                            <span className="mt-1 block rounded bg-slate-950/90 px-2 py-0.5 text-[10px] font-bold text-white whitespace-nowrap shadow">
+                            <span className="mt-1 block rounded bg-slate-950/90 px-2.5 py-0.5 text-xs font-bold text-white whitespace-nowrap shadow">
                               {biz.province}
                             </span>
                           </button>
@@ -1617,35 +1675,35 @@ export function CommercialPortalWorkspace() {
 
                       {/* Selected Pin Card */}
                       {selectedMapBusiness && (
-                        <div className="absolute bottom-3 left-3 right-3 rounded-xl bg-slate-900/95 border border-slate-700 p-3.5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-30">
+                        <div className="absolute bottom-4 left-4 right-4 rounded-xl bg-slate-900/95 border border-slate-700 p-4 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-30">
                           <div className="min-w-0">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                               {selectedMapBusiness.category} • {selectedMapBusiness.province}
                             </span>
-                            <h4 className="text-sm font-bold text-white truncate">
+                            <h4 className="text-base font-bold text-white truncate">
                               {selectedMapBusiness.name}
                             </h4>
-                            <p className="text-xs text-slate-300 truncate">
+                            <p className="text-xs sm:text-sm text-slate-300 truncate">
                               {selectedMapBusiness.address}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2.5 shrink-0">
                             <a
                               href={`https://www.google.com/maps/search/?api=1&query=${selectedMapBusiness.lat},${selectedMapBusiness.lng}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white inline-flex items-center gap-1"
+                              className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white inline-flex items-center gap-1"
                             >
                               <span>GPS</span>
-                              <ExternalLink className="h-3 w-3" />
+                              <ExternalLink className="h-3.5 w-3.5" />
                             </a>
                             <a
                               href={`https://wa.me/${selectedMapBusiness.whatsapp}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white inline-flex items-center gap-1"
+                              className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white inline-flex items-center gap-1.5"
                             >
-                              <MessageCircle className="h-3.5 w-3.5" />
+                              <MessageCircle className="h-4 w-4" />
                               <span>WhatsApp</span>
                             </a>
                           </div>
@@ -1665,25 +1723,25 @@ export function CommercialPortalWorkspace() {
                 id="jobs"
                 className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
               >
-                <div className="border-b border-slate-200 dark:border-slate-800 px-4 sm:px-5 py-4 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
+                <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/40">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4.5 w-4.5 text-emerald-600" />
-                      <h2 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                    <div className="flex items-center gap-2.5">
+                      <Briefcase className="h-5 w-5 text-emerald-600" />
+                      <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                         Latest Job Vacancies from Verified Businesses
                       </h2>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                       Direct recruitment by active employers across Zimbabwe
                     </p>
                   </div>
 
                   <Link
                     href="/jobs"
-                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shrink-0"
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors shrink-0"
                   >
                     <span>All Jobs</span>
-                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </div>
 
@@ -1691,34 +1749,34 @@ export function CommercialPortalWorkspace() {
                   {filteredJobs.map((job) => (
                     <div
                       key={job.id}
-                      className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                      className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
                     >
-                      <div className="space-y-1 min-w-0">
+                      <div className="space-y-1.5 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                          <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
                             {job.category}
                           </span>
-                          <span className="rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold">
+                          <span className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 text-xs font-bold">
                             {job.type}
                           </span>
-                          <span className="text-[11px] text-slate-400">{job.posted}</span>
+                          <span className="text-xs text-slate-400">{job.posted}</span>
                         </div>
 
-                        <h3 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                        <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                           {job.title}
                         </h3>
 
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
                             {job.company}
                           </span>
                           <span>•</span>
                           <span className="inline-flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-emerald-600" />
+                            <MapPin className="h-3.5 w-3.5 text-emerald-600" />
                             {job.province}
                           </span>
                           <span>•</span>
-                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
                             {job.salary}
                           </span>
                         </div>
@@ -1730,7 +1788,7 @@ export function CommercialPortalWorkspace() {
                           setSelectedJob(job);
                           setAppliedSuccess(false);
                         }}
-                        className="shrink-0 rounded-xl bg-slate-900 hover:bg-emerald-600 dark:bg-white dark:text-slate-900 dark:hover:bg-emerald-500 dark:hover:text-white text-white px-4 py-2 text-xs font-bold transition-colors cursor-pointer"
+                        className="shrink-0 rounded-xl bg-slate-900 hover:bg-emerald-600 dark:bg-white dark:text-slate-900 dark:hover:bg-emerald-500 dark:hover:text-white text-white px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
                       >
                         Quick Apply
                       </button>
@@ -1743,37 +1801,82 @@ export function CommercialPortalWorkspace() {
 
           {/* =================================================================
               RIGHT SIDEBAR: PAID BUSINESS ADVERTS, 30-DAY GRACE RULES & UTILITIES
-              (3 cols on lg+ desktops; stacks cleanly below feed on tablet/mobile)
+              Filterable by Province/Sector + linked to dedicated `/adverts` page!
           ================================================================= */}
           <aside
             aria-label="Sponsored Business Adverts and Business Tools"
             className={`${
               feedFocus !== 'all' && feedFocus !== 'adverts' ? 'hidden lg:block' : 'block'
-            } lg:col-span-3 lg:sticky lg:top-24 space-y-5`}
+            } lg:col-span-3 lg:sticky lg:top-24 space-y-6`}
           >
-            {/* Card 1: PAID BUSINESS ADVERTS (Sponsored Flyers & Promotions) */}
+            {/* Card 1: PAID BUSINESS ADVERTS (Filterable + Dedicated Page Link) */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
-              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Megaphone className="h-4 w-4 text-amber-400" />
-                  <h2 className="text-xs font-bold uppercase tracking-wider">
-                    Sponsored Business Adverts
-                  </h2>
+              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-900 text-white px-5 py-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Megaphone className="h-4.5 w-4.5 text-amber-400" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider">
+                      Sponsored Adverts
+                    </h2>
+                  </div>
+                  <Link
+                    href="/adverts"
+                    className="inline-flex items-center gap-1 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 px-2.5 py-1 text-xs font-bold text-amber-300 transition-colors"
+                  >
+                    <span>All Adverts ({paidAdverts.length})</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
-                <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-300">
-                  Paid Partners
-                </span>
+
+                {/* Filter Mode Toggle inside Sidebar */}
+                <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+                  <span className="text-slate-300 truncate">
+                    {advertFilterMode === 'matching' &&
+                    (selectedSector !== 'All' || selectedProvince !== 'All Provinces')
+                      ? hasExactMatchingAdverts
+                        ? `Filtered: ${
+                            selectedProvince !== 'All Provinces' ? selectedProvince : selectedSector
+                          }`
+                        : 'Showing National Featured Ads'
+                      : 'Showing Active Paid Promotions'}
+                  </span>
+
+                  <div className="inline-flex rounded-lg bg-slate-800 p-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setAdvertFilterMode('matching')}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${
+                        advertFilterMode === 'matching'
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Match Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdvertFilterMode('all')}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${
+                        advertFilterMode === 'all'
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      All Ads
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3.5 space-y-3.5">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-3.5">
-                  {INITIAL_PAID_ADVERTS.map((ad) => (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4">
+                  {displayedAdverts.map((ad) => (
                     <div
                       key={ad.id}
                       className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden hover:border-amber-500/60 transition-colors"
                     >
                       <div>
-                        <div className="relative h-28 w-full bg-slate-200 dark:bg-slate-800">
+                        <div className="relative h-36 w-full bg-slate-200 dark:bg-slate-800">
                           <Image
                             src={ad.image}
                             alt={ad.headline}
@@ -1781,34 +1884,40 @@ export function CommercialPortalWorkspace() {
                             sizes="(max-width: 1024px) 100vw, 25vw"
                             className="object-cover"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-                          <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                            <span className="rounded bg-amber-400 text-slate-950 px-2 py-0.5 text-[10px] font-extrabold uppercase">
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+                          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                            <span className="rounded-md bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[11px] font-extrabold uppercase">
                               {ad.promoBadge}
                             </span>
-                            <span className="rounded bg-slate-900/90 text-white px-2 py-0.5 text-[10px] font-semibold">
+                            <span className="rounded-md bg-slate-900/90 text-white px-2.5 py-0.5 text-[11px] font-semibold">
                               {ad.province}
                             </span>
                           </div>
-                          <div className="absolute bottom-2 left-2.5 right-2.5">
-                            <p className="text-[11px] font-bold text-amber-300 truncate">
+                          <div className="absolute bottom-2.5 left-3 right-3">
+                            <p className="text-xs font-bold text-amber-300 truncate">
                               {ad.businessName}
                             </p>
                           </div>
                         </div>
 
-                        <div className="p-3 space-y-1.5">
-                          <h3 className="font-display text-xs font-bold text-slate-900 dark:text-white leading-snug">
+                        <div className="p-3.5 space-y-2">
+                          <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white leading-snug">
                             {ad.headline}
                           </h3>
-                          <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
                             {ad.offerText}
                           </p>
+                          {ad.promoPriceUSD && (
+                            <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
+                              Promo: USD ${ad.promoPriceUSD.toLocaleString()}{' '}
+                              {ad.priceZiG ? `/ ${ad.priceZiG.toLocaleString()} ZiG` : ''}
+                            </p>
+                          )}
                         </div>
                       </div>
 
-                      <div className="px-3 pb-3 pt-2 border-t border-slate-200/80 dark:border-slate-700/70 flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-700/70 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                           {ad.validUntil}
                         </span>
                         <a
@@ -1819,9 +1928,9 @@ export function CommercialPortalWorkspace() {
                           )}"%20on%20Sadza%20Connect.`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg bg-slate-900 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-2.5 py-1 text-[11px] font-bold transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition-colors"
                         >
-                          <MessageCircle className="h-3 w-3" />
+                          <MessageCircle className="h-3.5 w-3.5" />
                           <span>Claim Offer</span>
                         </a>
                       </div>
@@ -1829,70 +1938,81 @@ export function CommercialPortalWorkspace() {
                   ))}
                 </div>
 
-                {/* CTA to place a paid advert */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPaymentPlan('Listing_plus_advert');
-                    setPaymentSuccess(false);
-                    setPaymentModalOpen(true);
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-500/60 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/70 py-2.5 px-3 text-xs font-bold text-amber-900 dark:text-amber-300 transition-colors cursor-pointer"
-                >
-                  <Megaphone className="h-3.5 w-3.5 text-amber-600" />
-                  <span>Place Your Business Advert Here</span>
-                </button>
+                {/* Actions: Publish Advert & View All Adverts Page */}
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setCreateAdvertOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-amber-500/70 bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-100/80 py-3 px-3.5 text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-300 transition-colors cursor-pointer"
+                  >
+                    <Megaphone className="h-4 w-4 text-amber-600" />
+                    <span>Advertise Your Product Here ($20)</span>
+                  </button>
+
+                  <Link
+                    href="/adverts"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2.5 px-3 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                  >
+                    <span>Browse All {paidAdverts.length} Business Adverts &amp; Filter</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
 
             {/* Card 2: How Business Registration & 1-Month Grace Period Works */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs space-y-3.5">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
-                  <ShieldCheck className="h-4.5 w-4.5" />
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                     Business Listing Policy
                   </h3>
-                  <p className="text-[11px] text-slate-500">Transparent 30-Day Grace Model</p>
+                  <p className="text-xs text-slate-500">Transparent 30-Day Grace Model</p>
                 </div>
               </div>
 
-              <ol className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+              <ol className="space-y-3 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                 <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                     1
                   </span>
                   <span>
-                    <strong className="text-slate-900 dark:text-white">Month 1 Free Grace:</strong> Every new business gets 30 days of free directory listing and product uploads upon registration.
+                    <strong className="text-slate-900 dark:text-white">Month 1 Free Grace:</strong>{' '}
+                    Every new business gets 30 days of free directory listing and product uploads upon registration.
                   </span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                     2
                   </span>
                   <span>
-                    <strong className="text-slate-900 dark:text-white">Automated Reminders:</strong> Receive dashboard, email, and WhatsApp notices 7 days and 3 days before your grace period expires.
+                    <strong className="text-slate-900 dark:text-white">Automated Reminders:</strong>{' '}
+                    Receive dashboard, email, and WhatsApp notices 7 days and 3 days before your grace period expires.
                   </span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                     3
                   </span>
                   <span>
-                    <strong className="text-slate-900 dark:text-white">Monthly Subscription:</strong> Continue after Day 30 for <strong className="text-emerald-700 dark:text-emerald-400">$15/month</strong> (EcoCash, InnBucks, or Card) to keep products &amp; adverts active.
+                    <strong className="text-slate-900 dark:text-white">Monthly Subscription:</strong>{' '}
+                    Continue after Day 30 for{' '}
+                    <strong className="text-emerald-700 dark:text-emerald-400">$15/month</strong>{' '}
+                    (EcoCash, InnBucks, or Card) to keep products &amp; adverts active.
                   </span>
                 </li>
               </ol>
 
-              <div className="pt-1 flex flex-col gap-2">
+              <div className="pt-1 flex flex-col gap-2.5">
                 <Link
                   href="/signup?role=business"
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3 text-xs font-bold transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-3.5 text-xs sm:text-sm font-bold transition-colors"
                 >
                   <span>Start 1-Month Free Grace</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-4 w-4" />
                 </Link>
                 <button
                   type="button"
@@ -1901,43 +2021,47 @@ export function CommercialPortalWorkspace() {
                     setPaymentSuccess(false);
                     setPaymentModalOpen(true);
                   }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 py-2 px-3 text-xs font-semibold transition-colors cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 py-2.5 px-3.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
                 >
-                  <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
+                  <CreditCard className="h-4 w-4 text-emerald-600" />
                   <span>Make Business Payment</span>
                 </button>
               </div>
             </div>
 
             {/* Card 3: Quick Utility & Trade Desk */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs space-y-3">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-3.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Zap className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <Zap className="h-4.5 w-4.5 text-emerald-600" />
                   Quick Utility &amp; Trade Desk
                 </span>
-                <span className="text-[10px] font-semibold text-emerald-600">24/7 Live</span>
+                <span className="text-xs font-semibold text-emerald-600">24/7 Live</span>
               </div>
 
-              <div className="space-y-2 text-xs">
+              <div className="space-y-2.5 text-xs sm:text-sm">
                 <Link
                   href="/bill-payments"
-                  className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 hover:border-emerald-500 transition-colors"
+                  className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 p-3 hover:border-emerald-500 transition-colors"
                 >
                   <div>
                     <p className="font-bold text-slate-900 dark:text-white">ZESA Prepaid Tokens</p>
-                    <p className="text-[11px] text-slate-500">Instant 20-digit meter recharge</p>
+                    <p className="text-xs text-slate-500">Instant 20-digit meter recharge</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-400" />
                 </Link>
 
                 <Link
-                  href="/pricing"
-                  className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 hover:border-emerald-500 transition-colors"
+                  href="/adverts"
+                  className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 p-3 hover:border-emerald-500 transition-colors"
                 >
                   <div>
-                    <p className="font-bold text-slate-900 dark:text-white">Corporate CR14 Verification</p>
-                    <p className="text-[11px] text-slate-500">Get the official verified badge</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      All Sponsored Business Adverts
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Filter promotions across 10 provinces
+                    </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-400" />
                 </Link>
@@ -1956,10 +2080,10 @@ export function CommercialPortalWorkspace() {
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
             onClick={() => setMobileFiltersOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-xs bg-white dark:bg-slate-900 h-full overflow-y-auto p-4 flex flex-col justify-between shadow-2xl">
+          <div className="relative z-10 w-full max-w-xs bg-white dark:bg-slate-900 h-full overflow-y-auto p-5 flex flex-col justify-between shadow-2xl">
             <div className="space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
                   Filter Commercial Portal
                 </h3>
                 <button
@@ -1977,7 +2101,7 @@ export function CommercialPortalWorkspace() {
                   Province (10 Provinces)
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {PROVINCES.map((prov) => (
+                  {CLEAN_PROVINCES.map((prov) => (
                     <button
                       key={prov}
                       type="button"
@@ -2023,7 +2147,7 @@ export function CommercialPortalWorkspace() {
                   Commercial Sector
                 </label>
                 <div className="space-y-1">
-                  {BUSINESS_SECTORS.map((sec) => (
+                  {COMMERCIAL_SECTORS.map((sec) => (
                     <button
                       key={sec.id}
                       type="button"
@@ -2063,14 +2187,14 @@ export function CommercialPortalWorkspace() {
       )}
 
       {/* =====================================================================
-          MODAL 1: BUSINESS SUBSCRIPTION & PAID ADVERT PAYMENT DESK
+          MODAL 1: BUSINESS SUBSCRIPTION PAYMENT DESK
       ===================================================================== */}
       {paymentModalOpen && (
         <Modal
           isOpen={paymentModalOpen}
           onClose={() => setPaymentModalOpen(false)}
-          title="Business Subscription & Paid Adverts Desk"
-          description="After your 1-month free grace period, keep your business and products active or book a sponsored advert slot."
+          title="Business Subscription & Renewal Desk"
+          description="After your 1-month free grace period, keep your business and products active across Sadza Connect."
         >
           {paymentSuccess ? (
             <div className="py-6 text-center space-y-4">
@@ -2080,25 +2204,20 @@ export function CommercialPortalWorkspace() {
               <h4 className="font-display text-lg font-bold text-slate-900 dark:text-white">
                 Payment Confirmed — Account Active!
               </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+              <p className="text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
                 Your business subscription is now active for the next 30 days. Your directory profile, marketplace products, and promotional tools are unlocked.
               </p>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => setPaymentModalOpen(false)}
-              >
+              <Button variant="primary" size="md" onClick={() => setPaymentModalOpen(false)}>
                 Return to Commercial Portal
               </Button>
             </div>
           ) : (
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              {/* Plan Choice */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setSelectedPaymentPlan('monthly_listing')}
-                  className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                  className={`rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
                     selectedPaymentPlan === 'monthly_listing'
                       ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 dark:border-slate-700'
@@ -2110,7 +2229,7 @@ export function CommercialPortalWorkspace() {
                     </span>
                     <span className="text-sm font-extrabold text-emerald-600">$15/mo</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Active directory listing + unlimited marketplace product uploads after your 1-month grace.
                   </p>
                 </button>
@@ -2118,7 +2237,7 @@ export function CommercialPortalWorkspace() {
                 <button
                   type="button"
                   onClick={() => setSelectedPaymentPlan('Listing_plus_advert')}
-                  className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                  className={`rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
                     selectedPaymentPlan === 'Listing_plus_advert'
                       ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 ring-2 ring-amber-500/20'
                       : 'border-slate-200 dark:border-slate-700'
@@ -2130,13 +2249,12 @@ export function CommercialPortalWorkspace() {
                     </span>
                     <span className="text-sm font-extrabold text-amber-600">$35/mo</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Full subscription + Sponsored Right-Sidebar Advert Banner seen across the homepage.
                   </p>
                 </button>
               </div>
 
-              {/* Currency & Payment Channel */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -2166,7 +2284,9 @@ export function CommercialPortalWorkspace() {
                   </label>
                   <select
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'ecocash' | 'innbucks' | 'card')}
+                    onChange={(e) =>
+                      setPaymentMethod(e.target.value as 'ecocash' | 'innbucks' | 'card')
+                    }
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
                   >
                     <option value="ecocash">EcoCash Express</option>
@@ -2182,7 +2302,7 @@ export function CommercialPortalWorkspace() {
                 required
               />
 
-              <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-3 flex items-center justify-between text-xs">
+              <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-3.5 flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-600 dark:text-slate-300">
                   Total Due Today:
                 </span>
@@ -2212,7 +2332,129 @@ export function CommercialPortalWorkspace() {
       )}
 
       {/* =====================================================================
-          MODAL 2: UPLOAD PRODUCT TO LIVE STREAM ("Products Coming & Going")
+          MODAL 2: PUBLISH PAID BUSINESS ADVERT (Appears immediately in Sidebar & /adverts)
+      ===================================================================== */}
+      {createAdvertOpen && (
+        <Modal
+          isOpen={createAdvertOpen}
+          onClose={() => setCreateAdvertOpen(false)}
+          title="Advertise Your Product or Business Promotion"
+          description="Once published, your advert appears immediately in the Homepage Right Sidebar and on the All Adverts (/adverts) page."
+        >
+          <form onSubmit={handlePublishNewAdvert} className="space-y-3.5">
+            <Input
+              label="Business Name"
+              placeholder="e.g. Midlands Solar & Power Systems"
+              required
+              value={adBizName}
+              onChange={(e) => setAdBizName(e.target.value)}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Commercial Sector (For Filtering)
+                </label>
+                <select
+                  value={adCategory}
+                  onChange={(e) => setAdCategory(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
+                >
+                  {COMMERCIAL_SECTORS.filter((s) => s.id !== 'All').map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Province (For Filtering)
+                </label>
+                <select
+                  value={adProvince}
+                  onChange={(e) => setAdProvince(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
+                >
+                  {CLEAN_PROVINCES.filter((p) => p !== 'All Provinces').map((prov) => (
+                    <option key={prov} value={prov}>
+                      {prov}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <Input
+              label="Advert Headline"
+              placeholder="e.g. 15% Off Bulk PPC Cement + Free Flatbed Delivery"
+              required
+              value={adHeadline}
+              onChange={(e) => setAdHeadline(e.target.value)}
+            />
+
+            <Input
+              label="Offer Description"
+              placeholder="Describe the promotion, minimum order, or warranty..."
+              required
+              value={adOfferText}
+              onChange={(e) => setAdOfferText(e.target.value)}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Promo Badge"
+                placeholder="e.g. SAVE $250"
+                required
+                value={adBadge}
+                onChange={(e) => setAdBadge(e.target.value)}
+              />
+              <Input
+                label="Promo Price (USD)"
+                type="number"
+                step="0.01"
+                placeholder="e.g. 495"
+                value={adPriceUSD}
+                onChange={(e) => setAdPriceUSD(e.target.value)}
+              />
+              <Input
+                label="WhatsApp Number"
+                placeholder="263772111222"
+                required
+                value={adWhatsapp}
+                onChange={(e) => setAdWhatsapp(e.target.value)}
+              />
+            </div>
+
+            <div className="rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                30-Day Sponsored Sidebar + Adverts Directory Placement:
+              </span>
+              <span className="font-display text-base font-extrabold text-amber-700 dark:text-amber-400">
+                USD $20.00
+              </span>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="md"
+                type="button"
+                onClick={() => setCreateAdvertOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" size="md" type="submit">
+                Publish Advert Live
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* =====================================================================
+          MODAL 3: UPLOAD PRODUCT TO LIVE STREAM ("Products Coming & Going")
       ===================================================================== */}
       {uploadProductOpen && (
         <Modal
@@ -2240,7 +2482,7 @@ export function CommercialPortalWorkspace() {
                   onChange={(e) => setNewProdCategory(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
                 >
-                  {BUSINESS_SECTORS.filter((s) => s.id !== 'All').map((s) => (
+                  {COMMERCIAL_SECTORS.filter((s) => s.id !== 'All').map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.label}
                     </option>
@@ -2257,7 +2499,7 @@ export function CommercialPortalWorkspace() {
                   onChange={(e) => setNewProdProvince(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
                 >
-                  {PROVINCES.filter((p) => p !== 'All Provinces').map((prov) => (
+                  {CLEAN_PROVINCES.filter((p) => p !== 'All Provinces').map((prov) => (
                     <option key={prov} value={prov}>
                       {prov}
                     </option>
@@ -2310,7 +2552,7 @@ export function CommercialPortalWorkspace() {
       )}
 
       {/* =====================================================================
-          MODAL 3: PRODUCT QUICK VIEW
+          MODAL 4: PRODUCT QUICK VIEW
       ===================================================================== */}
       {quickViewProduct && (
         <Modal
@@ -2320,7 +2562,7 @@ export function CommercialPortalWorkspace() {
           description={`${quickViewProduct.category} • Listed by ${quickViewProduct.sellerName} (${quickViewProduct.province})`}
         >
           <div className="space-y-4">
-            <div className="relative h-48 w-full rounded-xl overflow-hidden bg-slate-100">
+            <div className="relative h-52 w-full rounded-xl overflow-hidden bg-slate-100">
               <Image
                 src={quickViewProduct.image}
                 alt={quickViewProduct.title}
@@ -2329,7 +2571,7 @@ export function CommercialPortalWorkspace() {
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800 p-3.5 border border-slate-200 dark:border-slate-700">
               <div>
                 <p className="text-xs text-slate-500">Commercial Price</p>
                 <p className="font-display text-lg font-extrabold text-slate-900 dark:text-white">
@@ -2339,19 +2581,23 @@ export function CommercialPortalWorkspace() {
                   </span>
                 </p>
               </div>
-              <span className="rounded-md bg-emerald-100 text-emerald-800 px-2.5 py-1 text-xs font-bold">
+              <span className="rounded-lg bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold">
                 {quickViewProduct.province}
               </span>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               {quickViewProduct.description}
             </p>
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
               <div className="text-xs">
-                <p className="font-bold text-slate-900 dark:text-white">{quickViewProduct.sellerName}</p>
-                <p className="text-slate-500">{quickViewProduct.sellerType} • {quickViewProduct.sellerPlan}</p>
+                <p className="font-bold text-slate-900 dark:text-white">
+                  {quickViewProduct.sellerName}
+                </p>
+                <p className="text-slate-500">
+                  {quickViewProduct.sellerType} • {quickViewProduct.sellerPlan}
+                </p>
               </div>
               <a
                 href={`https://wa.me/${quickViewProduct.whatsapp}?text=Hi%20${encodeURIComponent(
@@ -2372,7 +2618,7 @@ export function CommercialPortalWorkspace() {
       )}
 
       {/* =====================================================================
-          MODAL 4: JOB QUICK APPLY
+          MODAL 5: JOB QUICK APPLY
       ===================================================================== */}
       {selectedJob && (
         <Modal
@@ -2432,7 +2678,12 @@ export function CommercialPortalWorkspace() {
                 </p>
               </div>
               <div className="pt-2 flex justify-end gap-2">
-                <Button variant="outline" size="md" type="button" onClick={() => setSelectedJob(null)}>
+                <Button
+                  variant="outline"
+                  size="md"
+                  type="button"
+                  onClick={() => setSelectedJob(null)}
+                >
                   Cancel
                 </Button>
                 <Button variant="primary" size="md" type="submit">
