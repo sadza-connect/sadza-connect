@@ -28,17 +28,17 @@ import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
 const PROVINCES = [
-  'Harare Province (Harare, Chitungwiza)',
-  'Bulawayo Province (Bulawayo Metro)',
-  'Midlands Province (Gweru, Kwekwe)',
-  'Manicaland Province (Mutare, Chipinge)',
-  'Masvingo Province (Masvingo, Chiredzi)',
-  'Mashonaland East (Marondera, Goromonzi)',
-  'Mashonaland West (Chinhoyi, Kadoma)',
-  'Mashonaland Central (Bindura, Mazowe)',
-  'Matabeleland North (Victoria Falls, Hwange)',
-  'Matabeleland South (Gwanda, Beitbridge)',
-  'Diaspora (UK, South Africa, Global)',
+  'Harare',
+  'Bulawayo',
+  'Midlands',
+  'Manicaland',
+  'Masvingo',
+  'Mashonaland East',
+  'Mashonaland West',
+  'Mashonaland Central',
+  'Matabeleland North',
+  'Matabeleland South',
+  'Diaspora',
 ];
 
 function SignupFormContent() {

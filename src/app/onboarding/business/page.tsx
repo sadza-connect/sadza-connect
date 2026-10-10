@@ -37,6 +37,7 @@ import {
   Handshake,
   BadgeCheck,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 export type BusinessType = 'sole_proprietor' | 'sme_partnership' | 'registered_company' | 'cooperative';
@@ -46,17 +47,17 @@ export type OfferingType = 'products' | 'services' | 'both';
 export type ServiceMode = 'physical_premises' | 'mobile_delivery' | 'both_modes';
 
 const PROVINCES = [
-  'Harare Province (Harare, Chitungwiza)',
-  'Bulawayo Province (Bulawayo Metro)',
-  'Midlands Province (Gweru, Kwekwe)',
-  'Manicaland Province (Mutare, Chipinge)',
-  'Masvingo Province (Masvingo, Chiredzi)',
-  'Mashonaland East (Marondera, Goromonzi)',
-  'Mashonaland West (Chinhoyi, Kadoma)',
-  'Mashonaland Central (Bindura, Mazowe)',
-  'Matabeleland North (Victoria Falls, Hwange)',
-  'Matabeleland South (Gwanda, Beitbridge)',
-  'Diaspora (UK, South Africa, Global)',
+  'Harare',
+  'Bulawayo',
+  'Midlands',
+  'Manicaland',
+  'Masvingo',
+  'Mashonaland East',
+  'Mashonaland West',
+  'Mashonaland Central',
+  'Matabeleland North',
+  'Matabeleland South',
+  'Diaspora',
 ];
 
 interface BusinessTypeOption {
@@ -167,11 +168,11 @@ interface UploadedDocument {
 function BusinessOnboardingContent() {
   const searchParams = useSearchParams();
 
-  // Retrieve initial account values passed from signup
-  const initialName = searchParams.get('name') || '';
-  const initialOwner = searchParams.get('owner') || '';
-  const initialEmail = searchParams.get('email') || '';
-  const initialPhone = searchParams.get('phone') || '';
+  // Immutable registered account values passed from signup
+  const registeredBusinessName = searchParams.get('name') || 'Your Registered Business';
+  const registeredOwner = searchParams.get('owner') || '';
+  const registeredEmail = searchParams.get('email') || 'verified@business.co.zw';
+  const registeredPhone = searchParams.get('phone') || '+263 77 000 0000';
   const isEmailVerified = searchParams.get('verified') === 'true';
 
   // 4-step interactive onboarding + Step 5 completion screen
@@ -182,21 +183,25 @@ function BusinessOnboardingContent() {
   const [businessScale, setBusinessScale] = useState<BusinessScale>('small_team');
   const [operatingYears, setOperatingYears] = useState<OperatingYears>('1_to_3');
 
-  // Step 2: Business Name, Industry Sector & Offerings
-  const [businessName, setBusinessName] = useState(initialName || '');
+  // Step 2: Optional Trading Name, Industry Sector & Offerings (Registered Business Name is locked)
+  const [tradingName, setTradingName] = useState('');
   const [sector, setSector] = useState(INDUSTRY_CATEGORIES[0].name);
   const [customSector, setCustomSector] = useState('');
   const [offeringType, setOfferingType] = useState<OfferingType>('both');
   const [description, setDescription] = useState('');
   const [step2Error, setStep2Error] = useState('');
 
-  // Step 3: Location & Contact Details
+  // Step 3: Location & Additional Public Contact Details (Registered Email & Phone are locked)
   const [serviceMode, setServiceMode] = useState<ServiceMode>('both_modes');
-  const [province, setProvince] = useState(searchParams.get('province') || PROVINCES[0]);
+  const [province, setProvince] = useState(() => {
+    const paramProv = searchParams.get('province');
+    if (paramProv && PROVINCES.includes(paramProv)) return paramProv;
+    return PROVINCES[0];
+  });
   const [city, setCity] = useState('Harare');
   const [streetAddress, setStreetAddress] = useState('');
-  const [contactPhone, setContactPhone] = useState(initialPhone || '');
-  const [contactEmail, setContactEmail] = useState(initialEmail || '');
+  const [publicWhatsApp, setPublicWhatsApp] = useState('');
+  const [publicEmail, setPublicEmail] = useState('');
   const [step3Error, setStep3Error] = useState('');
 
   // Step 4: Verification Documents
@@ -244,10 +249,6 @@ function BusinessOnboardingContent() {
   const handleContinueFromStep2 = (e: React.FormEvent) => {
     e.preventDefault();
     setStep2Error('');
-    if (!businessName.trim()) {
-      setStep2Error('Please enter your business or trading name.');
-      return;
-    }
     if (sector.startsWith('Other') && !customSector.trim()) {
       setStep2Error('Please specify your custom industry or trade.');
       return;
@@ -274,7 +275,7 @@ function BusinessOnboardingContent() {
     }, 600);
   };
 
-  const displayBusinessName = businessName.trim() || initialName || 'Your Business Name';
+  const displayBusinessName = tradingName.trim() || registeredBusinessName;
   const displaySector = sector.startsWith('Other')
     ? customSector.trim() || 'Specialized Business'
     : sector;
@@ -312,11 +313,11 @@ function BusinessOnboardingContent() {
           </div>
 
           <div className="flex items-center gap-4">
-            {(isEmailVerified || initialEmail) && (
+            {(isEmailVerified || registeredEmail) && (
               <div className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>
-                  Email Confirmed{initialEmail ? `: ${initialEmail}` : ''}
+                  Email Confirmed{registeredEmail ? `: ${registeredEmail}` : ''}
                 </span>
               </div>
             )}
@@ -416,8 +417,8 @@ function BusinessOnboardingContent() {
                       <span>Step 1 of 4 • Business Classification</span>
                     </div>
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      {initialOwner
-                        ? `Welcome, ${initialOwner.split(' ')[0]}. Tell us about your business.`
+                      {registeredOwner
+                        ? `Welcome, ${registeredOwner.split(' ')[0]}. Tell us about your business.`
                         : 'Tell us what type of business you operate'}
                     </h1>
                     <p className="mt-2.5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -656,26 +657,59 @@ function BusinessOnboardingContent() {
                     </div>
                   )}
 
-                  {/* Question 1: Business / Trading Name */}
-                  <div className="space-y-3">
-                    <label
-                      htmlFor="business-name-input"
-                      className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
-                    >
-                      1. What is your Business or Trading Name? <span className="text-emerald-600">*</span>
-                    </label>
-                    <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">
-                      Enter the name that customers see on your shop, invoices, or business profile.
-                    </p>
-                    <input
-                      id="business-name-input"
-                      type="text"
-                      required
-                      value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
-                      placeholder="e.g. Midlands Solar & Agro Solutions"
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 px-4 text-base sm:text-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
-                    />
+                  {/* Question 1: Locked Registered Business Name + Optional Trading Name */}
+                  <div className="space-y-5">
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <label
+                          htmlFor="registered-business-name"
+                          className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
+                        >
+                          1. Registered Business Name
+                        </label>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          <Lock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Locked to Registration</span>
+                        </span>
+                      </div>
+                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mb-3">
+                        This is the official business name used when creating your account and cannot be altered here.
+                      </p>
+                      <div className="relative flex items-center">
+                        <Building2 className="pointer-events-none absolute left-4 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                        <input
+                          id="registered-business-name"
+                          type="text"
+                          readOnly
+                          disabled
+                          value={registeredBusinessName}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/60 py-3.5 pl-12 pr-10 text-base sm:text-lg text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
+                        />
+                        <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-slate-400" />
+                      </div>
+                    </div>
+
+                    {/* Optional Trading As (DBA) Name */}
+                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/30 border border-slate-200/80 dark:border-slate-800 space-y-2">
+                      <label
+                        htmlFor="trading-name-input"
+                        className="block text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200"
+                      >
+                        Trading As / Storefront Display Name <span className="text-xs font-normal text-slate-500">(Optional)</span>
+                      </label>
+                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                        Only fill this in if your shop or brand trades publicly under a different name than your registered name above.
+                      </p>
+                      <input
+                        id="trading-name-input"
+                        type="text"
+                        maxLength={80}
+                        value={tradingName}
+                        onChange={(e) => setTradingName(e.target.value)}
+                        placeholder={`Leave blank to display "${registeredBusinessName}"`}
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 px-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
+                      />
+                    </div>
                   </div>
 
                   {/* Question 2: Primary Industry Sector */}
@@ -741,6 +775,7 @@ function BusinessOnboardingContent() {
                         <input
                           type="text"
                           required
+                          maxLength={80}
                           value={customSector}
                           onChange={(e) => setCustomSector(e.target.value)}
                           placeholder="e.g. Borehole Drilling, Poultry Hatchery, Event Equipment Hire, Borehole Siting..."
@@ -825,18 +860,24 @@ function BusinessOnboardingContent() {
 
                   {/* Question 4: Clear Business Description */}
                   <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <label
-                      htmlFor="business-description"
-                      className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
-                    >
-                      4. Briefly describe your main products or services
-                    </label>
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="business-description"
+                        className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
+                      >
+                        4. Briefly describe your main products or services
+                      </label>
+                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                        {description.length}/500
+                      </span>
+                    </div>
                     <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">
-                      Write 1 or 2 clear sentences explaining what customers can buy from you or hire you for.
+                      Write a clear summary explaining what customers can buy from you or hire you for.
                     </p>
                     <textarea
                       id="business-description"
-                      rows={3}
+                      rows={4}
+                      maxLength={500}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder={`e.g. We supply and install reliable ${displaySector.toLowerCase()} solutions for homes, farms, and businesses with full after-sales support.`}
@@ -884,7 +925,7 @@ function BusinessOnboardingContent() {
                       Where is your business located?
                     </h1>
                     <p className="mt-2.5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Help customers find your premises or know which areas you serve, and confirm the phone number and email they should use to reach you.
+                      Help customers find your premises or know which areas you serve. Your registered email and phone number are locked for security, and you can optionally add a public WhatsApp or sales email below.
                     </p>
                   </div>
 
@@ -974,7 +1015,7 @@ function BusinessOnboardingContent() {
                         2. Operating Location &amp; Address <span className="text-emerald-600">*</span>
                       </h2>
                       <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Used to list your business in local and provincial searches.
+                        Select your province and enter the city or town where your business is based.
                       </p>
                     </div>
 
@@ -984,7 +1025,7 @@ function BusinessOnboardingContent() {
                           htmlFor="province-select"
                           className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-2"
                         >
-                          Province / Region <span className="text-emerald-600">*</span>
+                          Province <span className="text-emerald-600">*</span>
                         </label>
                         <div className="relative flex items-center">
                           <MapPin className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -1018,6 +1059,7 @@ function BusinessOnboardingContent() {
                           id="city-input"
                           type="text"
                           required
+                          maxLength={60}
                           value={city}
                           onChange={(e) => setCity(e.target.value)}
                           placeholder="e.g. Harare, Bulawayo, Gweru, Mutare"
@@ -1035,6 +1077,7 @@ function BusinessOnboardingContent() {
                         <input
                           id="street-address-input"
                           type="text"
+                          maxLength={120}
                           value={streetAddress}
                           onChange={(e) => setStreetAddress(e.target.value)}
                           placeholder="e.g. Stand 405, 5th Street, Light Industrial Site, or CBD Shop 12"
@@ -1044,33 +1087,87 @@ function BusinessOnboardingContent() {
                     </div>
                   </div>
 
-                  {/* Question 3: Business Phone / WhatsApp & Email */}
-                  <div className="space-y-5 pt-6 border-t border-slate-200 dark:border-slate-800">
+                  {/* Question 3: Locked Registration Credentials + Optional Public Contact Channels */}
+                  <div className="space-y-6 pt-6 border-t border-slate-200 dark:border-slate-800">
                     <div>
                       <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        3. Direct Business Contact Details
+                        3. Account &amp; Customer Contact Details
                       </h2>
                       <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Customers will use these details to call, WhatsApp, or email your business for inquiries.
+                        Your registered email and phone number are permanently tied to your account and cannot be changed here. If you have a separate active WhatsApp line or sales email for customer inquiries, you may add them below.
                       </p>
                     </div>
 
+                    {/* Locked Primary Registration Credentials */}
+                    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                          <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>Registered Account Credentials (Locked)</span>
+                        </span>
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          Verified
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                            Registered Phone Number
+                          </label>
+                          <div className="relative flex items-center">
+                            <Phone className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
+                            <input
+                              type="tel"
+                              readOnly
+                              disabled
+                              value={registeredPhone}
+                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900/70 py-3 pl-10 pr-9 text-sm sm:text-base text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
+                            />
+                            <Lock className="pointer-events-none absolute right-3.5 h-4 w-4 text-slate-400" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                            Registered Email Address
+                          </label>
+                          <div className="relative flex items-center">
+                            <Mail className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
+                            <input
+                              type="email"
+                              readOnly
+                              disabled
+                              value={registeredEmail}
+                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900/70 py-3 pl-10 pr-9 text-sm sm:text-base text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
+                            />
+                            <Lock className="pointer-events-none absolute right-3.5 h-4 w-4 text-slate-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Optional Secondary / Public Customer Inquiry Channels */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label
-                          htmlFor="business-phone"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-2"
+                          htmlFor="public-whatsapp"
+                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
                         >
-                          Business Phone / WhatsApp Number
+                          Active WhatsApp / Sales Line <span className="text-xs font-normal text-slate-500">(Optional)</span>
                         </label>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                          Leave blank to use your registered phone number.
+                        </p>
                         <div className="relative flex items-center">
                           <Phone className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                           <input
-                            id="business-phone"
+                            id="public-whatsapp"
                             type="tel"
-                            value={contactPhone}
-                            onChange={(e) => setContactPhone(e.target.value)}
-                            placeholder="e.g. +263 77 123 4567"
+                            maxLength={25}
+                            value={publicWhatsApp}
+                            onChange={(e) => setPublicWhatsApp(e.target.value)}
+                            placeholder="e.g. +263 78 000 0000"
                             className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 pl-12 pr-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
                           />
                         </div>
@@ -1078,18 +1175,22 @@ function BusinessOnboardingContent() {
 
                       <div>
                         <label
-                          htmlFor="business-email"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-2"
+                          htmlFor="public-email"
+                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
                         >
-                          Business Contact Email
+                          Active Sales / Inquiry Email <span className="text-xs font-normal text-slate-500">(Optional)</span>
                         </label>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                          Leave blank to use your registered email address.
+                        </p>
                         <div className="relative flex items-center">
                           <Mail className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                           <input
-                            id="business-email"
+                            id="public-email"
                             type="email"
-                            value={contactEmail}
-                            onChange={(e) => setContactEmail(e.target.value)}
+                            maxLength={80}
+                            value={publicEmail}
+                            onChange={(e) => setPublicEmail(e.target.value)}
                             placeholder="e.g. sales@yourbusiness.co.zw"
                             className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 pl-12 pr-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
                           />
@@ -1322,8 +1423,8 @@ function BusinessOnboardingContent() {
             {/* =================================================================
                 RIGHT SIDEBAR: LIVE BUSINESS PROFILE SUMMARY (4 Columns on Desktop)
                 ================================================================= */}
-            <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-6">
-              <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-sm space-y-6">
+            <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-6 min-w-0">
+              <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-sm space-y-6 overflow-hidden">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Your Business Summary
@@ -1335,15 +1436,20 @@ function BusinessOnboardingContent() {
                 </div>
 
                 {/* Business Identity Header */}
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 min-w-0">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white font-bold text-lg shadow-sm">
                     {initials}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white break-words">
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white break-words [overflow-wrap:anywhere] line-clamp-2">
                       {displayBusinessName}
                     </h3>
-                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    {tradingName.trim() && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        Registered: {registeredBusinessName}
+                      </p>
+                    )}
+                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mt-0.5 break-words [overflow-wrap:anywhere] line-clamp-2">
                       {displaySector}
                     </p>
                   </div>
@@ -1352,28 +1458,28 @@ function BusinessOnboardingContent() {
                 {/* Structured Profile Details */}
                 <div className="space-y-3.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-sm">
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400">Business Type</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right">
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Business Type</span>
+                    <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
                       {selectedTypeObj.badgeText}
                     </span>
                   </div>
 
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400">Team Size</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right">
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Team Size</span>
+                    <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
                       {selectedScaleObj.label} ({selectedScaleObj.teamRange})
                     </span>
                   </div>
 
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400">Experience</span>
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Experience</span>
                     <span className="font-semibold text-slate-900 dark:text-white text-right">
                       {selectedYearsObj.sub}
                     </span>
                   </div>
 
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400">Main Offering</span>
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Main Offering</span>
                     <span className="font-semibold text-slate-900 dark:text-white text-right capitalize">
                       {offeringType === 'both'
                         ? 'Products & Services'
@@ -1384,24 +1490,24 @@ function BusinessOnboardingContent() {
                   </div>
 
                   <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400">Location</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right">
-                      {city || 'City'}, {province.split(' ')[0]}
+                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Location</span>
+                    <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
+                      {city || 'City'}, {province}
                     </span>
                   </div>
 
-                  {initialOwner && (
+                  {registeredOwner && (
                     <div className="flex items-start justify-between gap-3">
-                      <span className="text-slate-500 dark:text-slate-400">Account Owner</span>
-                      <span className="font-semibold text-slate-900 dark:text-white text-right">
-                        {initialOwner}
+                      <span className="text-slate-500 dark:text-slate-400 shrink-0">Account Owner</span>
+                      <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
+                        {registeredOwner}
                       </span>
                     </div>
                   )}
                 </div>
 
                 {description.trim() && (
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-h-36 overflow-y-auto overflow-x-hidden break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
                     &ldquo;{description.trim()}&rdquo;
                   </div>
                 )}
@@ -1431,7 +1537,7 @@ function BusinessOnboardingContent() {
               <h1 className="mt-5 text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 Your Business Profile is Ready!
               </h1>
-              <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed break-words [overflow-wrap:anywhere]">
                 {verificationSkipped
                   ? `${displayBusinessName} is now listed on Sadza Connect as a ${selectedTypeObj.badgeText}. You can upload verification documents anytime from your dashboard.`
                   : `${displayBusinessName} is now active and your verification documents have been submitted to our review team.`}
@@ -1439,15 +1545,15 @@ function BusinessOnboardingContent() {
             </div>
 
             {/* Official Business Profile Summary Card */}
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 lg:p-10 shadow-sm space-y-6">
+            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 lg:p-10 shadow-sm space-y-6 overflow-hidden">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white font-bold text-xl">
                     {initials}
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 break-words [overflow-wrap:anywhere]">
                         {displaySector}
                       </span>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
@@ -1455,7 +1561,7 @@ function BusinessOnboardingContent() {
                         {selectedTypeObj.badgeText}
                       </span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1 break-words [overflow-wrap:anywhere]">
                       {displayBusinessName}
                     </h2>
                   </div>
@@ -1489,16 +1595,16 @@ function BusinessOnboardingContent() {
                   <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold">
                     Location
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-white mt-1 block">
-                    {city}, {province.split(' ')[0]}
+                  <span className="font-semibold text-slate-900 dark:text-white mt-1 block break-words [overflow-wrap:anywhere]">
+                    {city}, {province}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold">
                     Direct Contact
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-white mt-1 block">
-                    {contactPhone || initialEmail || 'Configured'}
+                  <span className="font-semibold text-slate-900 dark:text-white mt-1 block break-words [overflow-wrap:anywhere]">
+                    {publicWhatsApp.trim() || registeredPhone || publicEmail.trim() || registeredEmail}
                   </span>
                 </div>
               </div>
