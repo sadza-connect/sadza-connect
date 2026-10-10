@@ -36,19 +36,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Read from localStorage or system preference
-    const stored = localStorage.getItem('sadza-theme') as Theme | null;
-    let initial: Theme = 'light';
-    if (stored === 'light' || stored === 'dark' || stored === 'system') {
-      initial = stored;
-    }
+    // Always default to light mode unless user explicitly chose dark mode
+    const stored = localStorage.getItem('sadza-theme-v2');
+    const initial: Theme = stored === 'dark' ? 'dark' : 'light';
 
     setThemeState(initial);
 
-    // Compute initial resolved theme
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialResolved: ResolvedTheme =
-      initial === 'system' ? (prefersDark ? 'dark' : 'light') : initial;
+    const initialResolved: ResolvedTheme = initial === 'dark' ? 'dark' : 'light';
 
     setResolvedTheme(initialResolved);
 
@@ -164,19 +158,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('sadza-theme', newTheme);
+    const target: ResolvedTheme = newTheme === 'dark' ? 'dark' : 'light';
+    setThemeState(target);
+    localStorage.setItem('sadza-theme-v2', target);
+    localStorage.removeItem('sadza-theme');
 
-    let nextResolved: ResolvedTheme = 'light';
-    if (newTheme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      nextResolved = prefersDark ? 'dark' : 'light';
-    } else {
-      nextResolved = newTheme;
-    }
-
-    if (nextResolved !== resolvedTheme) {
-      triggerThemeTransition(nextResolved);
+    if (target !== resolvedTheme) {
+      triggerThemeTransition(target);
     }
   };
 

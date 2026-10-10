@@ -42,9 +42,8 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const stored = localStorage.getItem('sadza-theme');
-                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const isDark = stored === 'dark' || (!stored && prefersDark);
+                const stored = localStorage.getItem('sadza-theme-v2');
+                const isDark = stored === 'dark';
                 if (isDark) {
                   document.documentElement.classList.add('dark');
                   document.documentElement.style.colorScheme = 'dark';
