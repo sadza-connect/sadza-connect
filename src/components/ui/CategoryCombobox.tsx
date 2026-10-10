@@ -177,17 +177,17 @@ export function CategoryCombobox({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between gap-2.5 rounded-xl border py-2.5 px-3.5 text-xs text-left transition-all font-medium ${
+        className={`w-full flex items-center justify-between gap-3 rounded-xl border py-3.5 px-4 text-sm sm:text-base text-left transition-all font-medium ${
           isOpen
             ? 'border-emerald-500 ring-2 ring-emerald-500/25 bg-white dark:bg-slate-900 shadow-sm'
-            : 'border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 hover:border-slate-400 dark:hover:border-slate-600'
+            : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/90 hover:border-slate-400 dark:hover:border-slate-600'
         } ${error ? '!border-rose-500 !ring-rose-500/20' : ''}`}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           {selectedCategory ? (
             <>
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
-                {renderIcon(selectedCategory.iconName, 'h-3.5 w-3.5')}
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                {renderIcon(selectedCategory.iconName, 'h-4 w-4')}
               </div>
               <span className="truncate text-slate-900 dark:text-white font-semibold">
                 {selectedCategory.name}
@@ -195,19 +195,19 @@ export function CategoryCombobox({
             </>
           ) : (
             <span className="text-slate-400 dark:text-slate-500">
-              Search or select category (e.g. Solar, Mining, Transport)...
+              Search or select your business sector (e.g. Solar, Agriculture, Retail)...
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0 text-slate-400">
+        <div className="flex items-center gap-2 shrink-0 text-slate-400">
           {selectedCategory && (
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50">
-              Change
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
+              Change Sector
             </span>
           )}
           <ChevronDown
-            className={`h-4 w-4 transition-transform duration-200 ${
+            className={`h-5 w-5 transition-transform duration-200 ${
               isOpen ? 'rotate-180 text-emerald-500' : ''
             }`}
           />
@@ -222,9 +222,9 @@ export function CategoryCombobox({
           className="absolute z-50 mt-1.5 w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 backdrop-blur-md"
         >
           {/* Search Input Header */}
-          <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/80">
+          <div className="p-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/80">
             <div className="relative flex items-center">
-              <Search className="pointer-events-none absolute left-3 h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <Search className="pointer-events-none absolute left-3.5 h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -233,8 +233,8 @@ export function CategoryCombobox({
                   setSearchQuery(e.target.value);
                   setHighlightedIndex(0);
                 }}
-                placeholder="Type to search (e.g. solar, mining, haulage, food)..."
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 py-2 pl-9 pr-8 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
+                placeholder="Type to search (e.g. solar, mining, haulage, food, retail)..."
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 py-2.5 pl-10 pr-9 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
               />
               {searchQuery && (
                 <button
@@ -243,19 +243,19 @@ export function CategoryCombobox({
                     setSearchQuery('');
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
                   aria-label="Clear search"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
 
             {/* Quick Popular Filter Chips */}
             {!searchQuery && (
-              <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] text-slate-500 dark:text-slate-400 no-scrollbar">
-                <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Popular:</span>
-                {['Solar', 'Agriculture', 'Mining', 'Transport', 'Hardware', 'IT'].map((tag) => (
+              <div className="mt-2.5 flex items-center gap-2 overflow-x-auto pb-1 text-xs text-slate-500 dark:text-slate-400 no-scrollbar">
+                <span className="text-xs uppercase font-bold text-slate-400 shrink-0">Popular:</span>
+                {['Solar', 'Agriculture', 'Mining', 'Transport', 'Hardware', 'IT', 'Retail'].map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -263,7 +263,7 @@ export function CategoryCombobox({
                       setSearchQuery(tag);
                       setHighlightedIndex(0);
                     }}
-                    className="shrink-0 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 transition-colors"
+                    className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 transition-colors font-medium"
                   >
                     {tag}
                   </button>
@@ -275,7 +275,7 @@ export function CategoryCombobox({
           {/* Results List */}
           <div
             ref={listRef}
-            className="max-h-60 overflow-y-auto p-1.5 space-y-1 divide-y divide-slate-100/50 dark:divide-slate-800/50 scroll-smooth"
+            className="max-h-72 overflow-y-auto p-2 space-y-1 divide-y divide-slate-100/50 dark:divide-slate-800/50 scroll-smooth"
           >
             {filtered.length > 0 ? (
               filtered.map((cat, index) => {
@@ -289,7 +289,7 @@ export function CategoryCombobox({
                     aria-selected={isSelected}
                     onClick={() => handleSelect(cat.name)}
                     onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`flex items-start justify-between gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${
+                    className={`flex items-start justify-between gap-3.5 p-3 rounded-xl cursor-pointer transition-colors ${
                       isHighlighted
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200'
                         : isSelected
@@ -297,29 +297,29 @@ export function CategoryCombobox({
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                     }`}
                   >
-                    <div className="flex items-start gap-2.5 min-w-0">
+                    <div className="flex items-start gap-3 min-w-0">
                       <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                           isSelected || isHighlighted
                             ? 'bg-emerald-600 text-white shadow-xs'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                         }`}
                       >
-                        {renderIcon(cat.iconName, 'h-3.5 w-3.5')}
+                        {renderIcon(cat.iconName, 'h-4 w-4')}
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-xs truncate">
+                          <span className="font-bold text-sm truncate">
                             {cat.name}
                           </span>
                           {cat.popular && !searchQuery && (
-                            <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
-                              Core
+                            <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300">
+                              Core Sector
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
                           {cat.description}
                         </p>
                       </div>
@@ -327,7 +327,7 @@ export function CategoryCombobox({
 
                     {isSelected && (
                       <div className="shrink-0 text-emerald-600 dark:text-emerald-400 self-center">
-                        <Check className="h-4 w-4" />
+                        <Check className="h-5 w-5" />
                       </div>
                     )}
                   </div>
