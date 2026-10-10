@@ -2,12 +2,10 @@
   command = "npm run build"
   publish = ".next"
 
+[build.environment]
+  # Prevent Netlify Secrets Scanner from flagging non-secret config values
+  # (like NODE_ENV="production", PORT="3000", API_PREFIX="/api/v1", DB_NAME="postgres", etc.)
+  SECRETS_SCAN_OMIT_KEYS = "API_PREFIX,RATE_LIMIT_WINDOW_MS,RATE_LIMIT_MAX,NEXT_PUBLIC_SITE_URL,NEXT_PUBLIC_API_URL,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,HOST,DB_NAME,DB_PORT,DB_SSL,DB_USER,DB_HOST,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_EXPIRES_IN,JWT_REFRESH_EXPIRES_IN,NODE_ENV,CORS_ORIGINS,FRONTEND_URL,PORT,EMAIL_FROM,SUPABASE_URL,SUPABASE_ANON_KEY"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-# Note for Cross-Hosting (Netlify Frontend + Render Backend):
-# In your Netlify dashboard under:
-# Site configuration > Environment variables
-# Add:
-#   NEXT_PUBLIC_API_URL = https://<your-render-app-name>.onrender.com/api/v1
-# Then trigger a redeploy with "Clear cache and deploy site".
