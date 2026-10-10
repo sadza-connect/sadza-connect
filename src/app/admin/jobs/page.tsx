@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Briefcase, Trash2, Search } from 'lucide-react';
-import { SAMPLE_JOBS, JobOpening } from '@/lib/data/zimbabwe';
+import { SAMPLE_JOBS, JobOpening } from '../../../lib/data/zimbabwe';
 
 export default function AdminJobsPage() {
   const [jobs, setJobs] = useState<JobOpening[]>(SAMPLE_JOBS);

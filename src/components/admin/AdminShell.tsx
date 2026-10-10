@@ -14,9 +14,9 @@ import {
   Building2,
   Loader2,
 } from 'lucide-react';
-import { ADMIN_NAV } from '@/lib/data/admin-nav';
+import { ADMIN_NAV } from '../../lib/data/admin-nav';
 import { Logo } from '@/components/ui/Logo';
-import { cn } from '@/lib/utils/cn';
+import { cn } from '../../lib/utils/cn';
 import { useAuth } from '@/context/AuthContext';
 
 export interface AdminUser {

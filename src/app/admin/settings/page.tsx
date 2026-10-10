@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Settings, Save, CheckCircle2, RefreshCw } from 'lucide-react';
-import { DEFAULT_USD_TO_ZIG_RATE } from '@/lib/utils/currency';
+import { DEFAULT_USD_TO_ZIG_RATE } from '../../../lib/utils/currency';
 
 export default function AdminSettingsPage() {
   const [exchangeRate, setExchangeRate] = useState(DEFAULT_USD_TO_ZIG_RATE.toString());

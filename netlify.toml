@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Note for Cross-Hosting (Netlify Frontend + Render Backend):
+# In your Netlify dashboard under:
+# Site configuration > Environment variables
+# Add:
+#   NEXT_PUBLIC_API_URL = https://<your-render-app-name>.onrender.com/api/v1
+# Then trigger a redeploy with "Clear cache and deploy site".

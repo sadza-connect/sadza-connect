@@ -22,6 +22,7 @@ import {
 import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 import { useAuth } from '@/context/AuthContext';
 import { useCelebration } from '@/context/CelebrationContext';
+import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -59,20 +60,20 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-      const res = await fetch(`${apiUrl}/auth/login`, {
+      const apiUrl = getApiBaseUrl();
+      const result = await safeFetchJson(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error?.message || data.message || 'Invalid email or password.');
+      if (!result.ok) {
+        throw new Error(result.error || 'Invalid email or password.');
       }
 
-      if (data.data?.accessToken) {
+      const data = result.data;
+
+      if (data?.data?.accessToken) {
         login({
           user: data.data.user,
           accessToken: data.data.accessToken,
@@ -84,11 +85,11 @@ export default function LoginPage() {
       triggerCelebration({
         type: 'login',
         title: 'Welcome Back!',
-        message: `Signed in successfully as ${data.data?.user?.fullName || data.data?.user?.email || identifier}.`,
-        userName: data.data?.user?.fullName,
+        message: `Signed in successfully as ${data?.data?.user?.fullName || data?.data?.user?.email || identifier}.`,
+        userName: data?.data?.user?.fullName,
       });
 
-      const destination = data.data?.user?.role === 'admin' ? '/admin' : '/';
+      const destination = data?.data?.user?.role === 'admin' ? '/admin' : '/';
       router.push(destination);
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication failed. Please verify your credentials.');
@@ -103,8 +104,8 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-      await fetch(`${apiUrl}/auth/forgot-password`, {
+      const apiUrl = getApiBaseUrl();
+      await safeFetchJson(`${apiUrl}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotInput.trim().toLowerCase() }),

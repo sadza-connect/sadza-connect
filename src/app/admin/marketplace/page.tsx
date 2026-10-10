@@ -8,8 +8,8 @@ import {
   Search,
   ExternalLink,
 } from 'lucide-react';
-import { SAMPLE_PRODUCTS, MarketplaceProduct } from '@/lib/data/zimbabwe';
-import { formatDualCurrency } from '@/lib/utils/currency';
+import { SAMPLE_PRODUCTS, MarketplaceProduct } from '../../../lib/data/zimbabwe';
+import { formatDualCurrency } from '../../../lib/utils/currency';
 
 export default function AdminMarketplacePage() {
   const [products, setProducts] = useState<MarketplaceProduct[]>(SAMPLE_PRODUCTS);
