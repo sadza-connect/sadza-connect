@@ -467,7 +467,7 @@ export function EmptyState({
  * ========================================================================== */
 
 const fieldBase =
-  'w-full rounded-xl border border-[#c8d2e0] bg-white px-4 text-sm text-[#0a1018] placeholder:text-[#9aabc4] transition-colors focus:border-[#1e57eb] focus:outline-none focus:ring-4 focus:ring-[#1e57eb]/10 disabled:opacity-60 read-only:bg-[#f4f6f9] read-only:text-[#465a7e]';
+  'w-full rounded-xl border border-[#c8d2e0] bg-white px-4 text-base text-[#0a1018] placeholder:text-[#9aabc4] transition-colors focus:border-[#1e57eb] focus:outline-none focus:ring-4 focus:ring-[#1e57eb]/10 disabled:opacity-60 read-only:bg-[#f4f6f9] read-only:text-[#465a7e] sm:text-sm';
 
 export function Field({
   label,
@@ -489,9 +489,9 @@ export function Field({
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (
-        <label htmlFor={htmlFor} className="text-xs font-bold uppercase tracking-wider text-[#2c3a52]">
+        <label htmlFor={htmlFor} className="text-[13px] font-medium text-[#2c3a52]">
           {label}
-          {required && <span className="ml-0.5 text-[#1e57eb]">*</span>}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
         </label>
       )}
       {children}
@@ -612,68 +612,125 @@ export const AdminSelect = forwardRef<HTMLSelectElement, AdminSelectProps>(funct
 });
 
 /* ============================================================================
- * 6. PORTAL-RENDERED EXECUTIVE MODAL (WITH FRAMER MOTION SPRING)
+ * 6. RESPONSIVE MODAL SYSTEM
+ *
+ *  - Phones (< 640px): full-width bottom sheet that slides up, with drag handle.
+ *  - Tablet/Desktop:   centred dialog.
+ *  - Header is fixed, body scrolls, and <ModalFooter> sticks to the bottom so
+ *    the primary action is ALWAYS visible — no scrolling to find "Save".
+ *
+ *  Recommended structure:
+ *
+ *    <AdminModal open onClose title description icon={Plus}>
+ *      <form onSubmit={save}>
+ *        <ModalBody>
+ *          <ModalSection title="Basics" description="Optional helper text">
+ *            <ModalGrid> ...fields... </ModalGrid>
+ *          </ModalSection>
+ *        </ModalBody>
+ *        <ModalFooter>
+ *          <AdminButton variant="outline" type="button" onClick={close}>Cancel</AdminButton>
+ *          <AdminButton type="submit">Save</AdminButton>
+ *        </ModalFooter>
+ *      </form>
+ *    </AdminModal>
  * ========================================================================== */
 
 const MODAL_SIZES = {
-  sm: 'max-w-md',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
-  '2xl': 'max-w-5xl',
-  full: 'max-w-[96vw]',
+  sm: 'sm:max-w-md',
+  md: 'sm:max-w-lg',
+  lg: 'sm:max-w-2xl',
+  xl: 'sm:max-w-3xl',
+  '2xl': 'sm:max-w-4xl',
+  full: 'sm:max-w-[min(96vw,1200px)]',
 };
+
+function useIsPhone() {
+  const [isPhone, setIsPhone] = React.useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const update = () => setIsPhone(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return isPhone;
+}
 
 export function AdminModal({
   open,
   onClose,
   title,
   description,
+  icon: Icon,
   children,
   size = 'lg',
   className,
   bare = false,
+  tone = 'default',
 }: {
   open: boolean;
   onClose: () => void;
   title?: React.ReactNode;
   description?: React.ReactNode;
+  icon?: LucideIcon;
   children: React.ReactNode;
   size?: keyof typeof MODAL_SIZES;
   className?: string;
   bare?: boolean;
+  tone?: 'default' | 'danger';
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const isPhone = useIsPhone();
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const lastFocused = document.activeElement as HTMLElement | null;
+    const t = window.setTimeout(() => panelRef.current?.focus({ preventScroll: true }), 30);
 
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onCloseRef.current();
     }
     document.addEventListener('keydown', onKey);
     return () => {
+      window.clearTimeout(t);
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKey);
+      lastFocused?.focus?.({ preventScroll: true });
     };
   }, [open]);
 
   if (typeof document === 'undefined') return null;
 
+  const motionProps = isPhone
+    ? {
+        initial: { y: '100%' },
+        animate: { y: 0 },
+        exit: { y: '100%' },
+        transition: { type: 'spring' as const, stiffness: 420, damping: 40 },
+      }
+    : {
+        initial: { opacity: 0, y: 12, scale: 0.98 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: 8, scale: 0.98 },
+        transition: { type: 'spring' as const, stiffness: 420, damping: 34 },
+      };
+
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-5">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center sm:p-6">
           <motion.div
-            className="absolute inset-0 bg-[#0a1018]/60 backdrop-blur-sm print:hidden"
+            className="absolute inset-0 bg-[#0a1018]/55 backdrop-blur-[3px] print:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
             onClick={onClose}
             aria-hidden
           />
@@ -681,44 +738,263 @@ export function AdminModal({
             ref={panelRef}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            tabIndex={-1}
             className={cn(
-              'relative z-10 flex max-h-[calc(100svh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-[#c8d2e0]/80 bg-white text-[#0a1018] shadow-[0_24px_60px_-12px_rgba(10,16,24,0.38)]',
+              'relative z-10 flex w-full flex-col overflow-hidden bg-white text-[#0a1018] outline-none',
+              'max-h-[92svh] rounded-t-3xl shadow-[0_-12px_40px_-8px_rgba(10,16,24,0.35)]',
+              'sm:max-h-[min(88svh,920px)] sm:rounded-2xl sm:border sm:border-[#c8d2e0]/80 sm:shadow-[0_24px_60px_-12px_rgba(10,16,24,0.38)]',
               MODAL_SIZES[size],
               className
             )}
-            initial={{ opacity: 0, y: 16, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-            tabIndex={-1}
+            {...motionProps}
           >
-            {!bare && (
-              <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e6eaf1] bg-[#f4f6f9]/60 px-6 py-5">
-                <div>
+            {/* Drag handle (phones) */}
+            <div className="flex shrink-0 justify-center pt-2.5 sm:hidden" aria-hidden>
+              <span className="h-1.5 w-10 rounded-full bg-[#c8d2e0]" />
+            </div>
+
+            {!bare && (title || description) && (
+              <div className="flex shrink-0 items-start gap-3 border-b border-[#e6eaf1] px-5 pb-4 pt-3 sm:px-7 sm:py-5">
+                {Icon && (
+                  <span
+                    className={cn(
+                      'mt-0.5 hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex',
+                      tone === 'danger' ? 'bg-red-50 text-red-600' : 'bg-[#eef5ff] text-[#1e57eb]'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
                   {title && (
-                    <h3 className="font-display text-lg font-bold text-[#0a1018]">{title}</h3>
+                    <h3
+                      id={titleId}
+                      className="font-display text-base font-bold leading-snug text-[#0a1018] sm:text-lg"
+                    >
+                      {title}
+                    </h3>
                   )}
-                  {description && <p className="mt-1 text-xs text-[#465a7e]">{description}</p>}
+                  {description && (
+                    <p className="mt-1 text-[13px] leading-relaxed text-[#5a6e90]">{description}</p>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="-m-1.5 rounded-xl border border-[#c8d2e0]/80 bg-white p-2 text-[#465a7e] transition-colors hover:bg-[#e6eaf1] hover:text-[#0a1018] cursor-pointer"
+                  className="-mr-1.5 -mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#6b81a5] transition-colors hover:bg-[#f0f3f8] hover:text-[#0a1018] cursor-pointer"
                   aria-label="Close dialog"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             )}
-            {bare ? (
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
-            ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+
+            {bare && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-xl bg-white/90 text-[#6b81a5] shadow-sm transition-colors hover:bg-white hover:text-[#0a1018] cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="h-5 w-5" />
+              </button>
             )}
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&>form]:flex [&>form]:min-h-full [&>form]:flex-col">
+              {children}
+            </div>
           </motion.div>
         </div>
       )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+/** Padded, vertically spaced content area for a modal. */
+export function ModalBody({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex-1 space-y-6 px-5 py-5 sm:px-7 sm:py-6', className)}>{children}</div>
+  );
+}
+
+/** A titled group of fields. Consecutive sections get a subtle divider. */
+export function ModalSection({
+  title,
+  description,
+  children,
+  className,
+}: {
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        'space-y-4 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-[#eef1f6] [&:not(:first-child)]:pt-6',
+        className
+      )}
+    >
+      {(title || description) && (
+        <div>
+          {title && <h4 className="text-sm font-semibold text-[#0a1018]">{title}</h4>}
+          {description && (
+            <p className="mt-0.5 text-xs leading-relaxed text-[#6b81a5]">{description}</p>
+          )}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/** Responsive field grid: 1 column on phones, 2 (or 3) on larger screens. */
+export function ModalGrid({
+  children,
+  cols = 2,
+  className,
+}: {
+  children: React.ReactNode;
+  cols?: 2 | 3;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-4',
+        cols === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3',
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Sticky action bar. Buttons stack full-width on phones (primary on top). */
+export function ModalFooter({
+  children,
+  className,
+  start,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** Optional left-aligned content on desktop (e.g. a hint or a destructive action). */
+  start?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'sticky bottom-0 z-10 mt-auto border-t border-[#e6eaf1] bg-white/95 px-5 pt-3.5 backdrop-blur supports-[backdrop-filter]:bg-white/85 sm:px-7 sm:py-4',
+        'pb-[max(0.875rem,env(safe-area-inset-bottom))]',
+        className
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {start ? <div className="text-xs text-[#6b81a5]">{start}</div> : <span className="hidden sm:block" />}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center [&>*]:w-full sm:[&>*]:w-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Pre-built confirmation dialog (delete / remove / irreversible actions). */
+export function ConfirmModal({
+  open,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmLabel = 'Delete',
+  cancelLabel = 'Cancel',
+  tone = 'danger',
+  icon,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: React.ReactNode;
+  message: React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'danger' | 'default';
+  icon?: LucideIcon;
+}) {
+  return (
+    <AdminModal open={open} onClose={onClose} size="sm" title={title} icon={icon} tone={tone}>
+      <ModalBody>
+        <div className="text-sm leading-relaxed text-[#374966]">{message}</div>
+      </ModalBody>
+      <ModalFooter>
+        <AdminButton variant="outline" type="button" onClick={onClose}>
+          {cancelLabel}
+        </AdminButton>
+        <AdminButton
+          variant={tone === 'danger' ? 'danger' : 'primary'}
+          type="button"
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </AdminButton>
+      </ModalFooter>
+    </AdminModal>
+  );
+}
+
+/** Switch row for boolean settings inside forms (Featured, Verified, etc.). */
+export function ModalToggle({
+  label,
+  description,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: React.ReactNode;
+  description?: React.ReactNode;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
+  const id = useId();
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        'flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[#dfe5ee] bg-white px-4 py-3.5 transition-colors hover:border-[#c8d2e0]',
+        checked && 'border-[#bcd7ff] bg-[#f5f9ff]',
+        disabled && 'cursor-not-allowed opacity-60'
+      )}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-[#0a1018]">{label}</span>
+        {description && (
+          <span className="mt-0.5 block text-xs leading-relaxed text-[#6b81a5]">{description}</span>
+        )}
+      </span>
+      <span className="relative inline-flex shrink-0">
+        <input
+          id={id}
+          type="checkbox"
+          role="switch"
+          className="peer sr-only"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span className="h-6 w-11 rounded-full bg-[#c8d2e0] transition-colors peer-checked:bg-[#1e57eb] peer-focus-visible:ring-2 peer-focus-visible:ring-[#1e57eb] peer-focus-visible:ring-offset-2" />
+        <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+      </span>
+    </label>
   );
 }

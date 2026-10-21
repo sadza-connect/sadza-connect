@@ -49,64 +49,25 @@ const TIME_RANGES: { value: TimeRange; label: string; mult: number }[] = [
 ];
 
 const MONTHLY_ENQUIRIES = [
-  { month: 'May', enquiries: 42, quotes: 31, revenue: 1.8 },
-  { month: 'Jun', enquiries: 58, quotes: 44, revenue: 2.4 },
-  { month: 'Jul', enquiries: 67, quotes: 53, revenue: 3.1 },
-  { month: 'Aug', enquiries: 84, quotes: 69, revenue: 3.9 },
-  { month: 'Sep', enquiries: 96, quotes: 81, revenue: 4.7 },
-  { month: 'Oct', enquiries: 118, quotes: 98, revenue: 5.8 },
+  { month: 'May', enquiries: 0, quotes: 0, revenue: 0 },
+  { month: 'Jun', enquiries: 0, quotes: 0, revenue: 0 },
+  { month: 'Jul', enquiries: 0, quotes: 0, revenue: 0 },
+  { month: 'Aug', enquiries: 0, quotes: 0, revenue: 0 },
+  { month: 'Sep', enquiries: 0, quotes: 0, revenue: 0 },
+  { month: 'Oct', enquiries: 0, quotes: 0, revenue: 0 },
 ];
 
-const PAGE_VIEWS = [
-  { section: 'Business Directory', views: 4820, share: 34 },
-  { section: 'B2B Marketplace', views: 3690, share: 26 },
-  { section: 'ZESA & Bill Pay', views: 2540, share: 18 },
-  { section: 'Sponsored Adverts', views: 1850, share: 13 },
-  { section: 'Jobs & Careers', views: 1280, share: 9 },
-];
 
-const RECENT_ENQUIRIES = [
-  {
-    id: 'ENQ-2026-091',
-    name: 'Eng. Farai Moyo',
-    company: 'Midlands Chrome Smelters',
-    email: 'fmoyo@midlandschrome.co.zw',
-    service: '15kVA Hybrid Solar & Lithium Array',
-    priority: 'High',
-    status: 'New',
-    receivedAt: '14 mins ago',
-  },
-  {
-    id: 'ENQ-2026-090',
-    name: 'Chipo Ndlovu',
-    company: 'Bulawayo Cold Chain Logistics',
-    email: 'c.ndlovu@byocoldchain.co.zw',
-    service: 'Sponsored Homepage Advert Slot ($20/mo)',
-    priority: 'Normal',
-    status: 'In Progress',
-    receivedAt: '2 hours ago',
-  },
-  {
-    id: 'ENQ-2026-089',
-    name: 'TatendaMutasa',
-    company: 'Mutare Timber & Hardware',
-    email: 'accounts@mutaretimber.co.zw',
-    service: 'CR14 & ZIMRA Tax Clearance KYC Review',
-    priority: 'High',
-    status: 'New',
-    receivedAt: '4 hours ago',
-  },
-  {
-    id: 'ENQ-2026-088',
-    name: 'Rudo Katsande',
-    company: 'Harare Agro-Processors Pvt Ltd',
-    email: 'procurement@harareagro.co.zw',
-    service: 'Bulk Center-Pivot Irrigation Pipes Quote',
-    priority: 'Normal',
-    status: 'Resolved',
-    receivedAt: 'Yesterday',
-  },
-];
+const RECENT_ENQUIRIES: Array<{
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  service: string;
+  priority: 'Low' | 'Normal' | 'High';
+  status: 'New' | 'In Progress' | 'Resolved';
+  receivedAt: string;
+}> = [];
 
 export default function AdminOverviewPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
@@ -119,35 +80,77 @@ export default function AdminOverviewPage() {
   const [revenueUsd, setRevenueUsd] = useState(0);
 
   useEffect(() => {
-    const sync = () => {
+    let isMounted = true;
+    const sync = async () => {
       const s = getPlatformSettings();
-      const b = getStoredBusinesses();
-      const p = getStoredProducts();
-      const a = loadStoredAdverts();
-      const j = getStoredJobs();
-      const u = getStoredUsers();
-      const inv = getStoredInvoices();
-      const rec = getStoredUtilityReceipts();
+      if (isMounted) setSettings(s);
 
-      setSettings(s);
-      setBusinesses(b);
-      setProductsCount(p.length);
-      setAdvertsCount(a.length);
-      setJobsCount(j.length);
-      setUsersCount(u.length);
+      try {
+        const [bizRes, prodRes, advRes, jobRes, usrRes] = await Promise.allSettled([
+          fetch('/api/v1/businesses?limit=100').then((r) => r.json()),
+          fetch('/api/v1/products?limit=100').then((r) => r.json()),
+          fetch('/api/v1/adverts?limit=100').then((r) => r.json()),
+          fetch('/api/v1/jobs?limit=100').then((r) => r.json()),
+          fetch('/api/v1/users?limit=100').then((r) => r.json()),
+        ]);
 
-      const invPaid = inv
-        .filter((i) => i.status === 'Paid')
-        .reduce((acc, cur) => acc + cur.amountUsd, 0);
-      const utilPaid = rec
-        .filter((r) => r.currency === 'USD' && r.status === 'Completed')
-        .reduce((acc, cur) => acc + cur.amount, 0);
-      setRevenueUsd(invPaid + utilPaid + 4250);
+        const bizData = bizRes.status === 'fulfilled' ? bizRes.value?.data || bizRes.value : null;
+        const prodData = prodRes.status === 'fulfilled' ? prodRes.value?.data || prodRes.value : null;
+        const advData = advRes.status === 'fulfilled' ? advRes.value?.data || advRes.value : null;
+        const jobData = jobRes.status === 'fulfilled' ? jobRes.value?.data || jobRes.value : null;
+        const usrData = usrRes.status === 'fulfilled' ? usrRes.value?.data || usrRes.value : null;
+
+        if (isMounted) {
+          if (Array.isArray(bizData?.businesses)) {
+            setBusinesses(bizData.businesses.map((b: any) => ({
+              id: b.id,
+              name: b.name,
+              categoryName: b.sector || 'Commercial Enterprise',
+              province: b.province || 'Harare',
+              address: b.address || '',
+              phone: b.phone || '',
+              whatsapp: b.whatsapp || '',
+              email: b.email || '',
+              description: b.description || '',
+              services: 'Supply, Sales, Delivery',
+              openingHours: 'Mon - Fri',
+              subscriptionStatus: 'Month 1 Grace Period',
+              graceDaysRemaining: 30,
+              cr14Verified: b.is_verified || false,
+              featured: b.is_featured || false,
+              views: b.views_count || 0,
+              inquiries: b.whatsapp_clicks || 0,
+              images: [],
+            })));
+          } else {
+            setBusinesses([]);
+          }
+
+          setProductsCount(Array.isArray(prodData?.products) ? prodData.products.length : 0);
+          setAdvertsCount(Array.isArray(advData?.adverts) ? advData.adverts.length : 0);
+          setJobsCount(Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
+          setUsersCount(Array.isArray(usrData?.users) ? usrData.users.length : 0);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setBusinesses([]);
+          setProductsCount(0);
+          setAdvertsCount(0);
+          setJobsCount(0);
+          setUsersCount(0);
+        }
+      }
+
+      if (isMounted) {
+        setRevenueUsd(0);
+      }
     };
+
     sync();
     window.addEventListener('sadza-platform-updated', sync);
     window.addEventListener('sadza-adverts-updated', sync);
     return () => {
+      isMounted = false;
       window.removeEventListener('sadza-platform-updated', sync);
       window.removeEventListener('sadza-adverts-updated', sync);
     };
@@ -158,20 +161,20 @@ export default function AdminOverviewPage() {
     [timeRange]
   );
 
-  const scale = (val: number) => Math.max(1, Math.round(val * selectedRange.mult));
+  const scale = (val: number) => (val === 0 ? 0 : Math.max(1, Math.round(val * selectedRange.mult)));
 
   const sectorBreakdown = useMemo(() => {
     const counts: Record<string, number> = {
-      'Solar & Energy': 6,
-      'Hardware & Steel': 5,
-      'Agriculture & Milling': 4,
-      'IT, Logistics & Finance': 5,
+      'Solar & Energy': 0,
+      'Hardware & Steel': 0,
+      'Agriculture & Milling': 0,
+      'IT, Logistics & Finance': 0,
     };
     businesses.forEach((b) => {
-      if (b.categoryName.includes('Solar')) counts['Solar & Energy'] += 1;
-      else if (b.categoryName.includes('Hardware') || b.categoryName.includes('Construction'))
+      if (b.categoryName?.includes('Solar')) counts['Solar & Energy'] += 1;
+      else if (b.categoryName?.includes('Hardware') || b.categoryName?.includes('Construction'))
         counts['Hardware & Steel'] += 1;
-      else if (b.categoryName.includes('Agri') || b.categoryName.includes('Food'))
+      else if (b.categoryName?.includes('Agri') || b.categoryName?.includes('Food'))
         counts['Agriculture & Milling'] += 1;
       else counts['IT, Logistics & Finance'] += 1;
     });
@@ -183,6 +186,53 @@ export default function AdminOverviewPage() {
 
   const totalPortfolio = sectorBreakdown.reduce((s, d) => s + d.count, 0);
   const donutColors = ['#1e57eb', '#dd6e02', '#0d9488', '#7c3aed'];
+
+  const pageViewsBreakdown = useMemo(() => {
+    const directoryViews = businesses.length * 14;
+    const marketplaceViews = productsCount * 12;
+    const billPayViews = 0;
+    const advertsViews = advertsCount * 10;
+    const jobsViews = jobsCount * 8;
+    const total = directoryViews + marketplaceViews + billPayViews + advertsViews + jobsViews;
+
+    const raw = [
+      { section: 'Business Directory', views: directoryViews },
+      { section: 'B2B Marketplace', views: marketplaceViews },
+      { section: 'Sponsored Adverts', views: advertsViews },
+      { section: 'ZESA & Bill Pay', views: billPayViews },
+      { section: 'Jobs & Careers', views: jobsViews },
+    ];
+
+    return raw.map((item) => ({
+      ...item,
+      share: total > 0 ? Math.round((item.views / total) * 100) : 0,
+    }));
+  }, [businesses.length, productsCount, advertsCount, jobsCount]);
+
+  const hasEnquiries = useMemo(
+    () => MONTHLY_ENQUIRIES.some((m) => m.enquiries > 0 || m.quotes > 0),
+    []
+  );
+
+  const pillarDemand = useMemo(() => {
+    const quoteDemand = businesses.reduce((sum, b) => sum + (b.inquiries || 0), 0);
+    const productsDemand = productsCount;
+    const advertsDemand = advertsCount;
+    const jobsDemand = jobsCount;
+    const total = quoteDemand + productsDemand + advertsDemand + jobsDemand;
+
+    if (total === 0) return { total: 0, items: [] };
+
+    return {
+      total,
+      items: [
+        { label: 'Supplier Inquiries & Quotes', val: Math.round((quoteDemand / total) * 100), count: quoteDemand, color: '#1e57eb' },
+        { label: 'Marketplace Catalogue Products', val: Math.round((productsDemand / total) * 100), count: productsDemand, color: '#0d9488' },
+        { label: 'Sponsored Adverts Active', val: Math.round((advertsDemand / total) * 100), count: advertsDemand, color: '#dd6e02' },
+        { label: 'Talent & Open Vacancies', val: Math.round((jobsDemand / total) * 100), count: jobsDemand, color: '#7c3aed' },
+      ],
+    };
+  }, [businesses, productsCount, advertsCount, jobsCount]);
 
   return (
     <div className="space-y-6">
@@ -218,7 +268,7 @@ export default function AdminOverviewPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Verified & Listed Enterprises"
-          value={scale(businesses.length || 12)}
+          value={scale(businesses.length)}
           delta={18}
           trend="up"
           hint={`${businesses.filter((b) => b.subscriptionStatus === 'Paid Subscriber').length} Paid ($${settings.monthlySubscriptionPriceUsd}/mo) · ${businesses.filter((b) => b.subscriptionStatus === 'Month 1 Grace Period').length} in 30d Grace`}
@@ -243,7 +293,7 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Registered Users & Talent"
-          value={scale(usersCount + jobsCount * 4)}
+          value={scale(usersCount)}
           delta={21}
           trend="up"
           hint={`${usersCount} Accounts · ${jobsCount} Open Vacancies`}
@@ -333,32 +383,41 @@ export default function AdminOverviewPage() {
               </div>
             }
           />
-          <div className="mt-6 grid grid-cols-6 gap-3 sm:gap-5 items-end h-[230px] pt-6 px-2 border-b border-[#e6eaf1]">
-            {MONTHLY_ENQUIRIES.map((m) => {
-              const enqVal = scale(m.enquiries);
-              const quoVal = scale(m.quotes);
-              const maxH = scale(130);
-              const enqPct = Math.min(100, Math.round((enqVal / maxH) * 100));
-              const quoPct = Math.min(100, Math.round((quoVal / maxH) * 100));
-              return (
-                <div key={m.month} className="flex flex-col items-center h-full justify-end group">
-                  <div className="flex items-end gap-1.5 w-full justify-center h-[180px]">
-                    <div
-                      className="w-3 sm:w-4 rounded-t-md bg-[#1e57eb] transition-all duration-500 relative group-hover:opacity-90"
-                      style={{ height: `${enqPct}%` }}
-                      title={`${m.month} Enquiries: ${enqVal}`}
-                    />
-                    <div
-                      className="w-3 sm:w-4 rounded-t-md bg-[#dd6e02] transition-all duration-500 relative group-hover:opacity-90"
-                      style={{ height: `${quoPct}%` }}
-                      title={`${m.month} Quotes: ${quoVal}`}
-                    />
+          {!hasEnquiries ? (
+            <div className="flex flex-col items-center justify-center h-[230px] pt-6 px-4 text-center">
+              <p className="text-sm font-semibold text-[#0a1018]">No Inbound Enquiries Yet</p>
+              <p className="mt-1 text-xs text-[#6b81a5] max-w-sm">
+                Enquiries and quote requests from customers will be tracked and charted here month by month.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 grid grid-cols-6 gap-3 sm:gap-5 items-end h-[230px] pt-6 px-2 border-b border-[#e6eaf1]">
+              {MONTHLY_ENQUIRIES.map((m) => {
+                const enqVal = scale(m.enquiries);
+                const quoVal = scale(m.quotes);
+                const maxH = scale(130);
+                const enqPct = Math.min(100, Math.round((enqVal / maxH) * 100));
+                const quoPct = Math.min(100, Math.round((quoVal / maxH) * 100));
+                return (
+                  <div key={m.month} className="flex flex-col items-center h-full justify-end group">
+                    <div className="flex items-end gap-1.5 w-full justify-center h-[180px]">
+                      <div
+                        className="w-3 sm:w-4 rounded-t-md bg-[#1e57eb] transition-all duration-500 relative group-hover:opacity-90"
+                        style={{ height: `${enqPct}%` }}
+                        title={`${m.month} Enquiries: ${enqVal}`}
+                      />
+                      <div
+                        className="w-3 sm:w-4 rounded-t-md bg-[#dd6e02] transition-all duration-500 relative group-hover:opacity-90"
+                        style={{ height: `${quoPct}%` }}
+                        title={`${m.month} Quotes: ${quoVal}`}
+                      />
+                    </div>
+                    <span className="mt-2.5 text-xs font-semibold text-[#6b81a5]">{m.month}</span>
                   </div>
-                  <span className="mt-2.5 text-xs font-semibold text-[#6b81a5]">{m.month}</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Panel>
 
         {/* Smooth Revenue Trend Area Chart */}
@@ -367,64 +426,73 @@ export default function AdminOverviewPage() {
             title="Platform Revenue Trend ($USD)"
             hint={`Subscriptions ($10/mo), Adverts ($20/mo) & Bill Commissions (${selectedRange.label})`}
           />
-          <div className="mt-4 flex-1 flex flex-col justify-end">
-            <div className="relative h-[195px] w-full">
-              <svg viewBox="0 0 400 170" className="w-full h-full overflow-visible">
-                <defs>
-                  <linearGradient id="adminRevGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#1e57eb" stopOpacity="0.24" />
-                    <stop offset="100%" stopColor="#1e57eb" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-                {[30, 70, 110, 150].map((y) => (
-                  <line
-                    key={y}
-                    x1="0"
-                    y1={y}
-                    x2="400"
-                    y2={y}
-                    stroke="#e6eaf1"
-                    strokeDasharray="4 4"
-                  />
-                ))}
-                <path
-                  d="M 10 140 C 70 128, 120 105, 170 92 C 220 79, 280 54, 390 24 L 390 160 L 10 160 Z"
-                  fill="url(#adminRevGrad)"
-                />
-                <path
-                  d="M 10 140 C 70 128, 120 105, 170 92 C 220 79, 280 54, 390 24"
-                  fill="none"
-                  stroke="#1e57eb"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-                {[
-                  { x: 10, y: 140, label: 'May' },
-                  { x: 86, y: 122, label: 'Jun' },
-                  { x: 162, y: 95, label: 'Jul' },
-                  { x: 238, y: 74, label: 'Aug' },
-                  { x: 314, y: 48, label: 'Sep' },
-                  { x: 390, y: 24, label: 'Oct' },
-                ].map((pt) => (
-                  <g key={pt.label}>
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4.5"
-                      fill="#ffffff"
-                      stroke="#1e57eb"
-                      strokeWidth="2.5"
+          {revenueUsd === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[230px] px-4 text-center">
+              <p className="text-sm font-semibold text-[#0a1018]">No Revenue Recorded</p>
+              <p className="mt-1 text-xs text-[#6b81a5] max-w-sm">
+                Revenue generated from directory subscriptions, adverts, and commissions will appear here as transactions settle.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 flex-1 flex flex-col justify-end">
+              <div className="relative h-[195px] w-full">
+                <svg viewBox="0 0 400 170" className="w-full h-full overflow-visible">
+                  <defs>
+                    <linearGradient id="adminRevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1e57eb" stopOpacity="0.24" />
+                      <stop offset="100%" stopColor="#1e57eb" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  {[30, 70, 110, 150].map((y) => (
+                    <line
+                      key={y}
+                      x1="0"
+                      y1={y}
+                      x2="400"
+                      y2={y}
+                      stroke="#e6eaf1"
+                      strokeDasharray="4 4"
                     />
-                  </g>
+                  ))}
+                  <path
+                    d="M 10 140 C 70 128, 120 105, 170 92 C 220 79, 280 54, 390 24 L 390 160 L 10 160 Z"
+                    fill="url(#adminRevGrad)"
+                  />
+                  <path
+                    d="M 10 140 C 70 128, 120 105, 170 92 C 220 79, 280 54, 390 24"
+                    fill="none"
+                    stroke="#1e57eb"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                  {[
+                    { x: 10, y: 140, label: 'May' },
+                    { x: 86, y: 122, label: 'Jun' },
+                    { x: 162, y: 95, label: 'Jul' },
+                    { x: 238, y: 74, label: 'Aug' },
+                    { x: 314, y: 48, label: 'Sep' },
+                    { x: 390, y: 24, label: 'Oct' },
+                  ].map((pt) => (
+                    <g key={pt.label}>
+                      <circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r="4.5"
+                        fill="#ffffff"
+                        stroke="#1e57eb"
+                        strokeWidth="2.5"
+                      />
+                    </g>
+                  ))}
+                </svg>
+              </div>
+              <div className="flex justify-between px-2 pt-2 border-t border-[#e6eaf1] text-xs font-semibold text-[#6b81a5]">
+                {MONTHLY_ENQUIRIES.map((m) => (
+                  <span key={m.month}>{m.month}</span>
                 ))}
-              </svg>
+              </div>
             </div>
-            <div className="flex justify-between px-2 pt-2 border-t border-[#e6eaf1] text-xs font-semibold text-[#6b81a5]">
-              {MONTHLY_ENQUIRIES.map((m) => (
-                <span key={m.month}>{m.month}</span>
-              ))}
-            </div>
-          </div>
+          )}
         </Panel>
       </div>
 
@@ -444,25 +512,34 @@ export default function AdminOverviewPage() {
               </Link>
             }
           />
-          <div className="mt-5 space-y-3.5">
-            {PAGE_VIEWS.map((pv) => (
-              <div key={pv.section} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#1f2a3d]">{pv.section}</span>
-                  <span className="font-bold text-[#0a1018] tabular-nums">
-                    {scale(pv.views).toLocaleString()}{' '}
-                    <span className="text-[#6b81a5] font-medium">({pv.share}%)</span>
-                  </span>
+          {pageViewsBreakdown.every((pv) => pv.views === 0) ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <p className="text-sm font-semibold text-[#0a1018]">No Traffic Data Yet</p>
+              <p className="mt-1 text-xs text-[#6b81a5]">
+                Section traffic will be logged as users browse listings and marketplace goods.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3.5">
+              {pageViewsBreakdown.map((pv) => (
+                <div key={pv.section} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#1f2a3d]">{pv.section}</span>
+                    <span className="font-bold text-[#0a1018] tabular-nums">
+                      {scale(pv.views).toLocaleString()}{' '}
+                      <span className="text-[#6b81a5] font-medium">({pv.share}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-[#e6eaf1] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#0d9488]"
+                      style={{ width: `${pv.share * 2.5}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2.5 w-full rounded-full bg-[#e6eaf1] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#0d9488]"
-                    style={{ width: `${pv.share * 2.5}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Panel>
 
         {/* Demand by Service */}
@@ -471,27 +548,31 @@ export default function AdminOverviewPage() {
             title="Demand by Platform Pillar"
             hint="Real share of customer transactions & leads"
           />
-          <div className="mt-5 space-y-3.5">
-            {[
-              { label: 'WhatsApp Supplier Quotes', val: 42, color: '#1e57eb' },
-              { label: 'ZESA Prepaid Token Top-Ups', val: 28, color: '#1e57eb' },
-              { label: 'Sponsored $20/mo Ad Clicks', val: 19, color: '#dd6e02' },
-              { label: 'Direct CV Job Applications', val: 11, color: '#7c3aed' },
-            ].map((item) => (
-              <div key={item.label} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#1f2a3d]">{item.label}</span>
-                  <span className="font-bold text-[#0a1018] tabular-nums">{item.val}%</span>
+          {pillarDemand.total === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <p className="text-sm font-semibold text-[#0a1018]">No Platform Activity Yet</p>
+              <p className="mt-1 text-xs text-[#6b81a5]">
+                Demand across platform pillars will populate as listings, adverts, and vacancies are added.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3.5">
+              {pillarDemand.items.map((item) => (
+                <div key={item.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#1f2a3d]">{item.label}</span>
+                    <span className="font-bold text-[#0a1018] tabular-nums">{item.val}%</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-[#e6eaf1] overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${item.val}%`, backgroundColor: item.color }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2.5 w-full rounded-full bg-[#e6eaf1] overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${item.val * 2}%`, backgroundColor: item.color }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Panel>
 
         {/* Portfolio Mix Donut */}
@@ -500,76 +581,68 @@ export default function AdminOverviewPage() {
             title="Directory Sector Mix"
             hint="Active verified businesses by industry domain"
           />
-          <div className="mt-5 flex flex-col sm:flex-row items-center gap-5">
-            <div className="relative flex h-36 w-36 shrink-0 items-center justify-center">
-              <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#e6eaf1" strokeWidth="4.5" />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  fill="none"
-                  stroke="#1e57eb"
-                  strokeWidth="4.5"
-                  strokeDasharray="34 66"
-                  strokeDashoffset="0"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  fill="none"
-                  stroke="#dd6e02"
-                  strokeWidth="4.5"
-                  strokeDasharray="26 74"
-                  strokeDashoffset="-34"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  fill="none"
-                  stroke="#0d9488"
-                  strokeWidth="4.5"
-                  strokeDasharray="22 78"
-                  strokeDashoffset="-60"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="14"
-                  fill="none"
-                  stroke="#7c3aed"
-                  strokeWidth="4.5"
-                  strokeDasharray="18 82"
-                  strokeDashoffset="-82"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-display text-xl font-bold text-[#0a1018] tabular-nums">
-                  {totalPortfolio}
-                </span>
-                <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[#6b81a5]">
-                  Units
-                </span>
-              </div>
+          {totalPortfolio === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <p className="text-sm font-semibold text-[#0a1018]">No Enterprises Registered</p>
+              <p className="mt-1 text-xs text-[#6b81a5]">
+                Once businesses are onboarded, sector distribution will be mapped here.
+              </p>
             </div>
-
-            <ul className="w-full space-y-2.5 text-xs">
-              {sectorBreakdown.map((entry, i) => (
-                <li key={entry.category} className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 rounded-[3px] shrink-0"
-                    style={{ backgroundColor: donutColors[i % donutColors.length] }}
-                  />
-                  <span className="text-[#374966] font-medium truncate">{entry.category}</span>
-                  <span className="ml-auto font-bold text-[#0a1018] tabular-nums">
-                    {entry.count}
+          ) : (
+            <div className="mt-5 flex flex-col sm:flex-row items-center gap-5">
+              <div className="relative flex h-36 w-36 shrink-0 items-center justify-center">
+                <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+                  <circle cx="18" cy="18" r="14" fill="none" stroke="#e6eaf1" strokeWidth="4.5" />
+                  {(() => {
+                    const circumference = 2 * Math.PI * 14;
+                    let accumulated = 0;
+                    return sectorBreakdown.map((entry, i) => {
+                      const pct = totalPortfolio > 0 ? entry.count / totalPortfolio : 0;
+                      const strokeDasharray = `${pct * circumference} ${circumference}`;
+                      const strokeDashoffset = -accumulated * circumference;
+                      accumulated += pct;
+                      return (
+                        <circle
+                          key={entry.category}
+                          cx="18"
+                          cy="18"
+                          r="14"
+                          fill="none"
+                          stroke={donutColors[i % donutColors.length]}
+                          strokeWidth="4.5"
+                          strokeDasharray={strokeDasharray}
+                          strokeDashoffset={strokeDashoffset}
+                        />
+                      );
+                    });
+                  })()}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="font-display text-xl font-bold text-[#0a1018] tabular-nums">
+                    {totalPortfolio}
                   </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[#6b81a5]">
+                    Units
+                  </span>
+                </div>
+              </div>
+
+              <ul className="w-full space-y-2.5 text-xs">
+                {sectorBreakdown.map((entry, i) => (
+                  <li key={entry.category} className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-[3px] shrink-0"
+                      style={{ backgroundColor: donutColors[i % donutColors.length] }}
+                    />
+                    <span className="text-[#374966] font-medium truncate">{entry.category}</span>
+                    <span className="ml-auto font-bold text-[#0a1018] tabular-nums">
+                      {entry.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Panel>
       </div>
 
@@ -587,50 +660,59 @@ export default function AdminOverviewPage() {
             Open Messages Inbox <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead>
-              <tr className="border-y border-[#e6eaf1] bg-[#f4f6f9]/80 text-xs font-semibold uppercase tracking-wider text-[#6b81a5]">
-                <th className="px-5 py-3 sm:px-6">Client &amp; Organization</th>
-                <th className="px-4 py-3">Subject / Service</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Received</th>
-                <th className="px-5 py-3 text-right sm:px-6">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e6eaf1]">
-              {RECENT_ENQUIRIES.map((msg) => (
-                <tr key={msg.id} className="transition-colors hover:bg-[#f4f6f9]/60">
-                  <td className="px-5 py-3.5 sm:px-6">
-                    <p className="font-bold text-[#0a1018]">{msg.name}</p>
-                    <p className="text-xs text-[#6b81a5]">
-                      {msg.company} · {msg.email}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3.5 font-medium text-[#1f2a3d]">{msg.service}</td>
-                  <td className="px-4 py-3.5">
-                    <AdminBadge tone={statusTone(msg.priority)} dot>
-                      {msg.priority}
-                    </AdminBadge>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <AdminBadge tone={statusTone(msg.status)}>{msg.status}</AdminBadge>
-                  </td>
-                  <td className="px-4 py-3.5 text-xs text-[#6b81a5]">{msg.receivedAt}</td>
-                  <td className="px-5 py-3.5 text-right sm:px-6">
-                    <Link
-                      href="/admin/messages"
-                      className="inline-flex items-center gap-1 rounded-lg border border-[#c8d2e0] bg-white px-2.5 py-1 text-xs font-semibold text-[#1f2a3d] hover:border-[#1e57eb] hover:text-[#1e57eb]"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" /> Reply
-                    </Link>
-                  </td>
+        {RECENT_ENQUIRIES.length === 0 ? (
+          <div className="py-12 px-6 text-center">
+            <p className="text-sm font-semibold text-[#0a1018]">No Inbound Enquiries Yet</p>
+            <p className="mt-1 text-xs text-[#6b81a5]">
+              New customer quote requests and KYC messages will appear here as soon as they are received.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead>
+                <tr className="border-y border-[#e6eaf1] bg-[#f4f6f9]/80 text-xs font-semibold uppercase tracking-wider text-[#6b81a5]">
+                  <th className="px-5 py-3 sm:px-6">Client &amp; Organization</th>
+                  <th className="px-4 py-3">Subject / Service</th>
+                  <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Received</th>
+                  <th className="px-5 py-3 text-right sm:px-6">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[#e6eaf1]">
+                {RECENT_ENQUIRIES.map((msg) => (
+                  <tr key={msg.id} className="transition-colors hover:bg-[#f4f6f9]/60">
+                    <td className="px-5 py-3.5 sm:px-6">
+                      <p className="font-bold text-[#0a1018]">{msg.name}</p>
+                      <p className="text-xs text-[#6b81a5]">
+                        {msg.company} · {msg.email}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3.5 font-medium text-[#1f2a3d]">{msg.service}</td>
+                    <td className="px-4 py-3.5">
+                      <AdminBadge tone={statusTone(msg.priority)} dot>
+                        {msg.priority}
+                      </AdminBadge>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <AdminBadge tone={statusTone(msg.status)}>{msg.status}</AdminBadge>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-[#6b81a5]">{msg.receivedAt}</td>
+                    <td className="px-5 py-3.5 text-right sm:px-6">
+                      <Link
+                        href="/admin/messages"
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#c8d2e0] bg-white px-2.5 py-1 text-xs font-semibold text-[#1f2a3d] hover:border-[#1e57eb] hover:text-[#1e57eb]"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" /> Reply
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Panel>
     </div>
   );

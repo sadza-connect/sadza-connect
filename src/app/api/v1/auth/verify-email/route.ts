@@ -23,15 +23,35 @@ export async function POST(req: NextRequest) {
     authRateLimiter.check(clientIp);
 
     const body = await parseAndValidateBody(req, verifyEmailSchema);
-    const { user } = await authService.verifyEmail(body.token);
+    const { user, tokens } = await authService.verifyEmail(body.token);
 
-    return jsonResponse(
+    const response = jsonResponse(
       {
         user: sanitizeUser(user),
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
       },
       requestId,
       200,
     );
+
+    response.cookies.set('sadza_access_token', tokens.accessToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 15 * 60,
+    });
+
+    response.cookies.set('sadza_refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (err) {
     return errorResponse(err, requestId);
   }

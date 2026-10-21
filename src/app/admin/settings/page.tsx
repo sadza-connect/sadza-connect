@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Building2,
   Phone,
@@ -21,6 +21,12 @@ import {
 } from '@/components/admin/AdminUI';
 import { ImageUploader, type UploadedMediaItem } from '@/components/admin/ImageUploader';
 import { useToast } from '@/components/providers/ToastProvider';
+import {
+  getPlatformSettings,
+  savePlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettings,
+} from '@/data/platformStore';
 
 type SectionId =
   | 'profile'
@@ -123,7 +129,10 @@ export default function AdminSettingsPage() {
   // Commercial Pricing & USD/ZiG Rates
   const [pricing, setPricing] = useState({
     graceDays: '30',
-    standardListingUsd: '10',
+    standardListingUsd: '15',
+    soloListingUsd: '5',
+    coopListingUsd: '10',
+    corporateListingUsd: '15',
     sponsoredAdvertUsd: '20',
     homepageSlotsCap: '6',
     zigExchangeRate: '27.50',
@@ -175,7 +184,163 @@ export default function AdminSettingsPage() {
   const [security, setSecurity] = useState({ current: '', next: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(true);
 
-  function handleSave(sectionLabel: string) {
+  // Synchronize with database and persistent platform store on mount
+  useEffect(() => {
+    const local = getPlatformSettings();
+    if (local) {
+      setPricing((prev) => ({
+        ...prev,
+        graceDays: local.freeGracePeriodDays.toString(),
+        standardListingUsd: (local.corporateMonthlyPriceUsd ?? local.monthlySubscriptionPriceUsd ?? 15).toString(),
+        soloListingUsd: (local.soloMonthlyPriceUsd ?? 5).toString(),
+        coopListingUsd: (local.coopMonthlyPriceUsd ?? 10).toString(),
+        corporateListingUsd: (local.corporateMonthlyPriceUsd ?? local.monthlySubscriptionPriceUsd ?? 15).toString(),
+        sponsoredAdvertUsd: local.sponsoredAdvertPriceUsd.toString(),
+        zigExchangeRate: local.usdToZigRate.toString(),
+        vatPct: (local.vatPct ?? 15).toString(),
+        zesaServiceFeePct: (local.zesaServiceFeePct ?? 1.5).toString(),
+        ecocashMerchantCode: local.ecocashMerchantCode ?? prev.ecocashMerchantCode,
+        innbucksMerchantCode: local.innbucksMerchantCode ?? prev.innbucksMerchantCode,
+      }));
+      setContact((prev) => ({
+        ...prev,
+        email: local.supportEmail || prev.email,
+        phone: local.supportPhone || prev.phone,
+        whatsapp: local.supportWhatsApp || prev.whatsapp,
+        hours: local.operatingHours || prev.hours,
+        line1: local.harareAddress || prev.line1,
+      }));
+      setProfile((prev) => ({
+        ...prev,
+        name: local.siteName || prev.name,
+        tagline: local.tagline || prev.tagline,
+        mission: local.aboutMission || prev.mission,
+        vision: local.aboutVision || prev.vision,
+      }));
+      if (local.shipping) setShipping(local.shipping);
+      if (local.verification) setVerification(local.verification);
+      if (local.notifications) setNotifications(local.notifications);
+    }
+
+    // Sync directly from PostgreSQL API
+    fetch('/api/v1/settings')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.settings) {
+          const s = json.data.settings;
+          const extra = s.extra_config || {};
+          setPricing((prev) => ({
+            ...prev,
+            graceDays: s.free_grace_period_days?.toString() || prev.graceDays,
+            standardListingUsd: (extra.corporateMonthlyPriceUsd ?? s.monthly_subscription_price_usd)?.toString() || prev.standardListingUsd,
+            soloListingUsd: (extra.soloMonthlyPriceUsd ?? 5)?.toString() || prev.soloListingUsd,
+            coopListingUsd: (extra.coopMonthlyPriceUsd ?? 10)?.toString() || prev.coopListingUsd,
+            corporateListingUsd: (extra.corporateMonthlyPriceUsd ?? s.monthly_subscription_price_usd ?? 15)?.toString() || prev.corporateListingUsd,
+            sponsoredAdvertUsd: s.sponsored_advert_price_usd?.toString() || prev.sponsoredAdvertUsd,
+            zigExchangeRate: s.usd_to_zig_rate?.toString() || prev.zigExchangeRate,
+            vatPct: extra.vatPct?.toString() || prev.vatPct,
+            zesaServiceFeePct: extra.zesaServiceFeePct?.toString() || prev.zesaServiceFeePct,
+            ecocashMerchantCode: extra.ecocashMerchantCode || prev.ecocashMerchantCode,
+            innbucksMerchantCode: extra.innbucksMerchantCode || prev.innbucksMerchantCode,
+          }));
+          setContact((prev) => ({
+            ...prev,
+            email: s.support_email || prev.email,
+            phone: s.support_phone || prev.phone,
+            whatsapp: s.support_whatsapp || prev.whatsapp,
+            hours: s.operating_hours || prev.hours,
+            line1: s.harare_address || prev.line1,
+          }));
+          if (extra.profile) setProfile((p) => ({ ...p, ...extra.profile }));
+          if (extra.shipping) setShipping(extra.shipping);
+          if (extra.verification) setVerification(extra.verification);
+          if (extra.notifications) setNotifications(extra.notifications);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSave(sectionLabel: string) {
+    const usdToZig = parseFloat(pricing.zigExchangeRate) || 26.5;
+    const listingUsd = parseFloat(pricing.corporateListingUsd || pricing.standardListingUsd) || 15;
+    const soloUsd = parseFloat(pricing.soloListingUsd) || 5;
+    const coopUsd = parseFloat(pricing.coopListingUsd) || 10;
+    const corporateUsd = parseFloat(pricing.corporateListingUsd) || 15;
+    const advertUsd = parseFloat(pricing.sponsoredAdvertUsd) || 20;
+    const graceDays = parseInt(pricing.graceDays, 10) || 30;
+
+    const updatedPlatformSettings: PlatformSettings = {
+      siteName: profile.name,
+      tagline: profile.tagline,
+      announcementText: `New Business Registrations Receive a ${graceDays}-Day Free Grace Period • Active Monthly Listing from $${soloUsd}/mo • Direct WhatsApp Trade`,
+      usdToZigRate: usdToZig,
+      monthlySubscriptionPriceUsd: listingUsd,
+      soloMonthlyPriceUsd: soloUsd,
+      coopMonthlyPriceUsd: coopUsd,
+      corporateMonthlyPriceUsd: corporateUsd,
+      sponsoredAdvertPriceUsd: advertUsd,
+      freeGracePeriodDays: graceDays,
+      supportWhatsApp: contact.whatsapp,
+      supportPhone: contact.phone,
+      supportEmail: contact.email,
+      hqAddress: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
+      harareAddress: `${contact.line1}, ${contact.city}`,
+      operatingHours: contact.hours,
+      autoApproveTier1: verification.staffPortal,
+      requireEmailVerification: verification.cr14StrictCheck,
+      allowPublicReviews: true,
+      aboutHeadline: profile.tagline,
+      aboutMission: profile.mission,
+      aboutVision: profile.vision,
+      vatPct: parseFloat(pricing.vatPct) || 15,
+      zesaServiceFeePct: parseFloat(pricing.zesaServiceFeePct) || 1.5,
+      ecocashMerchantCode: pricing.ecocashMerchantCode,
+      innbucksMerchantCode: pricing.innbucksMerchantCode,
+      homepageSlotsCap: parseInt(pricing.homepageSlotsCap, 10) || 6,
+      shipping,
+      verification,
+      notifications,
+    };
+
+    // 1. Instantly dispatch update to all components across the browser
+    savePlatformSettings(updatedPlatformSettings);
+
+    // 2. Persist to PostgreSQL database
+    try {
+      await fetch('/api/v1/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          usd_to_zig_rate: usdToZig,
+          monthly_subscription_price_usd: listingUsd,
+          sponsored_advert_price_usd: advertUsd,
+          free_grace_period_days: graceDays,
+          support_whatsapp: contact.whatsapp,
+          support_phone: contact.phone,
+          support_email: contact.email,
+          hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
+          harare_address: `${contact.line1}, ${contact.city}`,
+          operating_hours: contact.hours,
+          extra_config: {
+            profile,
+            shipping,
+            verification,
+            notifications,
+            soloMonthlyPriceUsd: soloUsd,
+            coopMonthlyPriceUsd: coopUsd,
+            corporateMonthlyPriceUsd: corporateUsd,
+            vatPct: parseFloat(pricing.vatPct) || 15,
+            zesaServiceFeePct: parseFloat(pricing.zesaServiceFeePct) || 1.5,
+            ecocashMerchantCode: pricing.ecocashMerchantCode,
+            innbucksMerchantCode: pricing.innbucksMerchantCode,
+            homepageSlotsCap: parseInt(pricing.homepageSlotsCap, 10) || 6,
+          },
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to sync settings with server:', err);
+    }
+
     toast({
       title: `${sectionLabel} Saved`,
       description: 'Your configuration updates are now live across Sadza Connect.',
@@ -382,9 +547,43 @@ export default function AdminSettingsPage() {
             <Panel>
               <PanelHeading
                 title="Subscriptions, Adverts & Multi-Currency Settlement"
-                hint="Control the 30-day onboarding grace period, $10/mo listing fee, $20/mo sponsored adverts, and USD/ZiG settlement."
+                hint="Control track-based listing fees (Track A Corporate, Track B Solo Operator, Track C Cooperative), sponsored adverts, and USD/ZiG settlement."
               />
-              <div className="mt-5 space-y-5">
+              <div className="mt-5 space-y-6">
+                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                      $
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-800">
+                      Track-Specific Monthly Business Listing Rates (Admin Controlled)
+                    </h4>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Set the default monthly listing subscription price according to the business&apos;s legal track. You can also set a custom pricing override for any specific business in Business Management.
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <AdminInput
+                      label="Track A: Corporate (Pvt Ltd / PBC) ($ USD/mo)"
+                      type="number"
+                      value={pricing.corporateListingUsd}
+                      onChange={(e) => setPricing((p) => ({ ...p, corporateListingUsd: e.target.value }))}
+                    />
+                    <AdminInput
+                      label="Track B: Solo Operator / Trader ($ USD/mo)"
+                      type="number"
+                      value={pricing.soloListingUsd}
+                      onChange={(e) => setPricing((p) => ({ ...p, soloListingUsd: e.target.value }))}
+                    />
+                    <AdminInput
+                      label="Track C: Cooperative / NGO ($ USD/mo)"
+                      type="number"
+                      value={pricing.coopListingUsd}
+                      onChange={(e) => setPricing((p) => ({ ...p, coopListingUsd: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <AdminInput
                     label="Onboarding Grace Period (Days)"
@@ -393,26 +592,20 @@ export default function AdminSettingsPage() {
                     onChange={(e) => setPricing((p) => ({ ...p, graceDays: e.target.value }))}
                   />
                   <AdminInput
-                    label="Standard Business Listing ($ USD / mo)"
-                    type="number"
-                    value={pricing.standardListingUsd}
-                    onChange={(e) => setPricing((p) => ({ ...p, standardListingUsd: e.target.value }))}
-                  />
-                  <AdminInput
                     label="Sponsored Advert Slot ($ USD / mo)"
                     type="number"
                     value={pricing.sponsoredAdvertUsd}
                     onChange={(e) => setPricing((p) => ({ ...p, sponsoredAdvertUsd: e.target.value }))}
                   />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <AdminInput
                     label="Homepage Pinned Adverts Cap"
                     type="number"
                     value={pricing.homepageSlotsCap}
                     onChange={(e) => setPricing((p) => ({ ...p, homepageSlotsCap: e.target.value }))}
                   />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <AdminInput
                     label="Reference USD → ZiG Rate"
                     value={pricing.zigExchangeRate}

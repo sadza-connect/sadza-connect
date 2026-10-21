@@ -203,7 +203,7 @@ export class AuthService {
     return { user, tokens: newTokens };
   }
 
-  async verifyEmail(token: string): Promise<{ user: User }> {
+  async verifyEmail(token: string): Promise<{ user: User; tokens: AuthTokens }> {
     const storedToken = await this.verificationTokenRepo.findByToken(token);
     if (!storedToken) {
       throw new NotFoundError('Verification code');
@@ -222,15 +222,12 @@ export class AuthService {
       throw new NotFoundError('User');
     }
 
-    if (user.isVerified) {
-      return { user };
-    }
-
-    const verified = user.markVerified();
-    const updated = await this.userRepo.update(verified);
+    const verified = user.isVerified ? user : user.markVerified();
+    const updated = user.isVerified ? user : await this.userRepo.update(verified);
     await this.verificationTokenRepo.markAsUsed(storedToken.id);
 
-    return { user: updated };
+    const tokens = await this.generateTokens(updated);
+    return { user: updated, tokens };
   }
 
   async resendVerification(email: string): Promise<void> {
@@ -253,8 +250,8 @@ export class AuthService {
     await this.emailService.sendVerificationEmail(user.email.getValue(), otp);
   }
 
-  async forgotPassword(email: string): Promise<void> {
-    const user = await this.userRepo.findByEmail(email);
+  async forgotPassword(identifier: string): Promise<void> {
+    const user = await this.userRepo.findByEmailOrPhone(identifier);
     if (!user) {
       return;
     }
@@ -273,8 +270,8 @@ export class AuthService {
     await this.emailService.sendResetPasswordEmail(user.email.getValue(), otp);
   }
 
-  async verifyResetOtp(email: string, otp: string): Promise<{ resetToken: string }> {
-    const user = await this.userRepo.findByEmail(email);
+  async verifyResetOtp(identifier: string, otp: string): Promise<{ resetToken: string }> {
+    const user = await this.userRepo.findByEmailOrPhone(identifier);
     if (!user) {
       throw new NotFoundError('User');
     }

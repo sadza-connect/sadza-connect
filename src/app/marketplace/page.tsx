@@ -18,33 +18,60 @@ import { Footer } from '@/components/landing/Footer';
 import { SAMPLE_PRODUCTS, MarketplaceProduct } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
-  getStoredProducts,
   getSavedProductIds,
   toggleSavedProductId,
   getPlatformSettings,
 } from '@/data/platformStore';
 import { createProductInquiryLink } from '@/lib/utils/whatsapp';
+import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 
 export default function MarketplacePage() {
-  const [products, setProducts] = useState<MarketplaceProduct[]>(SAMPLE_PRODUCTS);
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [usdToZig, setUsdToZig] = useState<number>(26.5);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedCondition, setSelectedCondition] = useState('All Conditions');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setProducts(getStoredProducts());
+    let isMounted = true;
+
+    async function loadMarketplace() {
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/v1/products?limit=100');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.products)) {
+          if (isMounted) {
+            const mapped = json.data.products.map(mapDbProductToMarketplaceProduct);
+            setProducts(mapped);
+          }
+        } else if (isMounted) {
+          setProducts([]);
+        }
+      } catch {
+        if (isMounted) setProducts([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadMarketplace();
     setSavedIds(getSavedProductIds());
     setUsdToZig(getPlatformSettings().usdToZigRate);
+
     const sync = () => {
-      setProducts(getStoredProducts());
+      loadMarketplace();
       setSavedIds(getSavedProductIds());
       setUsdToZig(getPlatformSettings().usdToZigRate);
     };
     window.addEventListener('sadza-platform-updated', sync);
-    return () => window.removeEventListener('sadza-platform-updated', sync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', sync);
+    };
   }, []);
 
   const filteredProducts = useMemo(() => {

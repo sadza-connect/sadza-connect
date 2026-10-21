@@ -19,15 +19,16 @@ import { Footer } from '@/components/landing/Footer';
 import { SAMPLE_JOBS, JobOpening } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
-  getStoredJobs,
   getStoredJobApplications,
   saveStoredJobApplications,
   JobApplicationRecord,
 } from '@/data/platformStore';
+import { mapDbJobToOpening } from '@/lib/data/job-mapper';
 import { createJobInquiryLink } from '@/lib/utils/whatsapp';
+import { Modal, PublicModalBody, PublicModalFooter } from '@/components/ui/Modal';
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
+  const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
@@ -43,10 +44,29 @@ export default function JobsPage() {
   const [cvFileName, setCvFileName] = useState('');
 
   useEffect(() => {
-    setJobs(getStoredJobs());
-    const sync = () => setJobs(getStoredJobs());
+    let isMounted = true;
+    async function loadLiveJobs() {
+      try {
+        const res = await fetch('/api/v1/jobs?limit=100');
+        const json = await res.json();
+        if (isMounted && json.success && Array.isArray(json.data?.jobs)) {
+          const mapped = json.data.jobs.map(mapDbJobToOpening);
+          setJobs(mapped);
+        } else if (isMounted) {
+          setJobs([]);
+        }
+      } catch {
+        if (isMounted) setJobs([]);
+      }
+    }
+
+    loadLiveJobs();
+    const sync = () => loadLiveJobs();
     window.addEventListener('sadza-platform-updated', sync);
-    return () => window.removeEventListener('sadza-platform-updated', sync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', sync);
+    };
   }, []);
 
   const filteredJobs = useMemo(() => {
@@ -72,9 +92,28 @@ export default function JobsPage() {
     });
   }, [jobs, searchTerm, selectedProvince, selectedSector, selectedType]);
 
-  const handleApply = (e: React.FormEvent) => {
+  const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!applyingJob) return;
+
+    try {
+      await fetch(`/api/v1/jobs/${encodeURIComponent(applyingJob.slug)}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicant_name: applicantName.trim(),
+          applicant_email: applicantEmail.trim() || 'applicant@sadzaconnect.co.zw',
+          applicant_phone: applicantPhone.trim(),
+          experience_summary:
+            experienceSummary.trim() || 'Qualified candidate applying via Sadza Connect.',
+          cv_file_name:
+            cvFileName ||
+            `${applicantName.trim().replace(/\s+/g, '_')}_Curriculum_Vitae.pdf`,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to submit application to database:', err);
+    }
 
     const newApp: JobApplicationRecord = {
       id: `app-${Date.now()}`,
@@ -248,9 +287,14 @@ export default function JobsPage() {
                     </span>
                   </div>
 
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                    {job.title}
-                  </h2>
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  >
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                      {job.title}
+                    </h2>
+                  </Link>
 
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                     {job.companySlug ? (
@@ -295,6 +339,12 @@ export default function JobsPage() {
                 </div>
 
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800">
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    View Details
+                  </Link>
                   {job.whatsapp && (
                     <a
                       href={createJobInquiryLink(
@@ -307,7 +357,7 @@ export default function JobsPage() {
                       className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       <MessageCircle className="w-4 h-4 text-emerald-600" />
-                      <span>WhatsApp HR</span>
+                      <span>WhatsApp</span>
                     </a>
                   )}
                   <button
@@ -325,140 +375,149 @@ export default function JobsPage() {
       </main>
 
       {/* Application Modal */}
-      {applyingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-2xl">
-            <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-              <div>
-                <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">
-                  Direct Job Application
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                  {applyingJob.title}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {applyingJob.company} • {applyingJob.province}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setApplyingJob(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+      <Modal
+        open={Boolean(applyingJob)}
+        onClose={() => {
+          setApplyingJob(null);
+          setApplicationSuccess(false);
+        }}
+        title={applyingJob ? `Apply: ${applyingJob.title}` : 'Job Application'}
+        description={
+          applyingJob
+            ? `${applyingJob.company} • ${applyingJob.province} (${applyingJob.salaryUsd})`
+            : ''
+        }
+      >
+        {applyingJob && (
+          <>
             {applicationSuccess ? (
-              <div className="py-8 text-center space-y-3">
-                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                <h4 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Application Dispatched!
-                </h4>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
-                  Your application and CV have been sent to {applyingJob.company} and saved to your User Dashboard.
-                </p>
+              <div className="flex flex-col flex-1 min-h-0">
+                <PublicModalBody>
+                  <div className="py-8 text-center space-y-3">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+                    <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+                      Application Dispatched!
+                    </h4>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+                      Your application and CV have been sent to {applyingJob.company} and saved to your User Dashboard.
+                    </p>
+                  </div>
+                </PublicModalBody>
+                <PublicModalFooter>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApplyingJob(null);
+                      setApplicationSuccess(false);
+                    }}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+                  >
+                    Done
+                  </button>
+                </PublicModalFooter>
               </div>
             ) : (
-              <form onSubmit={handleApply} className="space-y-4 pt-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Tinashe Sibanda"
-                    value={applicantName}
-                    onChange={(e) => setApplicantName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleApply} className="flex flex-col flex-1 min-h-0">
+                <PublicModalBody className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Email Address *
+                      Full Name *
                     </label>
                     <input
-                      type="email"
+                      type="text"
                       required
-                      placeholder="you@gmail.com"
-                      value={applicantEmail}
-                      onChange={(e) => setApplicantEmail(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
+                      placeholder="e.g. Tinashe Sibanda"
+                      value={applicantName}
+                      onChange={(e) => setApplicantName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-base sm:text-sm text-slate-900 dark:text-white"
                     />
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="you@gmail.com"
+                        value={applicantEmail}
+                        onChange={(e) => setApplicantEmail(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-base sm:text-sm text-slate-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        WhatsApp Phone (+263) *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="+263 77 123 4567"
+                        value={applicantPhone}
+                        onChange={(e) => setApplicantPhone(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-base sm:text-sm text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      WhatsApp Phone (+263) *
+                      Relevant Experience &amp; Qualifications *
                     </label>
-                    <input
-                      type="tel"
+                    <textarea
+                      rows={3}
                       required
-                      placeholder="+263 77 123 4567"
-                      value={applicantPhone}
-                      onChange={(e) => setApplicantPhone(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
+                      placeholder="Briefly summarize your qualifications and years of experience..."
+                      value={experienceSummary}
+                      onChange={(e) => setExperienceSummary(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-base sm:text-sm text-slate-900 dark:text-white"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Relevant Experience & Qualifications *
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    placeholder="Briefly summarize your qualifications and years of experience..."
-                    value={experienceSummary}
-                    onChange={(e) => setExperienceSummary(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Attach Curriculum Vitae (PDF / DOCX)
+                    </label>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center hover:border-emerald-500 cursor-pointer">
+                      <Upload className="w-5 h-5 text-emerald-600 mb-1" />
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                        {cvFileName || 'Click to select your CV document'}
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setCvFileName(file.name);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </PublicModalBody>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Attach Curriculum Vitae (PDF / DOCX)
-                  </label>
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center hover:border-emerald-500 cursor-pointer">
-                    <Upload className="w-5 h-5 text-emerald-600 mb-1" />
-                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                      {cvFileName || 'Click to select your CV document'}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setCvFileName(file.name);
-                      }}
-                    />
-                  </label>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
+                <PublicModalFooter>
                   <button
                     type="button"
                     onClick={() => setApplyingJob(null)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300"
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
                   >
                     Submit Application
                   </button>
-                </div>
+                </PublicModalFooter>
               </form>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       <Footer />
     </div>

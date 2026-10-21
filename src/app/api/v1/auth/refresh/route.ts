@@ -23,20 +23,31 @@ export async function POST(req: NextRequest) {
   try {
     authRateLimiter.check(clientIp);
 
-    const body = await parseAndValidateBody(req, refreshSchema);
-    if (!body.refreshToken) {
+    let tokenToRefresh = '';
+    try {
+      const body = await req.json();
+      tokenToRefresh = body?.refreshToken || '';
+    } catch {
+      // Body may be empty if client relies on cookie
+    }
+
+    if (!tokenToRefresh) {
+      tokenToRefresh = req.cookies.get('sadza_refresh_token')?.value || '';
+    }
+
+    if (!tokenToRefresh) {
       throw new AuthenticationError('Refresh token is required');
     }
 
     const userAgent = req.headers.get('user-agent') || undefined;
 
     const { user, tokens } = await authService.refresh(
-      body.refreshToken,
+      tokenToRefresh,
       userAgent,
       clientIp,
     );
 
-    return jsonResponse(
+    const response = jsonResponse(
       {
         user: sanitizeUser(user),
         accessToken: tokens.accessToken,
@@ -45,6 +56,24 @@ export async function POST(req: NextRequest) {
       requestId,
       200,
     );
+
+    response.cookies.set('sadza_access_token', tokens.accessToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 15 * 60,
+    });
+
+    response.cookies.set('sadza_refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (err) {
     return errorResponse(err, requestId);
   }

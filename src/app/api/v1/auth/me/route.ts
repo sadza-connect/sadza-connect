@@ -18,12 +18,17 @@ export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    let token = '';
     const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AuthenticationError('Missing or invalid Authorization header');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else {
+      token = req.cookies.get('sadza_access_token')?.value || '';
     }
 
-    const token = authHeader.slice(7);
+    if (!token) {
+      throw new AuthenticationError('Missing or invalid Authorization');
+    }
     let payload;
     try {
       payload = jwtService.verifyAccessToken(token);

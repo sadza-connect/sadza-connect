@@ -31,12 +31,8 @@ import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettings,
-  getStoredBusinesses,
-  getStoredProducts,
-  getStoredUtilityReceipts,
   saveStoredUtilityReceipts,
   UtilityReceipt,
-  getStoredJobApplications,
   JobApplicationRecord,
   getSavedBusinessIds,
   toggleSavedBusinessId,
@@ -53,8 +49,14 @@ import {
   AdminSelect,
   AdminModal,
   EmptyState,
+  ModalBody,
+  ModalFooter,
 } from '@/components/admin/AdminUI';
 import { useToast } from '@/components/providers/ToastProvider';
+import { mapDbBillToReceipt } from '@/lib/data/bill-mapper';
+import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
+import { mapDbApplicationToRecord } from '@/lib/data/job-mapper';
 
 type UserTab = 'overview' | 'utilities' | 'saved' | 'jobs' | 'settings';
 
@@ -77,39 +79,75 @@ export default function UserDashboardPage() {
   const [selectedReceipt, setSelectedReceipt] = useState<UtilityReceipt | null>(null);
 
   // Quick ZESA Token Top-Up State
-  const [quickMeter, setQuickMeter] = useState('37148920194');
+  const [quickMeter, setQuickMeter] = useState('');
   const [quickAmountUsd, setQuickAmountUsd] = useState('20');
-  const [savedMeters, setSavedMeters] = useState([
-    { label: 'Home Prepaid Meter (Bulawayo)', number: '37148920194', type: 'ZESA Prepaid' },
-    { label: 'Parents House (Harare)', number: '14289903125', type: 'ZESA Prepaid' },
-    { label: 'Municipal Water Account', number: 'ACC-883921', type: 'City Council' },
-  ]);
+  const [savedMeters, setSavedMeters] = useState<{ label: string; number: string; type: string }[]>([]);
   const [newMeterLabel, setNewMeterLabel] = useState('');
   const [newMeterNumber, setNewMeterNumber] = useState('');
   const [newMeterType, setNewMeterType] = useState('ZESA Prepaid');
 
   // Candidate CV Profile State
-  const [cvFullName, setCvFullName] = useState('Tinashe Sibanda');
-  const [cvProvince, setCvProvince] = useState('Bulawayo');
-  const [cvTitle, setCvTitle] = useState('Certified Solar & Electrical Installation Technician');
-  const [cvSkills, setCvSkills] = useState(
-    'Deye & Victron Inverters, Lithium Battery Banks, Commercial Wiring, Class 4 Driver License'
-  );
-  const [cvFileName, setCvFileName] = useState('Tinashe_Sibanda_Electrical_CV_2026.pdf');
+  const [cvFullName, setCvFullName] = useState('');
+  const [cvProvince, setCvProvince] = useState('Harare');
+  const [cvTitle, setCvTitle] = useState('');
+  const [cvSkills, setCvSkills] = useState('');
+  const [cvFileName, setCvFileName] = useState('');
 
   useEffect(() => {
-    const sync = () => {
+    let isMounted = true;
+    const sync = async () => {
       setSettings(getPlatformSettings());
-      setReceipts(getStoredUtilityReceipts());
-      setApplications(getStoredJobApplications());
-      setBusinesses(getStoredBusinesses());
-      setProducts(getStoredProducts());
       setSavedBizIds(getSavedBusinessIds());
       setSavedProdIds(getSavedProductIds());
+
+      try {
+        const [appRes, bRes, pRes, billRes] = await Promise.allSettled([
+          fetch('/api/v1/jobs/applications?limit=50', { credentials: 'include' }).then((r) => r.json()),
+          fetch('/api/v1/businesses?limit=50').then((r) => r.json()),
+          fetch('/api/v1/products?limit=50').then((r) => r.json()),
+          fetch('/api/v1/bills?my_bills=true', { credentials: 'include' }).then((r) => r.json()),
+        ]);
+
+        if (isMounted) {
+          if (appRes.status === 'fulfilled' && appRes.value?.success && Array.isArray(appRes.value.data?.applications)) {
+            setApplications(appRes.value.data.applications.map(mapDbApplicationToRecord));
+          } else {
+            setApplications([]);
+          }
+
+          if (bRes.status === 'fulfilled' && bRes.value?.success && Array.isArray(bRes.value.data?.businesses)) {
+            setBusinesses(bRes.value.data.businesses.map(mapDbBusinessToListing));
+          } else {
+            setBusinesses([]);
+          }
+
+          if (pRes.status === 'fulfilled' && pRes.value?.success && Array.isArray(pRes.value.data?.products)) {
+            setProducts(pRes.value.data.products.map(mapDbProductToMarketplaceProduct));
+          } else {
+            setProducts([]);
+          }
+
+          if (billRes.status === 'fulfilled' && billRes.value?.success && Array.isArray(billRes.value.data?.bills)) {
+            setReceipts(billRes.value.data.bills.map(mapDbBillToReceipt));
+          } else {
+            setReceipts([]);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setApplications([]);
+          setBusinesses([]);
+          setProducts([]);
+          setReceipts([]);
+        }
+      }
     };
     sync();
     window.addEventListener('sadza-platform-updated', sync);
-    return () => window.removeEventListener('sadza-platform-updated', sync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', sync);
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -130,10 +168,42 @@ export default function UserDashboardPage() {
     [products, savedProdIds]
   );
 
-  const handleQuickZesaPurchase = (e: React.FormEvent) => {
+  const handleQuickZesaPurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = Math.max(2, Number(quickAmountUsd) || 10);
     const kwh = (amt * 6.2).toFixed(1);
+
+    try {
+      const res = await fetch('/api/v1/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          biller: 'ZESA Prepaid Electricity (ZETDC)',
+          account_number: quickMeter.trim(),
+          meter_number: quickMeter.trim(),
+          amount: amt,
+          currency: 'USD',
+          payment_method: 'EcoCash',
+          customer_phone: '+263773112233',
+          customer_name: cvFullName || 'Verified Account Holder',
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.bill) {
+        const mapped = mapDbBillToReceipt(json.data.bill);
+        const next = [mapped, ...receipts];
+        saveStoredUtilityReceipts(next);
+        setReceipts(next);
+        setZesaModalOpen(false);
+        setSelectedReceipt(mapped);
+        showToast(`ZESA Token Generated: ${json.data.token || mapped.tokenOrConfirmation} (${kwh} kWh)`);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend quick token failed, falling back to local simulation:', err);
+    }
+
     const generatedToken = Array.from({ length: 5 }, () =>
       Math.floor(1000 + Math.random() * 9000)
     ).join(' ');
@@ -880,42 +950,45 @@ export default function UserDashboardPage() {
         title="Instant ZESA Prepaid Token Purchase"
         description="Generate a 20-digit ZETDC token immediately via EcoCash, InnBucks, or ZimSwitch."
       >
-        <form onSubmit={handleQuickZesaPurchase} className="space-y-4">
-          <AdminSelect
-            label="Select Saved ZESA Meter"
-            value={quickMeter}
-            onChange={(e) => setQuickMeter(e.target.value)}
-          >
-            {savedMeters
-              .filter((m) => m.type === 'ZESA Prepaid')
-              .map((m) => (
-                <option key={m.number} value={m.number}>
-                  {m.label} — {m.number}
-                </option>
-              ))}
-          </AdminSelect>
-          <AdminInput
-            label="Purchase Amount ($ USD)"
-            type="number"
-            min="2"
-            required
-            value={quickAmountUsd}
-            onChange={(e) => setQuickAmountUsd(e.target.value)}
-          />
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs flex justify-between">
-            <span className="text-slate-600">Estimated Energy Units:</span>
-            <span className="font-mono font-bold text-emerald-700">
-              {(Math.max(2, Number(quickAmountUsd) || 10) * 6.2).toFixed(1)} kWh
-            </span>
-          </div>
-          <div className="flex justify-end gap-2.5 pt-2">
+        <form onSubmit={handleQuickZesaPurchase} className="flex flex-col flex-1 min-h-0">
+          <ModalBody>
+            <AdminSelect
+              label="Select Saved ZESA Meter"
+              value={quickMeter}
+              onChange={(e) => setQuickMeter(e.target.value)}
+            >
+              {savedMeters
+                .filter((m) => m.type === 'ZESA Prepaid')
+                .map((m) => (
+                  <option key={m.number} value={m.number}>
+                    {m.label} — {m.number}
+                  </option>
+                ))}
+            </AdminSelect>
+            <AdminInput
+              label="Purchase Amount ($ USD)"
+              type="number"
+              min="2"
+              required
+              value={quickAmountUsd}
+              onChange={(e) => setQuickAmountUsd(e.target.value)}
+            />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs flex justify-between">
+              <span className="text-slate-600">Estimated Energy Units:</span>
+              <span className="font-mono font-bold text-emerald-700">
+                {(Math.max(2, Number(quickAmountUsd) || 10) * 6.2).toFixed(1)} kWh
+              </span>
+            </div>
+          </ModalBody>
+
+          <ModalFooter>
             <AdminButton type="button" variant="outline" onClick={() => setZesaModalOpen(false)}>
               Cancel
             </AdminButton>
             <AdminButton type="submit">
               <Zap className="h-4 w-4" /> Buy Token Now
             </AdminButton>
-          </div>
+          </ModalFooter>
         </form>
       </AdminModal>
 
@@ -927,38 +1000,41 @@ export default function UserDashboardPage() {
         title="Save New Meter or Utility Account"
         description="Add a ZESA prepaid meter, municipal water account, or Nyaradzo policy for 1-click payments."
       >
-        <form onSubmit={handleAddSavedMeter} className="space-y-4">
-          <AdminSelect
-            label="Biller Type"
-            value={newMeterType}
-            onChange={(e) => setNewMeterType(e.target.value)}
-          >
-            <option value="ZESA Prepaid">ZESA Prepaid Meter</option>
-            <option value="City Council">City Council Rates / Water</option>
-            <option value="Nyaradzo">Nyaradzo Funeral Policy</option>
-          </AdminSelect>
-          <AdminInput
-            label="Account Nickname *"
-            required
-            placeholder="e.g. Kumusha Solar Backup / Cottage Meter"
-            value={newMeterLabel}
-            onChange={(e) => setNewMeterLabel(e.target.value)}
-          />
-          <AdminInput
-            label="11-Digit Meter or Account Number *"
-            required
-            placeholder="e.g. 37148920194"
-            value={newMeterNumber}
-            onChange={(e) => setNewMeterNumber(e.target.value)}
-          />
-          <div className="flex justify-end gap-2.5 pt-2">
+        <form onSubmit={handleAddSavedMeter} className="flex flex-col flex-1 min-h-0">
+          <ModalBody>
+            <AdminSelect
+              label="Biller Type"
+              value={newMeterType}
+              onChange={(e) => setNewMeterType(e.target.value)}
+            >
+              <option value="ZESA Prepaid">ZESA Prepaid Meter</option>
+              <option value="City Council">City Council Rates / Water</option>
+              <option value="Nyaradzo">Nyaradzo Funeral Policy</option>
+            </AdminSelect>
+            <AdminInput
+              label="Account Nickname *"
+              required
+              placeholder="e.g. Kumusha Solar Backup / Cottage Meter"
+              value={newMeterLabel}
+              onChange={(e) => setNewMeterLabel(e.target.value)}
+            />
+            <AdminInput
+              label="11-Digit Meter or Account Number *"
+              required
+              placeholder="e.g. 37148920194"
+              value={newMeterNumber}
+              onChange={(e) => setNewMeterNumber(e.target.value)}
+            />
+          </ModalBody>
+
+          <ModalFooter>
             <AdminButton type="button" variant="outline" onClick={() => setMeterModalOpen(false)}>
               Cancel
             </AdminButton>
             <AdminButton type="submit">
               <Plus className="h-4 w-4" /> Save Account
             </AdminButton>
-          </div>
+          </ModalFooter>
         </form>
       </AdminModal>
 
@@ -971,55 +1047,57 @@ export default function UserDashboardPage() {
         description="Verified ZETDC / Biller receipt with 20-digit token."
       >
         {selectedReceipt && (
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-                    Sadza Connect Biller Gateway
-                  </p>
-                  <p className="text-sm font-bold text-slate-950 mt-0.5">
-                    {selectedReceipt.service}
-                  </p>
+          <div className="flex flex-col flex-1 min-h-0">
+            <ModalBody>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
+                      Sadza Connect Biller Gateway
+                    </p>
+                    <p className="text-sm font-bold text-slate-950 mt-0.5">
+                      {selectedReceipt.service}
+                    </p>
+                  </div>
+                  <AdminBadge tone="success">COMPLETED</AdminBadge>
                 </div>
-                <AdminBadge tone="success">COMPLETED</AdminBadge>
-              </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-center space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                  20-Digit Token / Confirmation
-                </span>
-                <p className="font-mono text-base font-bold tracking-wider text-slate-950">
-                  {selectedReceipt.tokenOrConfirmation}
-                </p>
-                <p className="text-xs font-semibold text-emerald-800">
-                  Units Credited: {selectedReceipt.unitsOrPackage}
-                </p>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Meter / Account:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    {selectedReceipt.accountOrMeter}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                    20-Digit Token / Confirmation
                   </span>
+                  <p className="font-mono text-base font-bold tracking-wider text-slate-950">
+                    {selectedReceipt.tokenOrConfirmation}
+                  </p>
+                  <p className="text-xs font-semibold text-emerald-800">
+                    Units Credited: {selectedReceipt.unitsOrPackage}
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Reference Code:</span>
-                  <span className="font-mono text-slate-800">{selectedReceipt.reference}</span>
-                </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 text-sm">
-                  <span className="font-bold text-slate-900">Amount Paid:</span>
-                  <span className="font-mono font-bold text-emerald-700">
-                    {selectedReceipt.currency === 'USD'
-                      ? `$${selectedReceipt.amount.toFixed(2)} USD`
-                      : `${selectedReceipt.amount.toLocaleString()} ZiG`}
-                  </span>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Meter / Account:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {selectedReceipt.accountOrMeter}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Reference Code:</span>
+                    <span className="font-mono text-slate-800">{selectedReceipt.reference}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 pt-2 text-sm">
+                    <span className="font-bold text-slate-900">Amount Paid:</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {selectedReceipt.currency === 'USD'
+                        ? `$${selectedReceipt.amount.toFixed(2)} USD`
+                        : `${selectedReceipt.amount.toLocaleString()} ZiG`}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </ModalBody>
 
-            <div className="flex justify-end gap-2.5">
+            <ModalFooter>
               <AdminButton
                 variant="outline"
                 onClick={() => handleCopyToken(selectedReceipt.tokenOrConfirmation)}
@@ -1029,7 +1107,7 @@ export default function UserDashboardPage() {
               <AdminButton onClick={() => window.print()}>
                 <Printer className="h-4 w-4" /> Print Receipt
               </AdminButton>
-            </div>
+            </ModalFooter>
           </div>
         )}
       </AdminModal>

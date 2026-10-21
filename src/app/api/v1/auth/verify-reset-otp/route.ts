@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     otpRateLimiter.check(clientIp);
 
     const body = await parseAndValidateBody(req, verifyResetOtpSchema);
-    const { resetToken } = await authService.verifyResetOtp(body.email, body.otp);
+    const target = (body.identifier || body.email)!.trim();
+    const { resetToken } = await authService.verifyResetOtp(target, body.otp);
 
     return jsonResponse(
       {

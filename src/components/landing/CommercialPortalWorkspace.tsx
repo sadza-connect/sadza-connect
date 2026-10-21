@@ -44,9 +44,17 @@ import {
   CLEAN_PROVINCES,
   COMMERCIAL_SECTORS,
   DEFAULT_PAID_ADVERTS,
-  loadStoredAdverts,
   saveStoredAdverts,
+  getDeletedAdvertIds,
 } from '@/data/advertsStore';
+import {
+  getPlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettings,
+} from '@/data/platformStore';
+import { BusinessListing } from '@/lib/data/zimbabwe';
+import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 
 const BUSINESS_SCALES = [
   { id: 'All', label: 'All Business Types', icon: Layers },
@@ -82,128 +90,7 @@ interface ProductListing {
   description: string;
 }
 
-const INITIAL_PRODUCTS: ProductListing[] = [
-  {
-    id: 'p1',
-    title: '5kVA Deye Hybrid Solar Inverter + 100Ah Lithium Battery Pack',
-    category: 'Solar & Clean Energy',
-    province: 'Midlands',
-    priceUSD: 1150,
-    priceZiG: 30475,
-    unit: 'Full Kit',
-    movementBadge: 'Fast Moving',
-    postedAgo: '14 mins ago',
-    stockNote: '8 kits remaining in warehouse',
-    sellerName: 'Midlands Solar & Power Systems',
-    sellerType: 'Registered Company (Pvt Ltd)',
-    sellerPlan: 'Paid Subscriber',
-    whatsapp: '263773333444',
-    image:
-      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=700&q=80',
-    description:
-      'Complete 5kVA 48V hybrid solar system with 5.12kWh LiFePO4 battery, 6x 450W Mono panels, and protection box.',
-  },
-  {
-    id: 'p2',
-    title: 'Compound D & Ammonium Nitrate Fertilizer (50kg Bags)',
-    category: 'Agriculture & Farm Inputs',
-    province: 'Mashonaland Central',
-    priceUSD: 34,
-    priceZiG: 901,
-    unit: 'Per 50kg Bag',
-    movementBadge: 'Bulk Stock',
-    postedAgo: '32 mins ago',
-    stockNote: 'Min order 10 bags • Delivery available',
-    sellerName: 'Mazowe Citrus & Agro Supplies',
-    sellerType: 'Registered Company (Pvt Ltd)',
-    sellerPlan: 'Paid Subscriber',
-    whatsapp: '263776777888',
-    image:
-      'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=700&q=80',
-    description:
-      'Freshly manufactured ZFC/Windmill standard Compound D and AN top-dressing fertilizer ready for collection or farm dispatch.',
-  },
-  {
-    id: 'p3',
-    title: 'PPC Surebuild 42.5N Cement & IBR Chromadek Roofing Sheets',
-    category: 'Hardware & Construction',
-    province: 'Bulawayo',
-    priceUSD: 11.5,
-    priceZiG: 305,
-    unit: 'Per 50kg Pocket',
-    movementBadge: 'Just Arrived',
-    postedAgo: '1 hour ago',
-    stockNote: 'Direct depot offloading today',
-    sellerName: 'Batanai Building Supplies & Timber',
-    sellerType: 'Registered Company (Pvt Ltd)',
-    sellerPlan: 'Paid Subscriber',
-    whatsapp: '263775666777',
-    image:
-      'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80',
-    description:
-      'High-strength 42.5N structural cement and 0.40mm / 0.58mm Chromadek IBR sheets cut to customer roof specification.',
-  },
-  {
-    id: 'p4',
-    title: 'HP ProBook & Lenovo ThinkPad Core i7 Business Laptops',
-    category: 'ICT & Electronics',
-    province: 'Harare',
-    priceUSD: 340,
-    priceZiG: 9010,
-    unit: 'Each (6-Mo Warranty)',
-    movementBadge: 'New Upload',
-    postedAgo: '2 hours ago',
-    stockNote: '15 units tested & ready',
-    sellerName: 'First Choice Tech Solutions',
-    sellerType: 'SME / Partnership',
-    sellerPlan: 'Month 1 Free Grace',
-    whatsapp: '263772111222',
-    image:
-      'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=700&q=80',
-    description:
-      '11th Gen Intel Core i7, 16GB DDR4 RAM, 512GB NVMe SSD, backlit keyboard, genuine Windows 11 Pro.',
-  },
-  {
-    id: 'p5',
-    title: 'Organic Honey & Dried Macadamia Nuts (Export Grade)',
-    category: 'Agriculture & Farm Inputs',
-    province: 'Manicaland',
-    priceUSD: 6.5,
-    priceZiG: 172,
-    unit: 'Per 500g Jar / Pack',
-    movementBadge: 'Just Arrived',
-    postedAgo: '3 hours ago',
-    stockNote: 'Retail & wholesale cartons',
-    sellerName: 'Eastern Highlands Growers Co-op',
-    sellerType: 'Cooperative / Association',
-    sellerPlan: 'Month 1 Free Grace',
-    whatsapp: '263778999000',
-    image:
-      'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=700&q=80',
-    description:
-      'Pure raw montane forest honey and vacuum-packed macadamia nuts harvested by 85 smallholder farmers in Manicaland.',
-  },
-  {
-    id: 'p6',
-    title: 'Toyota Hilux GD-6 & D-4D Suspension & Service Kits',
-    category: 'Automotive & Spares',
-    province: 'Harare',
-    priceUSD: 85,
-    priceZiG: 2252,
-    unit: 'Complete Service Kit',
-    movementBadge: 'Fast Moving',
-    postedAgo: '4 hours ago',
-    stockNote: 'Same-day courier nationwide',
-    sellerName: 'Msasa Auto Spares & Diagnostics',
-    sellerType: 'Sole Proprietor',
-    sellerPlan: 'Paid Subscriber',
-    whatsapp: '263774123987',
-    image:
-      'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&w=700&q=80',
-    description:
-      'OEM oil, fuel, air and cabin filters plus heavy-duty shock absorbers and brake pads for Toyota GD-6 and Ford Ranger.',
-  },
-];
+const INITIAL_PRODUCTS: ProductListing[] = [];
 
 // ---------------------------------------------------------------------------
 // ACTIVE DIRECTORY BUSINESSES (Paid Subscribers + Month 1 Free Grace)
@@ -219,7 +106,7 @@ interface DirectoryBusiness {
     | 'SME / Partnership'
     | 'Sole Proprietor'
     | 'Cooperative / Association';
-  subscriptionStatus: 'Paid Subscriber' | 'Month 1 Grace Period';
+  subscriptionStatus: 'Paid Subscriber' | 'Month 1 Grace Period' | 'Expired';
   verifiedCR14: boolean;
   rating: number;
   reviews: number;
@@ -232,184 +119,124 @@ interface DirectoryBusiness {
   mapX: number;
   mapY: number;
   activeProductsCount: number;
+  slug?: string;
+  onboardingTrack?: string;
 }
 
-const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [
-  {
-    id: 'b1',
-    name: 'Midlands Solar & Power Systems',
-    category: 'Solar & Clean Energy',
-    province: 'Midlands',
-    address: '54 Robert Mugabe Way, Central Business District',
-    businessType: 'Registered Company (Pvt Ltd)',
-    subscriptionStatus: 'Paid Subscriber',
-    verifiedCR14: true,
-    rating: 4.9,
-    reviews: 128,
-    specialty:
-      'Commercial & domestic hybrid solar installations, borehole solar pumps & lithium battery banks.',
-    whatsapp: '263773333444',
-    phone: '+263773333444',
+const PROVINCE_MAP_COORDS: Record<string, { mapX: number; mapY: number; lat: number; lng: number }> = {
+  Harare: { mapX: 62, mapY: 32, lat: -17.8292, lng: 31.0522 },
+  Bulawayo: { mapX: 38, mapY: 72, lat: -20.15, lng: 28.5833 },
+  Midlands: { mapX: 48, mapY: 54, lat: -19.4522, lng: 29.8167 },
+  Manicaland: { mapX: 82, mapY: 46, lat: -18.9707, lng: 32.6709 },
+  'Mashonaland Central': { mapX: 64, mapY: 24, lat: -17.5167, lng: 30.9833 },
+  'Mashonaland East': { mapX: 72, mapY: 36, lat: -18.1833, lng: 31.55 },
+  'Mashonaland West': { mapX: 45, mapY: 30, lat: -17.3667, lng: 30.2 },
+  Masvingo: { mapX: 65, mapY: 70, lat: -20.0744, lng: 30.8328 },
+  'Matabeleland North': { mapX: 18, mapY: 38, lat: -17.9317, lng: 25.8307 },
+  'Matabeleland South': { mapX: 40, mapY: 85, lat: -20.95, lng: 29.0 },
+};
+
+function mapListingToDirectoryBusiness(b: BusinessListing): DirectoryBusiness {
+  const coords = PROVINCE_MAP_COORDS[b.province] || { mapX: 50, mapY: 50, lat: -19.0, lng: 30.0 };
+
+  const normType: DirectoryBusiness['businessType'] =
+    b.onboardingTrack === 'owner_operated'
+      ? 'Sole Proprietor'
+      : b.onboardingTrack === 'association_institutional'
+      ? 'Cooperative / Association'
+      : 'Registered Company (Pvt Ltd)';
+
+  return {
+    id: b.id,
+    slug: b.slug,
+    name: b.name,
+    category: b.categoryName || 'General Commercial',
+    province: b.province || 'Harare',
+    address: b.address || 'Central Business District',
+    businessType: normType,
+    subscriptionStatus:
+      b.subscriptionStatus === 'Paid Subscriber'
+        ? 'Paid Subscriber'
+        : b.subscriptionStatus === 'Expired'
+        ? 'Expired'
+        : 'Month 1 Grace Period',
+    verifiedCR14: Boolean(b.cr14Verified && b.verificationStatus === 'Verified'),
+    rating: b.rating || 5.0,
+    reviews: b.reviewCount || 1,
+    specialty: b.description || 'Verified Zimbabwean commercial supplier and service provider.',
+    whatsapp: (b.whatsapp || b.phone || '263771000000').replace(/\D/g, ''),
+    phone: b.phone || '+263 77 000 0000',
     image:
+      b.image ||
       'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=700&q=80',
-    lat: -19.4522,
-    lng: 29.8167,
-    mapX: 48,
-    mapY: 54,
-    activeProductsCount: 24,
-  },
-  {
-    id: 'b2',
-    name: "Gava's Traditional Restaurant & Catering",
-    category: 'Restaurants & Dining',
-    province: 'Harare',
-    address: 'Belgravia Sports Club, Second Street Extension',
-    businessType: 'Registered Company (Pvt Ltd)',
-    subscriptionStatus: 'Paid Subscriber',
-    verifiedCR14: true,
-    rating: 4.9,
-    reviews: 218,
-    specialty:
-      'Authentic Zimbabwean cuisine, sadza rezviyo, road runner chicken, oxtail & corporate catering.',
-    whatsapp: '263772111222',
-    phone: '+263772111222',
+    lat: coords.lat,
+    lng: coords.lng,
+    mapX: coords.mapX,
+    mapY: coords.mapY,
+    activeProductsCount: (b.services || []).length || 6,
+    onboardingTrack: b.onboardingTrack,
+  };
+}
+
+function mapDbProductToProductListing(p: any): ProductListing {
+  return {
+    id: p.id,
+    title: p.name || p.title || 'Untitled Product',
+    category: p.category || 'General Goods',
+    province: p.province || p.business?.province || 'Harare',
+    priceUSD: Number(p.price_usd || p.priceUSD || 0),
+    priceZiG: Number(p.price_zig || p.priceZiG || (p.price_usd ? Number(p.price_usd) * 26.5 : 0)),
+    unit: p.unit || 'Each',
+    movementBadge: (p.movementBadge || (p.is_featured ? 'Fast Moving' : 'New Upload')) as any,
+    postedAgo: p.postedAgo || 'Recently',
+    stockNote: p.stockNote || (p.in_stock !== false ? 'In stock' : 'Out of stock'),
+    sellerName: p.business?.name || p.sellerName || 'Verified Merchant',
+    sellerType:
+      p.business?.onboardingTrack === 'owner_operated'
+        ? 'Sole Proprietor'
+        : p.business?.onboardingTrack === 'association_institutional'
+        ? 'Cooperative / Association'
+        : 'Registered Company (Pvt Ltd)',
+    sellerPlan: 'Paid Subscriber',
+    whatsapp: (p.business?.whatsapp || p.whatsapp || '263771000000').replace(/\D/g, ''),
     image:
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=700&q=80',
-    lat: -17.8012,
-    lng: 31.0421,
-    mapX: 62,
-    mapY: 32,
-    activeProductsCount: 14,
-  },
-  {
-    id: 'b3',
-    name: 'Batanai Building Supplies & Timber',
-    category: 'Hardware & Construction',
-    province: 'Bulawayo',
-    address: 'Kelvin North Industrial Sites',
-    businessType: 'Registered Company (Pvt Ltd)',
-    subscriptionStatus: 'Paid Subscriber',
-    verifiedCR14: true,
-    rating: 4.8,
-    reviews: 94,
-    specialty:
-      'Bulk cement, structural roofing timber, IBR Chromadek sheets, steel window frames & plumbing.',
-    whatsapp: '263775666777',
-    phone: '+263775666777',
-    image:
-      'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80',
-    lat: -20.15,
-    lng: 28.5833,
-    mapX: 38,
-    mapY: 72,
-    activeProductsCount: 42,
-  },
-  {
-    id: 'b4',
-    name: 'Mazowe Citrus & Agro Supplies',
-    category: 'Agriculture & Farm Inputs',
-    province: 'Mashonaland Central',
-    address: 'Mazowe Valley Agro-Industrial Park',
-    businessType: 'Registered Company (Pvt Ltd)',
-    subscriptionStatus: 'Paid Subscriber',
-    verifiedCR14: true,
-    rating: 4.9,
-    reviews: 137,
-    specialty:
-      'Certified hybrid maize seed, Compound D & AN fertilizers, drip irrigation kits & crop chemicals.',
-    whatsapp: '263776777888',
-    phone: '+263776777888',
-    image:
-      'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=700&q=80',
-    lat: -17.5167,
-    lng: 30.9833,
-    mapX: 64,
-    mapY: 24,
-    activeProductsCount: 31,
-  },
-  {
-    id: 'b5',
-    name: 'Victoria Falls Safari Eco-Lodge',
-    category: 'Hotels & Tourism',
-    province: 'Matabeleland North',
-    address: 'Stand 471 Squire Cummings Avenue',
-    businessType: 'Registered Company (Pvt Ltd)',
-    subscriptionStatus: 'Paid Subscriber',
-    verifiedCR14: true,
-    rating: 5.0,
-    reviews: 412,
-    specialty:
-      'Conference packages, luxury safari lodges, Zambezi sunset cruises & airport transfers.',
-    whatsapp: '263774555666',
-    phone: '+263832843211',
-    image:
-      'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=700&q=80',
-    lat: -17.9317,
-    lng: 25.8307,
-    mapX: 18,
-    mapY: 38,
-    activeProductsCount: 9,
-  },
-  {
-    id: 'b6',
-    name: 'Eastern Highlands Growers Co-op',
-    category: 'Agriculture & Farm Inputs',
-    province: 'Manicaland',
-    address: 'Vumba Road Agricultural Depot',
-    businessType: 'Cooperative / Association',
-    subscriptionStatus: 'Month 1 Grace Period',
-    verifiedCR14: false,
-    rating: 4.7,
-    reviews: 41,
-    specialty:
-      'Farmer cooperative supplying macadamia nuts, avocados, timber poles & raw montane honey.',
-    whatsapp: '263778999000',
-    phone: '+263778999000',
-    image:
-      'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=700&q=80',
-    lat: -18.9707,
-    lng: 32.6709,
-    mapX: 82,
-    mapY: 46,
-    activeProductsCount: 11,
-  },
-];
+      (Array.isArray(p.images) && p.images[0]) ||
+      p.image ||
+      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=700&q=80',
+    description: p.description || '',
+  };
+}
+
+function mapDbJobToJobItem(j: any): JobItem {
+  return {
+    id: j.id,
+    title: j.title || 'Untitled Job',
+    company: j.business?.name || j.company || 'Verified Employer',
+    province: j.province || 'Harare',
+    type: j.job_type || j.type || 'Full-Time',
+    salary: j.salary_usd ? `USD $${j.salary_usd}` : 'Negotiable',
+    posted: 'Recently',
+    category: j.category || 'General',
+  };
+}
+
+const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [];
 
 // ---------------------------------------------------------------------------
 // LATEST JOBS & COMMERCIAL TENDERS
 // ---------------------------------------------------------------------------
-const LATEST_JOBS = [
-  {
-    id: 'j1',
-    title: 'Solar Technical Sales & Installation Engineer',
-    company: 'Midlands Solar & Power Systems',
-    province: 'Midlands',
-    type: 'Full-Time',
-    salary: 'USD $850 – $1,200 /mo',
-    posted: '2 hours ago',
-    category: 'Solar & Clean Energy',
-  },
-  {
-    id: 'j2',
-    title: 'Senior Commercial Farm Agronomist',
-    company: 'Mazowe Citrus & Agro Supplies',
-    province: 'Mashonaland Central',
-    type: 'Contract',
-    salary: 'USD $1,000 – $1,500 /mo',
-    posted: '5 hours ago',
-    category: 'Agriculture & Farm Inputs',
-  },
-  {
-    id: 'j3',
-    title: 'Procurement & Hardware Depot Supervisor',
-    company: 'Batanai Building Supplies & Timber',
-    province: 'Bulawayo',
-    type: 'Full-Time',
-    salary: 'USD $700 – $950 /mo',
-    posted: '1 day ago',
-    category: 'Hardware & Construction',
-  },
-];
+interface JobItem {
+  id: string;
+  title: string;
+  company: string;
+  province: string;
+  type: string;
+  salary: string;
+  posted: string;
+  category: string;
+}
+
+const LATEST_JOBS: JobItem[] = [];
 
 type AccountViewMode =
   | 'visitor'
@@ -422,8 +249,81 @@ type FeedFocusTab = 'all' | 'products' | 'businesses' | 'jobs' | 'adverts';
 export function CommercialPortalWorkspace() {
   const { user } = useAuth();
 
-  // Interactive Account Status Mode
+  // Dynamic Platform Settings
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
+
+  useEffect(() => {
+    setSettings(getPlatformSettings());
+    const sync = () => setSettings(getPlatformSettings());
+    window.addEventListener('sadza-platform-updated', sync);
+    return () => window.removeEventListener('sadza-platform-updated', sync);
+  }, []);
+
+  // Dynamic Account Status Mode
   const [accountMode, setAccountMode] = useState<AccountViewMode>('visitor');
+  const [userBusiness, setUserBusiness] = useState<{
+    id: string;
+    name: string;
+    subscriptionStatus: string;
+    graceDaysRemaining?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!user) {
+      setAccountMode('visitor');
+      setUserBusiness(null);
+      return;
+    }
+
+    const isBusiness =
+      user.role === 'business' || user.role === 'merchant' || user.accountType === 'business';
+
+    if (!isBusiness) {
+      setAccountMode('visitor');
+      return;
+    }
+
+    // Fetch user's registered business to get live dynamic grace period
+    const fetchUserBusiness = async () => {
+      try {
+        const res = await fetch('/api/v1/businesses?my_business=true');
+        const json = await res.json();
+        if (isMounted && json.success && json.data?.primaryBusiness) {
+          const b = json.data.primaryBusiness;
+          const createdTime = b.created_at ? new Date(b.created_at).getTime() : Date.now();
+          const daysPassed = Math.floor((Date.now() - createdTime) / (1000 * 60 * 60 * 24));
+          const daysRemaining = Math.max(0, settings.freeGracePeriodDays - daysPassed);
+
+          setUserBusiness({
+            id: b.id,
+            name: b.name,
+            subscriptionStatus: b.subscription_status,
+            graceDaysRemaining: daysRemaining,
+          });
+
+          if (b.subscription_status === 'Paid Subscriber') {
+            setAccountMode('paid_subscriber');
+          } else if (daysRemaining > 3) {
+            setAccountMode('grace_active');
+          } else if (daysRemaining > 0) {
+            setAccountMode('grace_expiring');
+          } else {
+            setAccountMode('grace_expired');
+          }
+        } else if (isMounted) {
+          setAccountMode('visitor');
+        }
+      } catch {
+        if (isMounted) setAccountMode('visitor');
+      }
+    };
+
+    fetchUserBusiness();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, settings.freeGracePeriodDays]);
 
   // Filtering State
   const [selectedSector, setSelectedSector] = useState<string>('All');
@@ -440,10 +340,46 @@ export function CommercialPortalWorkspace() {
   const [advertFilterMode, setAdvertFilterMode] = useState<'matching' | 'all'>('matching');
 
   useEffect(() => {
-    setPaidAdverts(loadStoredAdverts());
-    const handleSync = () => setPaidAdverts(loadStoredAdverts());
+    let isMounted = true;
+
+    async function fetchLiveAdverts() {
+      try {
+        let liveAdverts: PaidAdvertItem[] = [];
+        try {
+          const res = await fetch('/api/v1/adverts?limit=50');
+          if (res.ok) {
+            const json = await res.json();
+            const dbAds = json.data?.adverts || json.adverts || [];
+            if (Array.isArray(dbAds)) {
+              liveAdverts = dbAds.map(mapDbAdvertToPaidAdvert);
+            }
+          }
+        } catch (apiErr) {
+          console.warn('API fetch for adverts failed:', apiErr);
+        }
+
+        const deletedIds = new Set(getDeletedAdvertIds());
+        const validAds = liveAdverts.filter((item) => item && item.id && !deletedIds.has(item.id));
+
+        if (isMounted) {
+          setPaidAdverts(validAds);
+        }
+      } catch (err) {
+        console.error('Failed to load adverts for landing page:', err);
+        if (isMounted) setPaidAdverts([]);
+      }
+    }
+
+    fetchLiveAdverts();
+    const handleSync = () => fetchLiveAdverts();
     window.addEventListener('sadza-adverts-updated', handleSync);
-    return () => window.removeEventListener('sadza-adverts-updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-adverts-updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   // Directory View Mode (List vs Interactive Map)
@@ -486,7 +422,8 @@ export function CommercialPortalWorkspace() {
   const [newProdDesc, setNewProdDesc] = useState('');
 
   // Quick Apply Job Modal State
-  const [selectedJob, setSelectedJob] = useState<(typeof LATEST_JOBS)[0] | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobItem | null>(null);
+  const [jobs, setJobs] = useState<JobItem[]>(LATEST_JOBS);
   const [applicantName, setApplicantName] = useState('');
   const [applicantEmail, setApplicantEmail] = useState('');
   const [applicantPhone, setApplicantPhone] = useState('');
@@ -494,6 +431,108 @@ export function CommercialPortalWorkspace() {
 
   // Product Quick View Modal
   const [quickViewProduct, setQuickViewProduct] = useState<ProductListing | null>(null);
+
+  // Directory Businesses State (Live DB + Stored)
+  const [businesses, setBusinesses] = useState<DirectoryBusiness[]>(DIRECTORY_BUSINESSES);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAllBusinesses = async () => {
+      try {
+        let liveListings: BusinessListing[] = [];
+        try {
+          const res = await fetch('/api/v1/businesses?limit=50');
+          if (res.ok) {
+            const data = await res.json();
+            const dbBizList = data.data?.businesses || data.businesses || [];
+            if (Array.isArray(dbBizList)) {
+              liveListings = dbBizList
+                .map((b: any) => mapDbBusinessToListing(b))
+                .filter((b: BusinessListing) => b.subscriptionStatus !== 'Expired');
+            }
+          }
+        } catch (apiErr) {
+          console.warn('API fetch for directory businesses failed:', apiErr);
+        }
+
+        if (isMounted) {
+          setBusinesses(liveListings.map(mapListingToDirectoryBusiness));
+        }
+      } catch (err) {
+        console.error('Failed to load businesses for landing page:', err);
+        if (isMounted) setBusinesses([]);
+      }
+    };
+
+    const loadAllProducts = async () => {
+      try {
+        let liveProds: ProductListing[] = [];
+        try {
+          const res = await fetch('/api/v1/products?limit=50');
+          if (res.ok) {
+            const data = await res.json();
+            const dbProdList = data.data?.products || data.products || [];
+            if (Array.isArray(dbProdList)) {
+              liveProds = dbProdList.map(mapDbProductToProductListing);
+            }
+          }
+        } catch (apiErr) {
+          console.warn('API fetch for products failed:', apiErr);
+        }
+
+        if (isMounted) {
+          setProducts(liveProds);
+        }
+      } catch (err) {
+        console.error('Failed to load products for landing page:', err);
+        if (isMounted) setProducts([]);
+      }
+    };
+
+    const loadAllJobs = async () => {
+      try {
+        let liveJobs: JobItem[] = [];
+        try {
+          const res = await fetch('/api/v1/jobs?limit=50');
+          if (res.ok) {
+            const data = await res.json();
+            const dbJobList = data.data?.jobs || data.jobs || [];
+            if (Array.isArray(dbJobList)) {
+              liveJobs = dbJobList.map(mapDbJobToJobItem);
+            }
+          }
+        } catch (apiErr) {
+          console.warn('API fetch for jobs failed:', apiErr);
+        }
+
+        if (isMounted) {
+          setJobs(liveJobs);
+        }
+      } catch (err) {
+        console.error('Failed to load jobs for landing page:', err);
+        if (isMounted) setJobs([]);
+      }
+    };
+
+    loadAllBusinesses();
+    loadAllProducts();
+    loadAllJobs();
+
+    const handleSync = () => {
+      loadAllBusinesses();
+      loadAllProducts();
+      loadAllJobs();
+    };
+    window.addEventListener('sadza-platform-updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -514,7 +553,7 @@ export function CommercialPortalWorkspace() {
 
   // Filtered Businesses
   const filteredBusinesses = useMemo(() => {
-    return DIRECTORY_BUSINESSES.filter((biz) => {
+    return businesses.filter((biz) => {
       const matchSector = selectedSector === 'All' || biz.category === selectedSector;
       const matchProvince =
         selectedProvince === 'All Provinces' || biz.province === selectedProvince;
@@ -526,11 +565,11 @@ export function CommercialPortalWorkspace() {
         biz.category.toLowerCase().includes(searchQuery.toLowerCase());
       return matchSector && matchProvince && matchScale && matchQuery;
     });
-  }, [selectedSector, selectedProvince, selectedScale, searchQuery]);
+  }, [businesses, selectedSector, selectedProvince, selectedScale, searchQuery]);
 
   // Filtered Jobs
   const filteredJobs = useMemo(() => {
-    return LATEST_JOBS.filter((job) => {
+    return jobs.filter((job) => {
       const matchSector = selectedSector === 'All' || job.category === selectedSector;
       const matchProvince =
         selectedProvince === 'All Provinces' || job.province === selectedProvince;
@@ -540,7 +579,7 @@ export function CommercialPortalWorkspace() {
         job.company.toLowerCase().includes(searchQuery.toLowerCase());
       return matchSector && matchProvince && matchQuery;
     });
-  }, [selectedSector, selectedProvince, searchQuery]);
+  }, [jobs, selectedSector, selectedProvince, searchQuery]);
 
   // Filtered Paid Adverts in Right Sidebar
   const displayedAdverts = useMemo(() => {
@@ -570,7 +609,8 @@ export function CommercialPortalWorkspace() {
   const selectedMapBusiness =
     filteredBusinesses.find((b) => b.id === selectedMapBusinessId) ||
     filteredBusinesses[0] ||
-    DIRECTORY_BUSINESSES[0];
+    businesses[0] ||
+    null;
 
   const activeFiltersCount =
     (selectedSector !== 'All' ? 1 : 0) +
@@ -623,10 +663,46 @@ export function CommercialPortalWorkspace() {
     setNewProdDesc('');
   };
 
-  const handlePublishNewAdvert = (e: React.FormEvent) => {
+  const handlePublishNewAdvert = async (e: React.FormEvent) => {
     e.preventDefault();
     const usd = parseFloat(adPriceUSD) || undefined;
-    const createdAd: PaidAdvertItem = {
+    const cleanWhatsapp = adWhatsapp.replace(/\D/g, '') || '263772111222';
+
+    let createdAdvertObj: PaidAdvertItem | null = null;
+    try {
+      const res = await fetch('/api/v1/adverts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          business_name: adBizName.trim() || user?.fullName || 'Verified Business Partner',
+          business_type: 'Registered Company (Pvt Ltd)',
+          province: adProvince,
+          category: adCategory,
+          offer_type: 'Special Package',
+          headline: adHeadline.trim() || 'Commercial Promotional Offer',
+          offer_text:
+            adOfferText.trim() ||
+            'Direct wholesale and commercial supply promotion available via WhatsApp.',
+          promo_badge: adBadge.trim().toUpperCase() || 'PAID PROMO',
+          promo_price_usd: usd,
+          valid_until: 'Valid 30 days',
+          whatsapp: cleanWhatsapp,
+          phone: `+${cleanWhatsapp}`,
+          image:
+            'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
+          featured_on_home: true,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.advert) {
+        createdAdvertObj = mapDbAdvertToPaidAdvert(json.data.advert);
+      }
+    } catch (err) {
+      console.error('Failed to publish advert to database:', err);
+    }
+
+    const createdAd: PaidAdvertItem = createdAdvertObj || {
       id: `ad-${Date.now()}`,
       businessName: adBizName.trim() || user?.fullName || 'Verified Business Partner',
       businessType: 'Registered Company (Pvt Ltd)',
@@ -641,14 +717,14 @@ export function CommercialPortalWorkspace() {
       promoPriceUSD: usd,
       priceZiG: usd ? Math.round(usd * 26.5) : undefined,
       validUntil: 'Valid 30 days',
-      whatsapp: adWhatsapp.replace(/\D/g, '') || '263772111222',
-      phone: `+${adWhatsapp.replace(/\D/g, '') || '263772111222'}`,
+      whatsapp: cleanWhatsapp,
+      phone: `+${cleanWhatsapp}`,
       image:
         'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
       featuredOnHome: true,
       postedAt: 'Just now',
     };
-    const nextAdverts = [createdAd, ...paidAdverts];
+    const nextAdverts = [createdAd, ...paidAdverts.filter((a) => a.id !== createdAd.id)];
     setPaidAdverts(nextAdverts);
     saveStoredAdverts(nextAdverts);
     setCreateAdvertOpen(false);
@@ -679,44 +755,6 @@ export function CommercialPortalWorkspace() {
       ===================================================================== */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-2xs">
         <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-3.5">
-          {/* Interactive Role/Status Switcher Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800/80 text-xs">
-            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="font-bold text-slate-800 dark:text-slate-200">
-                Account &amp; 1-Month Grace Period Simulator:
-              </span>
-              <span className="hidden md:inline">
-                Click any state below to preview how normal users and businesses are notified:
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              {(
-                [
-                  { id: 'visitor', label: 'Normal Visitor View' },
-                  { id: 'grace_active', label: 'Business: Month 1 Free Grace (24d left)' },
-                  { id: 'grace_expiring', label: 'Business: Grace Ending (3d left)' },
-                  { id: 'grace_expired', label: 'Business: Grace Expired (Payment Due)' },
-                  { id: 'paid_subscriber', label: 'Business: Paid Subscriber' },
-                ] as const
-              ).map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => setAccountMode(mode.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    accountMode === mode.id
-                      ? 'bg-slate-900 text-white dark:bg-emerald-600 shadow-2xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Contextual Banner based on Account / Grace Period State */}
           {accountMode === 'visitor' && (
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 px-5 py-4">
@@ -727,14 +765,14 @@ export function CommercialPortalWorkspace() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                      Own a Business in Zimbabwe? Enjoy a 1-Month Free Grace Period
+                      Own a Business in Zimbabwe? Enjoy a {settings.freeGracePeriodDays}-Day Free Grace Period
                     </span>
                     <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                      First 30 Days Free
+                      First {settings.freeGracePeriodDays} Days Free
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
-                    Register your Sole Proprietorship, SME, Pvt Ltd Company, or Cooperative today. Get listed in the directory and upload products free for 30 days before any monthly payment is required.
+                    Register your Sole Proprietorship, SME, Pvt Ltd Company, or Cooperative today. Get listed in the directory and upload products free for {settings.freeGracePeriodDays} days before any monthly payment is required.
                   </p>
                 </div>
               </div>
@@ -745,7 +783,7 @@ export function CommercialPortalWorkspace() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>Register Business (30 Days Free)</span>
+                  <span>Register Business ({settings.freeGracePeriodDays} Days Free)</span>
                 </Link>
                 <button
                   type="button"
@@ -768,14 +806,14 @@ export function CommercialPortalWorkspace() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                      1-Month Free Grace Period Active — 24 Days Remaining
+                      {settings.freeGracePeriodDays}-Day Free Grace Period Active — {userBusiness?.graceDaysRemaining ?? settings.freeGracePeriodDays} Days Remaining
                     </span>
                     <span className="rounded-md bg-emerald-600 text-white px-2.5 py-0.5 text-xs font-bold">
-                      Day 6 of 30
+                      Day {Math.min(settings.freeGracePeriodDays, Math.max(1, settings.freeGracePeriodDays - (userBusiness?.graceDaysRemaining ?? settings.freeGracePeriodDays)))} of {settings.freeGracePeriodDays}
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">
-                    Your business directory profile and product uploads are live across Zimbabwe. Your first monthly subscription ($15/mo) will only be due after your 30-day grace period ends.
+                    Your business directory profile and product uploads are live across Zimbabwe. Your first monthly subscription (${settings.monthlySubscriptionPriceUsd}/mo) will only be due after your {settings.freeGracePeriodDays}-day grace period ends.
                   </p>
                 </div>
               </div>
@@ -814,14 +852,14 @@ export function CommercialPortalWorkspace() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                      Renewal Reminder: Your 1-Month Grace Period Ends in 3 Days
+                      Renewal Reminder: Your {settings.freeGracePeriodDays}-Day Grace Period Ends in {userBusiness?.graceDaysRemaining ?? 3} {(userBusiness?.graceDaysRemaining ?? 3) === 1 ? 'Day' : 'Days'}
                     </span>
                     <span className="rounded-md bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 text-xs font-bold">
                       Action Required Soon
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">
-                    Activate your monthly business subscription ($15 USD / ZiG equivalent) via EcoCash, InnBucks, or Card so your business listing and marketplace products remain live without interruption.
+                    Activate your monthly business subscription (${settings.monthlySubscriptionPriceUsd} USD / ZiG equivalent) via EcoCash, InnBucks, or Card so your business listing and marketplace products remain live without interruption.
                   </p>
                 </div>
               </div>
@@ -837,7 +875,7 @@ export function CommercialPortalWorkspace() {
                   className="inline-flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   <CreditCard className="h-4 w-4" />
-                  <span>Make Payment Now ($15/mo)</span>
+                  <span>Make Payment Now (${settings.monthlySubscriptionPriceUsd}/mo)</span>
                 </button>
               </div>
             </div>
@@ -852,14 +890,14 @@ export function CommercialPortalWorkspace() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="text-sm sm:text-base font-bold text-rose-950 dark:text-white">
-                      Your 1-Month Free Grace Period Has Ended — Subscription Payment Required
+                      Your {settings.freeGracePeriodDays}-Day Free Grace Period Has Ended — Subscription Payment Required
                     </span>
                     <span className="rounded-md bg-rose-600 text-white px-2.5 py-0.5 text-xs font-bold uppercase">
                       Listing Paused
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-rose-900 dark:text-rose-200 mt-1">
-                    Your 30-day free trial is complete. Complete your monthly payment to restore your public directory visibility and unlock new product &amp; advert uploads.
+                    Your {settings.freeGracePeriodDays}-day free trial is complete. Complete your monthly payment (${settings.monthlySubscriptionPriceUsd}/mo) to restore your public directory visibility and unlock new product &amp; advert uploads.
                   </p>
                 </div>
               </div>
@@ -875,7 +913,7 @@ export function CommercialPortalWorkspace() {
                   className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
                 >
                   <CreditCard className="h-4 w-4" />
-                  <span>Pay Subscription to Unlock</span>
+                  <span>Pay Subscription to Unlock (${settings.monthlySubscriptionPriceUsd}/mo)</span>
                 </button>
               </div>
             </div>
@@ -1521,20 +1559,23 @@ export function CommercialPortalWorkspace() {
                           className="p-5 sm:p-6 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors flex flex-col sm:flex-row gap-5"
                         >
                           {/* Thumbnail */}
-                          <div className="relative h-40 sm:h-32 sm:w-44 shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                          <Link
+                            href={`/businesses/${biz.slug || biz.id}`}
+                            className="relative h-40 sm:h-32 sm:w-44 shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 block group/thumb"
+                          >
                             <Image
                               src={biz.image}
                               alt={biz.name}
                               fill
                               sizes="(max-width: 640px) 100vw, 180px"
-                              className="object-cover"
+                              className="object-cover transition-transform duration-300 group-hover/thumb:scale-105"
                             />
                             <div className="absolute top-2.5 left-2.5">
                               <span className="rounded-lg bg-white/95 dark:bg-slate-900/95 px-2.5 py-1 text-[11px] font-bold text-slate-900 dark:text-white shadow-2xs">
                                 {biz.province}
                               </span>
                             </div>
-                          </div>
+                          </Link>
 
                           {/* Details */}
                           <div className="flex-1 min-w-0 flex flex-col justify-between">
@@ -1566,7 +1607,13 @@ export function CommercialPortalWorkspace() {
                               </div>
 
                               <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-2">
-                                {biz.name}
+                                <Link
+                                  href={`/businesses/${biz.slug || biz.id}`}
+                                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors inline-flex items-center gap-1.5"
+                                >
+                                  <span>{biz.name}</span>
+                                  <ArrowUpRight className="h-4 w-4 opacity-50 group-hover:opacity-100" />
+                                </Link>
                               </h3>
 
                               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
@@ -1648,7 +1695,7 @@ export function CommercialPortalWorkspace() {
                       </svg>
 
                       {filteredBusinesses.map((biz) => {
-                        const isSelected = biz.id === selectedMapBusiness.id;
+                        const isSelected = selectedMapBusiness ? biz.id === selectedMapBusiness.id : false;
                         return (
                           <button
                             key={biz.id}
@@ -1746,54 +1793,66 @@ export function CommercialPortalWorkspace() {
                 </div>
 
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filteredJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      <div className="space-y-1.5 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
-                            {job.category}
-                          </span>
-                          <span className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 text-xs font-bold">
-                            {job.type}
-                          </span>
-                          <span className="text-xs text-slate-400">{job.posted}</span>
-                        </div>
-
-                        <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                          {job.title}
-                        </h3>
-
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                          <span className="font-bold text-slate-800 dark:text-slate-200">
-                            {job.company}
-                          </span>
-                          <span>•</span>
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                            {job.province}
-                          </span>
-                          <span>•</span>
-                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                            {job.salary}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedJob(job);
-                          setAppliedSuccess(false);
-                        }}
-                        className="shrink-0 rounded-xl bg-slate-900 hover:bg-emerald-600 dark:bg-white dark:text-slate-900 dark:hover:bg-emerald-500 dark:hover:text-white text-white px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
-                      >
-                        Quick Apply
-                      </button>
+                  {filteredJobs.length === 0 ? (
+                    <div className="p-8 text-center space-y-2">
+                      <Briefcase className="h-8 w-8 text-slate-400 mx-auto" />
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        No open vacancies posted yet
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Check back soon or post a new vacancy for your enterprise.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    filteredJobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <div className="space-y-1.5 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {job.category}
+                            </span>
+                            <span className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 text-xs font-bold">
+                              {job.type}
+                            </span>
+                            <span className="text-xs text-slate-400">{job.posted}</span>
+                          </div>
+
+                          <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                            {job.title}
+                          </h3>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              {job.company}
+                            </span>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                              {job.province}
+                            </span>
+                            <span>•</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                              {job.salary}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setAppliedSuccess(false);
+                          }}
+                          className="shrink-0 rounded-xl bg-slate-900 hover:bg-emerald-600 dark:bg-white dark:text-slate-900 dark:hover:bg-emerald-500 dark:hover:text-white text-white px-4 py-2.5 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+                        >
+                          Quick Apply
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -1869,74 +1928,86 @@ export function CommercialPortalWorkspace() {
               </div>
 
               <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4">
-                  {displayedAdverts.map((ad) => (
-                    <div
-                      key={ad.id}
-                      className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden hover:border-amber-500/60 transition-colors"
-                    >
-                      <div>
-                        <div className="relative h-36 w-full bg-slate-200 dark:bg-slate-800">
-                          <Image
-                            src={ad.image}
-                            alt={ad.headline}
-                            fill
-                            sizes="(max-width: 1024px) 100vw, 25vw"
-                            className="object-cover"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
-                          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                            <span className="rounded-md bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[11px] font-extrabold uppercase">
-                              {ad.promoBadge}
-                            </span>
-                            <span className="rounded-md bg-slate-900/90 text-white px-2.5 py-0.5 text-[11px] font-semibold">
-                              {ad.province}
-                            </span>
+                {displayedAdverts.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center space-y-2">
+                    <Megaphone className="h-7 w-7 text-slate-400 mx-auto" />
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      No featured adverts active yet
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Promote your business deals and reach thousands across Zimbabwe.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4">
+                    {displayedAdverts.map((ad) => (
+                      <div
+                        key={ad.id}
+                        className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden hover:border-amber-500/60 transition-colors"
+                      >
+                        <div>
+                          <div className="relative h-36 w-full bg-slate-200 dark:bg-slate-800">
+                            <Image
+                              src={ad.image}
+                              alt={ad.headline}
+                              fill
+                              sizes="(max-width: 1024px) 100vw, 25vw"
+                              className="object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+                            <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                              <span className="rounded-md bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[11px] font-extrabold uppercase">
+                                {ad.promoBadge}
+                              </span>
+                              <span className="rounded-md bg-slate-900/90 text-white px-2.5 py-0.5 text-[11px] font-semibold">
+                                {ad.province}
+                              </span>
+                            </div>
+                            <div className="absolute bottom-2.5 left-3 right-3">
+                              <p className="text-xs font-bold text-amber-300 truncate">
+                                {ad.businessName}
+                              </p>
+                            </div>
                           </div>
-                          <div className="absolute bottom-2.5 left-3 right-3">
-                            <p className="text-xs font-bold text-amber-300 truncate">
-                              {ad.businessName}
+
+                          <div className="p-3.5 space-y-2">
+                            <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                              {ad.headline}
+                            </h3>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
+                              {ad.offerText}
                             </p>
+                            {ad.promoPriceUSD && (
+                              <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
+                                Promo: USD ${ad.promoPriceUSD.toLocaleString()}{' '}
+                                {ad.priceZiG ? `/ ${ad.priceZiG.toLocaleString()} ZiG` : ''}
+                              </p>
+                            )}
                           </div>
                         </div>
 
-                        <div className="p-3.5 space-y-2">
-                          <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                            {ad.headline}
-                          </h3>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
-                            {ad.offerText}
-                          </p>
-                          {ad.promoPriceUSD && (
-                            <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
-                              Promo: USD ${ad.promoPriceUSD.toLocaleString()}{' '}
-                              {ad.priceZiG ? `/ ${ad.priceZiG.toLocaleString()} ZiG` : ''}
-                            </p>
-                          )}
+                        <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-700/70 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            {ad.validUntil}
+                          </span>
+                          <a
+                            href={`https://wa.me/${ad.whatsapp}?text=Hi%20${encodeURIComponent(
+                              ad.businessName
+                            )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
+                              ad.headline
+                            )}"%20on%20Sadza%20Connect.`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition-colors"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            <span>Claim Offer</span>
+                          </a>
                         </div>
                       </div>
-
-                      <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-700/70 flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          {ad.validUntil}
-                        </span>
-                        <a
-                          href={`https://wa.me/${ad.whatsapp}?text=Hi%20${encodeURIComponent(
-                            ad.businessName
-                          )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
-                            ad.headline
-                          )}"%20on%20Sadza%20Connect.`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition-colors"
-                        >
-                          <MessageCircle className="h-3.5 w-3.5" />
-                          <span>Claim Offer</span>
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Actions: Publish Advert & View All Adverts Page */}
                 <div className="space-y-2 pt-1">

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       clientIp,
     );
 
-    return jsonResponse(
+    const response = jsonResponse(
       {
         user: sanitizeUser(user),
         accessToken: tokens.accessToken,
@@ -48,6 +48,24 @@ export async function POST(req: NextRequest) {
       requestId,
       200,
     );
+
+    response.cookies.set('sadza_access_token', tokens.accessToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 15 * 60,
+    });
+
+    response.cookies.set('sadza_refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (err) {
     return errorResponse(err, requestId);
   }

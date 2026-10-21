@@ -38,64 +38,7 @@ interface ContactMessage {
   message: string;
 }
 
-const INITIAL_MESSAGES: ContactMessage[] = [
-  {
-    id: 'msg-1',
-    name: 'Eng. Farai Moyo',
-    company: 'Midlands Chrome Smelters Pvt Ltd',
-    email: 'fmoyo@midlandschrome.co.zw',
-    phone: '+263 77 289 1023',
-    service: 'B2B Bulk Solar & Industrial Backup Quote',
-    budget: '$18,000 USD',
-    priority: 'High',
-    status: 'New',
-    receivedAt: 'Today, 09:42',
-    message:
-      'Good morning Sadza Connect team. We are looking for 3 verified commercial solar suppliers in Harare or Bulawayo capable of supplying and commissioning a 30kVA three-phase hybrid bank at our Gweru processing site before month-end. Please connect us with CR14-verified suppliers.',
-  },
-  {
-    id: 'msg-2',
-    name: 'Chipo Ndlovu',
-    company: 'Bulawayo Cold Chain Logistics',
-    email: 'c.ndlovu@byocoldchain.co.zw',
-    phone: '+263 71 440 9912',
-    service: 'Sponsored Homepage Advert Slot ($20/mo)',
-    budget: '$60 USD (3 Months)',
-    priority: 'Normal',
-    status: 'In Progress',
-    receivedAt: 'Yesterday, 15:18',
-    message:
-      'Hello Admin, we have completed our $10/month standard business subscription and would now like to pin our refrigerated haulage promotional deal to the Homepage Top-6 Sponsored Adverts showcase for the next 3 months.',
-  },
-  {
-    id: 'msg-3',
-    name: 'Tatenda Mutasa',
-    company: 'Mutare Timber & Hardware',
-    email: 'accounts@mutaretimber.co.zw',
-    phone: '+263 77 901 3341',
-    service: 'CR14 & ZIMRA Tax Clearance KYC Submission',
-    budget: '$10/mo Standard Plan',
-    priority: 'High',
-    status: 'New',
-    receivedAt: 'Yesterday, 11:05',
-    message:
-      'We registered our Mutare depot 2 weeks ago under the 30-day free grace period. Attached are our updated CR14 certificate and current ZIMRA ITF263 tax clearance for official KYC verification badge approval.',
-  },
-  {
-    id: 'msg-4',
-    name: 'Rudo Katsande',
-    company: 'Diaspora Property Care (UK / Harare)',
-    email: 'rudo.k@diasporacare.co.uk',
-    phone: '+44 7700 900412',
-    service: 'ZESA Prepaid Token & Borehole Pump Inquiry',
-    budget: '$1,450 USD',
-    priority: 'Low',
-    status: 'Resolved',
-    receivedAt: '3 days ago',
-    message:
-      'Thank you for the instant ZESA token receipt for our Avondale property. We also want to request a verified borehole drilling and solar pump quote in Harare.',
-  },
-];
+const INITIAL_MESSAGES: ContactMessage[] = [];
 
 const STATUSES: ContactMessage['status'][] = ['New', 'In Progress', 'Resolved'];
 const PRIORITIES: ContactMessage['priority'][] = ['Low', 'Normal', 'High'];
@@ -104,7 +47,7 @@ export default function AdminMessagesPage() {
   const [rows, setRows] = useState<ContactMessage[]>(INITIAL_MESSAGES);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
-  const [selectedId, setSelectedId] = useState<string | null>(INITIAL_MESSAGES[0].id);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState('');
   const [toast, setToast] = useState<string | null>(null);
 

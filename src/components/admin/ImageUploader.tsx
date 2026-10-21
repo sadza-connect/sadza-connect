@@ -119,9 +119,34 @@ export function ImageUploader({
     try {
       const newItems: GalleryItem[] = [];
       for (const file of files) {
-        const compressed = await compressFileToDataUrl(file);
+        let finalSrc = '';
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('partition', 'public-media');
+          formData.append('is_public', 'true');
+
+          const res = await fetch('/api/v1/storage/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.data?.url) {
+              finalSrc = data.data.url;
+            }
+          }
+        } catch {
+          // Network error or offline, fallback to client-compressed data URL
+        }
+
+        if (!finalSrc) {
+          finalSrc = await compressFileToDataUrl(file);
+        }
+
         newItems.push({
-          src: compressed,
+          src: finalSrc,
           caption: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
         });
       }

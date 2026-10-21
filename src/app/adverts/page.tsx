@@ -34,7 +34,9 @@ import {
   DEFAULT_PAID_ADVERTS,
   loadStoredAdverts,
   saveStoredAdverts,
+  getDeletedAdvertIds,
 } from '@/data/advertsStore';
+import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 
 const OFFER_TYPES = [
   'All Offer Types',
@@ -68,10 +70,41 @@ export default function AdvertsDirectoryPage() {
   const [publishSuccess, setPublishSuccess] = useState(false);
 
   useEffect(() => {
-    setAdverts(loadStoredAdverts());
-    const handleSync = () => setAdverts(loadStoredAdverts());
+    let isMounted = true;
+    async function fetchLiveAdverts() {
+      try {
+        let liveAdverts: PaidAdvertItem[] = [];
+        try {
+          const res = await fetch('/api/v1/adverts?limit=100');
+          if (res.ok) {
+            const json = await res.json();
+            const dbAds = json.data?.adverts || json.adverts || [];
+            if (Array.isArray(dbAds)) {
+              liveAdverts = dbAds.map(mapDbAdvertToPaidAdvert);
+            }
+          }
+        } catch (apiErr) {
+          console.warn('API fetch for adverts failed:', apiErr);
+        }
+
+        const deletedIds = new Set(getDeletedAdvertIds());
+        const validAds = liveAdverts.filter((item) => item && item.id && !deletedIds.has(item.id));
+
+        if (isMounted) {
+          setAdverts(validAds);
+        }
+      } catch {
+        if (isMounted) setAdverts([]);
+      }
+    }
+
+    fetchLiveAdverts();
+    const handleSync = () => fetchLiveAdverts();
     window.addEventListener('sadza-adverts-updated', handleSync);
-    return () => window.removeEventListener('sadza-adverts-updated', handleSync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-adverts-updated', handleSync);
+    };
   }, []);
 
   const filteredAdverts = useMemo(() => {
@@ -89,10 +122,63 @@ export default function AdvertsDirectoryPage() {
     });
   }, [adverts, selectedSector, selectedProvince, selectedOfferType, searchQuery]);
 
-  const handlePublishAdvert = (e: React.FormEvent) => {
+  const handlePublishAdvert = async (e: React.FormEvent) => {
     e.preventDefault();
     const usd = parseFloat(promoPriceUSD) || undefined;
-    const newAd: PaidAdvertItem = {
+    const cleanWhatsapp = whatsapp.replace(/\D/g, '') || '263772111222';
+
+    let createdAdvertObj: PaidAdvertItem | null = null;
+
+    try {
+      const res = await fetch('/api/v1/adverts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          business_name: businessName.trim() || 'Verified Zimbabwean Enterprise',
+          business_type: businessType,
+          province,
+          category,
+          offer_type: offerType,
+          headline: headline.trim() || 'Special Commercial Promotion',
+          offer_text:
+            offerText.trim() ||
+            'Contact our sales desk directly on WhatsApp to claim this promotional business offer.',
+          promo_badge: promoBadge.trim().toUpperCase() || 'PAID PROMO',
+          promo_price_usd: usd,
+          valid_until: validUntil.trim() || 'Valid this month',
+          whatsapp: cleanWhatsapp,
+          phone: `+${cleanWhatsapp}`,
+          image:
+            'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+          featured_on_home: true,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.advert) {
+        createdAdvertObj = mapDbAdvertToPaidAdvert(json.data.advert);
+      }
+    } catch (err) {
+      console.error('Failed to publish advert to database:', err);
+    }
+
+    // Also record subscription invoice for the $20 advert promotion
+    try {
+      await fetch('/api/v1/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          business_name: businessName.trim() || 'Verified Zimbabwean Enterprise',
+          plan_type: 'Sponsored Product Advert ($20/mo)',
+          amount_usd: 20,
+          payment_method: paymentMethod === 'ecocash' ? 'EcoCash USD' : paymentMethod === 'innbucks' ? 'InnBucks' : 'Visa / Mastercard',
+          status: 'Paid',
+        }),
+      });
+    } catch {}
+
+    const newAd: PaidAdvertItem = createdAdvertObj || {
       id: `ad-${Date.now()}`,
       businessName: businessName.trim() || 'Verified Zimbabwean Enterprise',
       businessType,
@@ -107,13 +193,14 @@ export default function AdvertsDirectoryPage() {
       promoPriceUSD: usd,
       priceZiG: usd ? Math.round(usd * 26.5) : undefined,
       validUntil: validUntil.trim() || 'Valid this month',
-      whatsapp: whatsapp.replace(/\D/g, '') || '263772111222',
-      phone: `+${whatsapp.replace(/\D/g, '') || '263772111222'}`,
+      whatsapp: cleanWhatsapp,
+      phone: `+${cleanWhatsapp}`,
       image:
         'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
       featuredOnHome: true,
       postedAt: 'Just now',
     };
+
     const updated = [newAd, ...adverts];
     setAdverts(updated);
     saveStoredAdverts(updated);
@@ -359,9 +446,14 @@ export default function AdvertsDirectoryPage() {
 
                     {/* Body */}
                     <div className="p-5 space-y-3">
-                      <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white leading-snug">
-                        {ad.headline}
-                      </h2>
+                      <Link
+                        href={`/adverts/${ad.id}`}
+                        className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                      >
+                        <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white leading-snug">
+                          {ad.headline}
+                        </h2>
+                      </Link>
 
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                         {ad.offerText}
@@ -393,7 +485,7 @@ export default function AdvertsDirectoryPage() {
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+                  <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       <span className="font-bold text-slate-700 dark:text-slate-200">
                         {ad.validUntil}
@@ -401,10 +493,16 @@ export default function AdvertsDirectoryPage() {
                       • {ad.postedAt}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/adverts/${ad.id}`}
+                        className="inline-flex items-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      >
+                        View Deal
+                      </Link>
                       <a
                         href={`tel:${ad.phone}`}
-                        className="inline-flex items-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+                        className="inline-flex items-center gap-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
                       >
                         <Phone className="h-3.5 w-3.5" />
                         <span>Call</span>
@@ -417,7 +515,7 @@ export default function AdvertsDirectoryPage() {
                         )}"%20on%20Sadza%20Connect.`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition-colors"
                       >
                         <MessageCircle className="h-3.5 w-3.5" />
                         <span>Claim on WhatsApp</span>

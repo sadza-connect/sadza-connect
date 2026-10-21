@@ -13,34 +13,70 @@ import {
   Truck,
   Building2,
   Bookmark,
+  Package,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { SAMPLE_PRODUCTS, MarketplaceProduct } from '@/lib/data/zimbabwe';
 import {
-  getStoredProducts,
   getPlatformSettings,
   getSavedProductIds,
   toggleSavedProductId,
 } from '@/data/platformStore';
 import { createProductInquiryLink } from '@/lib/utils/whatsapp';
+import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 
 export default function ProductDetailPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug || '';
 
-  const [products, setProducts] = useState<MarketplaceProduct[]>(SAMPLE_PRODUCTS);
+  const [liveProduct, setLiveProduct] = useState<MarketplaceProduct | null>(null);
   const [usdToZig, setUsdToZig] = useState<number>(26.5);
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
   useEffect(() => {
-    setProducts(getStoredProducts());
     setUsdToZig(getPlatformSettings().usdToZigRate);
     setSavedIds(getSavedProductIds());
-  }, []);
 
-  const product =
-    products.find((p) => p.slug === slug || p.id === slug) || SAMPLE_PRODUCTS[0];
+    if (slug) {
+      fetch(`/api/v1/products/${encodeURIComponent(slug)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && json.data?.product) {
+            setLiveProduct(mapDbProductToMarketplaceProduct(json.data.product));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [slug]);
+
+  const product = liveProduct;
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
+        <Navbar />
+        <main className="max-w-4xl mx-auto px-4 py-20 text-center flex-1">
+          <Package className="h-16 w-16 text-slate-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Product Not Found
+          </h1>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            The product listing you are looking for may have been removed or does not exist.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              href="/marketplace"
+              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700"
+            >
+              Browse Marketplace
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   const zigPrice = Math.round(product.priceUsd * usdToZig);
   const whatsappLink = createProductInquiryLink(

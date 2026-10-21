@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   Users,
   Send,
@@ -14,6 +14,11 @@ import {
   Eye,
   Plus,
   UserPlus,
+  ShieldAlert,
+  ShieldX,
+  Key,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -31,6 +36,10 @@ import {
   ResultCount,
   EmptyState,
   AdminModal,
+  ModalBody,
+  ModalSection,
+  ModalGrid,
+  ModalFooter,
 } from '@/components/admin/AdminUI';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -142,86 +151,8 @@ const BROADCAST_TEMPLATES: BroadcastTemplate[] = [
   },
 ];
 
-const INITIAL_USERS: UserRecord[] = [
-  {
-    id: 'USR-001',
-    name: 'Tendai Moyo',
-    email: 'tendai.moyo@zimsunsolar.co.zw',
-    phone: '+263 77 241 8920',
-    organization: 'ZimSun Solar & Boreholes Ltd',
-    source: 'Business Registration (CR14 Verified)',
-    role: 'Business Owner',
-    status: 'Active',
-    ordersCount: 6,
-    totalSpent: 1420,
-    joinedDate: '12 Jan 2025',
-  },
-  {
-    id: 'USR-002',
-    name: 'Rudo Chikwanda',
-    email: 'procurement@highveldflora.co.zw',
-    phone: '+263 71 982 1104',
-    organization: 'Highveld Agro & Horticulture',
-    source: 'Corporate Procurement Account',
-    role: 'Corporate Client',
-    status: 'Active',
-    ordersCount: 11,
-    totalSpent: 8450,
-    joinedDate: '28 Jan 2025',
-  },
-  {
-    id: 'USR-003',
-    name: 'Farai Ndlovu',
-    email: 'farai.ndlovu@matabelelandsteel.co.zw',
-    phone: '+263 77 319 4412',
-    organization: 'Matabeleland Steel & Hardware',
-    source: 'Business Registration (CR14 Verified)',
-    role: 'Business Owner',
-    status: 'Active',
-    ordersCount: 4,
-    totalSpent: 980,
-    joinedDate: '04 Feb 2025',
-  },
-  {
-    id: 'USR-004',
-    name: 'Nyasha Mutasa',
-    email: 'nyasha.mutasa@gmail.com',
-    phone: '+263 78 411 9032',
-    organization: 'Personal Buyer & Job Seeker',
-    source: 'Public Sign-Up (Harare)',
-    role: 'Customer',
-    status: 'Active',
-    ordersCount: 3,
-    totalSpent: 315,
-    joinedDate: '14 Feb 2025',
-  },
-  {
-    id: 'USR-005',
-    name: 'Tafadzwa Gumbo',
-    email: 'tgumbo@mutaretimber.co.zw',
-    phone: '+263 77 801 5531',
-    organization: 'Mutare Timber & Roofing Supplies',
-    source: 'Business Registration (30-Day Grace)',
-    role: 'Business Owner',
-    status: 'Active',
-    ordersCount: 2,
-    totalSpent: 540,
-    joinedDate: '01 Mar 2025',
-  },
-  {
-    id: 'USR-006',
-    name: 'Tariro Sibanda',
-    email: 'admin@sadzaconnect.co.zw',
-    phone: '+263 77 200 1001',
-    organization: 'Sadza Connect Operations HQ',
-    source: 'Internal Executive Console',
-    role: 'Admin',
-    status: 'Active',
-    ordersCount: 0,
-    totalSpent: 0,
-    joinedDate: '01 Jan 2025',
-  },
-];
+const INITIAL_USERS: UserRecord[] = [];
+
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
@@ -236,9 +167,15 @@ export default function AdminUsersPage() {
   // New user state
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newOrg, setNewOrg] = useState('');
   const [newRole, setNewRole] = useState<UserRecord['role']>('Customer');
+
+  // Loading states
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Broadcast Form State
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(BROADCAST_TEMPLATES[0].id);
@@ -247,6 +184,53 @@ export default function AdminUsersPage() {
   const [emailBody, setEmailBody] = useState(BROADCAST_TEMPLATES[0].defaultContentHtml.trim());
   const [targetAudience, setTargetAudience] = useState<'all' | 'businesses' | 'corporate' | 'customers'>('all');
   const [previewMode, setPreviewMode] = useState(false);
+
+  // Helper for auth headers
+  const getAuthHeaders = useCallback(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  }, []);
+
+  // Fetch users from database
+  const fetchUsersFromDb = useCallback(async () => {
+    try {
+      setIsLoadingUsers(true);
+      const res = await fetch('/api/v1/users?limit=100', {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.data?.users && Array.isArray(json.data.users)) {
+        const mapped: UserRecord[] = json.data.users.map((u: any) => ({
+          id: u.id,
+          name: u.full_name || 'Unnamed User',
+          email: u.email,
+          phone: u.phone_number || '',
+          organization: u.business_name || (u.role === 'admin' ? 'Sadza Connect Operations HQ' : 'Individual Account'),
+          source: u.role === 'admin' ? 'Internal Executive Console' : (u.business_name ? 'Business Directory' : 'Public Sign-Up'),
+          role: u.role === 'admin' ? 'Admin' : (u.role === 'merchant' ? 'Business Owner' : 'Customer'),
+          status: u.status === 'suspended' ? 'Suspended' : 'Active',
+          ordersCount: 0,
+          totalSpent: 0,
+          joinedDate: u.created_at
+            ? new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+            : 'Recent',
+        }));
+        setUsersList(mapped);
+      }
+    } catch (err) {
+      console.warn('Could not fetch live users:', err);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    fetchUsersFromDb();
+  }, [fetchUsersFromDb]);
 
   const stats = useMemo(() => {
     const total = usersList.length;
@@ -306,33 +290,151 @@ export default function AdminUsersPage() {
     setBroadcastOpen(true);
   }
 
-  function handleCreateUser(e: React.FormEvent) {
+  async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim() || !newEmail.trim()) return;
-    const created: UserRecord = {
-      id: `USR-00${usersList.length + 1}`,
-      name: newName.trim(),
-      email: newEmail.trim(),
-      phone: newPhone.trim() || '+263 77 000 0000',
-      organization: newOrg.trim() || 'Individual Account',
-      source: 'Admin Manual Provisioning',
-      role: newRole,
-      status: 'Active',
-      ordersCount: 0,
-      totalSpent: 0,
-      joinedDate: 'Just now',
+    if (!newPassword.trim() || newPassword.length < 8) {
+      toast({
+        title: 'Validation Error',
+        description: 'Password must be at least 8 characters long.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const roleMap: Record<UserRecord['role'], 'admin' | 'merchant' | 'customer'> = {
+      'Admin': 'admin',
+      'Business Owner': 'merchant',
+      'Corporate Client': 'customer',
+      'Customer': 'customer',
     };
-    setUsersList((prev) => [created, ...prev]);
-    setCreateOpen(false);
-    setNewName('');
-    setNewEmail('');
-    setNewPhone('');
-    setNewOrg('');
-    toast({
-      title: 'User Account Created',
-      description: `${created.name} (${created.role}) has been added.`,
-      variant: 'success',
-    });
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch('/api/v1/users', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          fullName: newName.trim(),
+          email: newEmail.trim().toLowerCase(),
+          password: newPassword.trim(),
+          role: roleMap[newRole],
+          phoneNumber: newPhone.trim() || undefined,
+          businessName: newOrg.trim() || undefined,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || json.message || 'Failed to create user account');
+      }
+
+      toast({
+        title: newRole === 'Admin' ? 'Administrator Created' : 'User Account Created',
+        description: `${newName} has been provisioned as ${newRole} in PostgreSQL database.`,
+        variant: 'success',
+      });
+
+      setCreateOpen(false);
+      setNewName('');
+      setNewEmail('');
+      setNewPassword('');
+      setNewPhone('');
+      setNewOrg('');
+      await fetchUsersFromDb();
+    } catch (err: any) {
+      toast({
+        title: 'Failed to Create Account',
+        description: err.message || 'An error occurred while provisioning the account.',
+        variant: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleUpdateRole(userId: string, newDbRole: 'admin' | 'merchant' | 'customer') {
+    try {
+      setActionLoadingId(userId);
+      const res = await fetch(`/api/v1/users/${userId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ role: newDbRole }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Failed to update account role');
+      }
+
+      toast({
+        title: 'Role Updated',
+        description: `Account role updated to ${newDbRole.toUpperCase()} in database.`,
+        variant: 'success',
+      });
+
+      await fetchUsersFromDb();
+      if (selectedUser && selectedUser.id === userId) {
+        setSelectedUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                role: newDbRole === 'admin' ? 'Admin' : newDbRole === 'merchant' ? 'Business Owner' : 'Customer',
+              }
+            : null
+        );
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Role Update Failed',
+        description: err.message || 'Could not update role.',
+        variant: 'error',
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
+  async function handleUpdateStatus(userId: string, newStatus: 'active' | 'suspended') {
+    try {
+      setActionLoadingId(userId);
+      const res = await fetch(`/api/v1/users/${userId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Failed to update status');
+      }
+
+      toast({
+        title: 'Status Updated',
+        description: `Account status is now marked as ${newStatus.toUpperCase()}.`,
+        variant: 'success',
+      });
+
+      await fetchUsersFromDb();
+      if (selectedUser && selectedUser.id === userId) {
+        setSelectedUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus === 'active' ? 'Active' : 'Suspended',
+              }
+            : null
+        );
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Status Update Failed',
+        description: err.message || 'Could not update status.',
+        variant: 'error',
+      });
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   return (
@@ -342,6 +444,15 @@ export default function AdminUsersPage() {
         description="Manage verified business owners, corporate buyers, personal accounts, and launch segmented email broadcast campaigns with 5 pre-built Zimbabwe commercial templates."
       >
         <div className="flex flex-wrap items-center gap-2">
+          <AdminButton
+            variant="outline"
+            onClick={() => fetchUsersFromDb()}
+            disabled={isLoadingUsers}
+            title="Reload users from PostgreSQL"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
+            Refresh
+          </AdminButton>
           <AdminButton variant="outline" onClick={() => setCreateOpen(true)}>
             <UserPlus className="h-4 w-4" />
             Add User Account
@@ -506,38 +617,99 @@ export default function AdminUsersPage() {
         description="Detailed view of registered account credentials, organization, and historical engagement."
       >
         {selectedUser && (
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
-                  Account Role
-                </span>
-                <AdminBadge tone="brand">{selectedUser.role}</AdminBadge>
+          <div className="flex flex-col flex-1 min-h-0">
+            <ModalBody>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
+                    Account Role
+                  </span>
+                  <AdminBadge tone="brand">{selectedUser.role}</AdminBadge>
+                </div>
+                <p className="text-lg font-bold text-slate-950">{selectedUser.name}</p>
+                <p className="text-xs text-slate-600 font-mono break-all">{selectedUser.email}</p>
+                {selectedUser.phone && <p className="text-xs text-slate-600">{selectedUser.phone}</p>}
+                <p className="text-xs font-medium text-slate-700 pt-1">
+                  Organization: <span className="font-bold">{selectedUser.organization}</span>
+                </p>
               </div>
-              <p className="text-lg font-bold text-slate-950">{selectedUser.name}</p>
-              <p className="text-xs text-slate-600 font-mono">{selectedUser.email}</p>
-              {selectedUser.phone && <p className="text-xs text-slate-600">{selectedUser.phone}</p>}
-              <p className="text-xs font-medium text-slate-700 pt-1">
-                Organization: <span className="font-bold">{selectedUser.organization}</span>
-              </p>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
-                <span className="text-slate-400 uppercase font-semibold block">Total Orders</span>
-                <span className="text-base font-bold text-slate-950 mt-1 block">
-                  {selectedUser.ordersCount}
-                </span>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <span className="text-slate-400 uppercase font-semibold block">Total Orders</span>
+                  <span className="text-base font-bold text-slate-950 mt-1 block">
+                    {selectedUser.ordersCount}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
+                  <span className="text-slate-400 uppercase font-semibold block">Total Volume</span>
+                  <span className="text-base font-bold text-emerald-700 mt-1 block">
+                    ${selectedUser.totalSpent.toLocaleString()} USD
+                  </span>
+                </div>
               </div>
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-white">
-                <span className="text-slate-400 uppercase font-semibold block">Total Volume</span>
-                <span className="text-base font-bold text-emerald-700 mt-1 block">
-                  ${selectedUser.totalSpent.toLocaleString()} USD
-                </span>
-              </div>
-            </div>
 
-            <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+              {/* Administrative Access & Role Elevation Controls */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[0.7rem] uppercase tracking-wider text-slate-500 font-bold">
+                    Access & Role Controls
+                  </span>
+                  {actionLoadingId === selectedUser.id && (
+                    <span className="text-xs text-[#1e57eb] flex items-center gap-1 font-medium">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Updating...
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {selectedUser.role !== 'Admin' ? (
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === selectedUser.id}
+                      onClick={() => handleUpdateRole(selectedUser.id, 'admin')}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e57eb] bg-[#1e57eb] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1947c2] transition disabled:opacity-50"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Promote to Admin
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === selectedUser.id}
+                      onClick={() => handleUpdateRole(selectedUser.id, 'merchant')}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition disabled:opacity-50"
+                    >
+                      <ShieldX className="h-3.5 w-3.5" />
+                      Demote to Merchant
+                    </button>
+                  )}
+
+                  {selectedUser.status === 'Active' ? (
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === selectedUser.id}
+                      onClick={() => handleUpdateStatus(selectedUser.id, 'suspended')}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition disabled:opacity-50"
+                    >
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      Suspend Account
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === selectedUser.id}
+                      onClick={() => handleUpdateStatus(selectedUser.id, 'active')}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Reactivate Account
+                    </button>
+                  )}
+                </div>
+              </div>
+            </ModalBody>
+
+            <ModalFooter>
               <AdminButton variant="outline" onClick={() => setSelectedUser(null)}>
                 Close
               </AdminButton>
@@ -550,7 +722,7 @@ export default function AdminUsersPage() {
               >
                 <Send className="h-4 w-4" /> Message User
               </AdminButton>
-            </div>
+            </ModalFooter>
           </div>
         )}
       </AdminModal>
@@ -563,56 +735,78 @@ export default function AdminUsersPage() {
         title="Provision New Account"
         description="Create a verified Business Owner, Corporate Client, Customer, or Admin account."
       >
-        <form onSubmit={handleCreateUser} className="space-y-4">
-          <AdminInput
-            label="Full Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Chipo Mutasa"
-            required
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={handleCreateUser} className="flex flex-col flex-1 min-h-0">
+          <ModalBody>
             <AdminInput
-              label="Email Address"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="chipo@company.co.zw"
+              label="Full Name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Chipo Mutasa"
               required
             />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AdminInput
+                label="Email Address"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="chipo@company.co.zw"
+                required
+              />
+              <AdminInput
+                label="Phone / WhatsApp"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                placeholder="+263 77 200 0000"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AdminInput
+                label="Organization / Company"
+                value={newOrg}
+                onChange={(e) => setNewOrg(e.target.value)}
+                placeholder="e.g. Midlands Agro Supplies"
+              />
+              <AdminSelect
+                label="Account Role"
+                value={newRole}
+                onChange={(e) => setNewRole(e.target.value as UserRecord['role'])}
+              >
+                <option value="Customer">Customer / Buyer</option>
+                <option value="Business Owner">Business Owner</option>
+                <option value="Corporate Client">Corporate Client</option>
+                <option value="Admin">Administrator</option>
+              </AdminSelect>
+            </div>
             <AdminInput
-              label="Phone / WhatsApp"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              placeholder="+263 77 200 0000"
+              label="Initial Password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Min 8 characters (e.g. AdminPass2026!)"
+              hint="Required for initial login. Minimum 8 characters."
+              required
             />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AdminInput
-              label="Organization / Company"
-              value={newOrg}
-              onChange={(e) => setNewOrg(e.target.value)}
-              placeholder="e.g. Midlands Agro Supplies"
-            />
-            <AdminSelect
-              label="Account Role"
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value as UserRecord['role'])}
-            >
-              <option value="Business Owner">Business Owner</option>
-              <option value="Corporate Client">Corporate Client</option>
-              <option value="Customer">Customer / Buyer</option>
-              <option value="Admin">Administrator</option>
-            </AdminSelect>
-          </div>
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
-            <AdminButton type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+          </ModalBody>
+
+          <ModalFooter>
+            <AdminButton type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={isSubmitting}>
               Cancel
             </AdminButton>
-            <AdminButton type="submit">
-              <Plus className="h-4 w-4" /> Create Account
+            <AdminButton type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  Provisioning...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create Account
+                </>
+              )}
             </AdminButton>
-          </div>
+          </ModalFooter>
         </form>
       </AdminModal>
 
@@ -624,129 +818,129 @@ export default function AdminUsersPage() {
         title="Email Broadcast Campaign Suite"
         description="Select from 5 pre-built Zimbabwe commercial templates or customize your subject and HTML body for segmented delivery."
       >
-        <form onSubmit={handleSendBroadcast} className="space-y-6">
-          {/* 5 Template Selector */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-xs uppercase tracking-wider font-bold text-[#1e57eb] flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4" />
-                Select 1 of 5 Pre-Built Commercial Message Templates:
-              </label>
-              <span className="text-xs text-slate-400">Click to auto-populate</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {BROADCAST_TEMPLATES.map((tpl) => {
-                const isSelected = selectedTemplateId === tpl.id;
-                return (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => handleSelectTemplate(tpl)}
-                    className={`text-left p-3.5 rounded-2xl border transition-all ${
-                      isSelected
-                        ? 'border-[#1e57eb] bg-[#eef4ff]/90 shadow-xs ring-2 ring-[#1e57eb]/20'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[0.68rem] font-bold uppercase tracking-wider text-[#1e57eb]">
-                        {tpl.category}
-                      </span>
-                      {isSelected && <Check className="h-4 w-4 text-[#1e57eb] shrink-0" />}
-                    </div>
-                    <p className="text-xs font-bold text-slate-950 mt-1 line-clamp-1">
-                      {tpl.name}
-                    </p>
-                    <p className="text-[0.7rem] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                      {tpl.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Target Audience Segment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AdminSelect
-              label="Target Audience Segment"
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value as any)}
-            >
-              <option value="all">All Registered Accounts ({stats.total})</option>
-              <option value="businesses">Verified Business Owners Only ({stats.businesses})</option>
-              <option value="corporate">Corporate & Institutional Buyers ({stats.corporate})</option>
-              <option value="customers">Personal Buyers & Job Seekers</option>
-            </AdminSelect>
-
-            <AdminInput
-              label="Header Eyebrow Badge"
-              value={emailEyebrow}
-              onChange={(e) => setEmailEyebrow(e.target.value)}
-              placeholder="e.g. Business Directory Renewal"
-              required
-            />
-          </div>
-
-          {/* Subject Line */}
-          <AdminInput
-            label="Email Subject Line"
-            value={emailSubject}
-            onChange={(e) => setEmailSubject(e.target.value)}
-            placeholder="Enter attention-grabbing subject line..."
-            required
-          />
-
-          {/* Message HTML Body */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-800">
-                Email Message Content (HTML Supported)
-              </label>
-              <button
-                type="button"
-                onClick={() => setPreviewMode(!previewMode)}
-                className="text-xs text-[#1e57eb] hover:underline font-semibold"
-              >
-                {previewMode ? 'Edit HTML Code' : 'Live HTML Preview'}
-              </button>
-            </div>
-
-            {previewMode ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-inner overflow-y-auto max-h-[340px] space-y-3">
-                <span className="inline-block rounded-full bg-[#eef4ff] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1e57eb]">
-                  {emailEyebrow}
-                </span>
-                <div
-                  className="prose prose-slate max-w-none text-slate-700"
-                  dangerouslySetInnerHTML={{ __html: emailBody }}
-                />
+        <form onSubmit={handleSendBroadcast} className="flex flex-col flex-1 min-h-0">
+          <ModalBody className="space-y-6">
+            {/* 5 Template Selector */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-xs uppercase tracking-wider font-bold text-[#1e57eb] flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4" />
+                  Select 1 of 5 Pre-Built Commercial Message Templates:
+                </label>
+                <span className="text-xs text-slate-400">Click to auto-populate</span>
               </div>
-            ) : (
-              <AdminTextarea
-                rows={8}
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-                placeholder="Enter rich HTML message..."
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {BROADCAST_TEMPLATES.map((tpl) => {
+                  const isSelected = selectedTemplateId === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => handleSelectTemplate(tpl)}
+                      className={`text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-[#1e57eb] bg-[#eef4ff]/90 shadow-xs ring-2 ring-[#1e57eb]/20'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[0.68rem] font-bold uppercase tracking-wider text-[#1e57eb]">
+                          {tpl.category}
+                        </span>
+                        {isSelected && <Check className="h-4 w-4 text-[#1e57eb] shrink-0" />}
+                      </div>
+                      <p className="text-xs font-bold text-slate-950 mt-1 line-clamp-1">
+                        {tpl.name}
+                      </p>
+                      <p className="text-[0.7rem] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                        {tpl.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Target Audience Segment */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AdminSelect
+                label="Target Audience Segment"
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value as any)}
+              >
+                <option value="all">All Registered Accounts ({stats.total})</option>
+                <option value="businesses">Verified Business Owners Only ({stats.businesses})</option>
+                <option value="corporate">Corporate & Institutional Buyers ({stats.corporate})</option>
+                <option value="customers">Personal Buyers & Job Seekers</option>
+              </AdminSelect>
+
+              <AdminInput
+                label="Header Eyebrow Badge"
+                value={emailEyebrow}
+                onChange={(e) => setEmailEyebrow(e.target.value)}
+                placeholder="e.g. Business Directory Renewal"
                 required
               />
-            )}
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-5">
-            <p className="text-xs text-slate-500">
-              Emails are dispatched with official Sadza Connect executive branding and unsubscribe footer.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <AdminButton type="button" variant="outline" onClick={() => setBroadcastOpen(false)}>
-                Cancel
-              </AdminButton>
-              <AdminButton type="submit">
-                <Send className="h-4 w-4" /> Dispatch Broadcast Email
-              </AdminButton>
             </div>
-          </div>
+
+            {/* Subject Line */}
+            <AdminInput
+              label="Email Subject Line"
+              value={emailSubject}
+              onChange={(e) => setEmailSubject(e.target.value)}
+              placeholder="Enter attention-grabbing subject line..."
+              required
+            />
+
+            {/* Message HTML Body */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-800">
+                  Email Message Content (HTML Supported)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode(!previewMode)}
+                  className="text-xs text-[#1e57eb] hover:underline font-semibold cursor-pointer"
+                >
+                  {previewMode ? 'Edit HTML Code' : 'Live HTML Preview'}
+                </button>
+              </div>
+
+              {previewMode ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-inner overflow-y-auto max-h-[340px] space-y-3">
+                  <span className="inline-block rounded-full bg-[#eef4ff] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1e57eb]">
+                    {emailEyebrow}
+                  </span>
+                  <div
+                    className="prose prose-slate max-w-none text-slate-700"
+                    dangerouslySetInnerHTML={{ __html: emailBody }}
+                  />
+                </div>
+              ) : (
+                <AdminTextarea
+                  rows={8}
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  placeholder="Enter rich HTML message..."
+                  required
+                />
+              )}
+            </div>
+          </ModalBody>
+
+          <ModalFooter>
+            <p className="hidden sm:block text-xs text-slate-500 mr-auto">
+              Dispatched with official Sadza Connect executive branding.
+            </p>
+            <AdminButton type="button" variant="outline" onClick={() => setBroadcastOpen(false)}>
+              Cancel
+            </AdminButton>
+            <AdminButton type="submit">
+              <Send className="h-4 w-4" /> Dispatch Broadcast Email
+            </AdminButton>
+          </ModalFooter>
         </form>
       </AdminModal>
     </div>

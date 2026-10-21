@@ -21,12 +21,24 @@ export async function POST(req: NextRequest) {
   try {
     authRateLimiter.check(clientIp);
 
-    const body = await parseAndValidateBody(req, logoutSchema);
-    if (body.refreshToken) {
-      await authService.logout(body.refreshToken);
+    const body = await parseAndValidateBody(req, logoutSchema).catch(() => ({ refreshToken: undefined }));
+    let tokenToRevoke = body.refreshToken;
+    if (!tokenToRevoke) {
+      tokenToRevoke = req.cookies.get('sadza_refresh_token')?.value;
     }
 
-    return jsonResponse(null, requestId, 200);
+    if (tokenToRevoke) {
+      try {
+        await authService.logout(tokenToRevoke);
+      } catch {
+        // Silently continue logout cleanup even if token revocation fails
+      }
+    }
+
+    const response = jsonResponse(null, requestId, 200);
+    response.cookies.delete('sadza_access_token');
+    response.cookies.delete('sadza_refresh_token');
+    return response;
   } catch (err) {
     return errorResponse(err, requestId);
   }

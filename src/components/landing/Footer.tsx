@@ -116,50 +116,58 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Col 2: Account Portals & Dashboards */}
+          {/* Col 2: Commerce Services & Directory */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white mb-4">
-              Dashboards &amp; Portals
+              Commerce Services
             </h4>
             <ul className="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
               <li>
                 <Link
-                  href="/dashboard/business"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-semibold text-slate-800 dark:text-slate-200"
+                  href="/businesses"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
-                  Business Owner Portal
+                  National Business Directory
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/dashboard/user"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-semibold text-slate-800 dark:text-slate-200"
+                  href="/marketplace"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
-                  Regular User Dashboard
+                  Dual-Currency Marketplace
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/admin"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-semibold text-emerald-700 dark:text-emerald-400"
+                  href="/jobs"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
-                  Master Admin Console
+                  Careers &amp; Vacancies
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/bill-payments"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  ZESA Tokens &amp; Utility Bills
                 </Link>
               </li>
               <li>
                 <Link
                   href="/signup?role=business"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-emerald-600 dark:text-emerald-400 font-semibold"
                 >
                   Register a Business ({settings.freeGracePeriodDays} Days Free)
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/login"
+                  href="/pricing"
                   className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
-                  Sign In to Account
+                  Membership Pricing Plans
                 </Link>
               </li>
             </ul>

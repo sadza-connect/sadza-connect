@@ -22,6 +22,7 @@ export interface AuthContextType {
   clearLogoutError: () => void;
   login: (payload: { user: UserSession; accessToken: string; refreshToken: string }) => void;
   logout: () => Promise<boolean>;
+  refreshSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,28 +49,112 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Initialize auth state synchronously from localStorage / cookies on client mount
-  useEffect(() => {
+  const refreshSession = useCallback(async (): Promise<boolean> => {
     try {
-      const storedUser = localStorage.getItem('sadza_user');
-      const token = localStorage.getItem('sadza_access_token') || getCookie('sadza_access_token');
+      const refreshToken =
+        localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
+      if (!refreshToken) return false;
 
-      if (token && storedUser) {
-        const parsed = JSON.parse(storedUser);
-        setUser(parsed);
-        // Ensure cookie is in sync if present only in localStorage
-        if (!getCookie('sadza_access_token')) {
-          setCookie('sadza_access_token', token, 15 * 60);
-        }
-      } else {
-        setUser(null);
+      const apiUrl = getApiBaseUrl();
+      const res = await safeFetchJson(`${apiUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (res.ok && res.data?.data?.accessToken) {
+        const payload = res.data.data;
+        localStorage.setItem('sadza_user', JSON.stringify(payload.user));
+        localStorage.setItem('sadza_access_token', payload.accessToken);
+        localStorage.setItem('sadza_refresh_token', payload.refreshToken);
+
+        setCookie('sadza_access_token', payload.accessToken, 15 * 60);
+        setCookie('sadza_refresh_token', payload.refreshToken, 7 * 24 * 60 * 60);
+
+        setUser(payload.user);
+        return true;
       }
+      return false;
     } catch {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
+      return false;
     }
   }, []);
+
+  // Initialize auth state and verify session against server
+  useEffect(() => {
+    let isMounted = true;
+
+    async function initAuth() {
+      try {
+        const storedUser = localStorage.getItem('sadza_user');
+        const token = localStorage.getItem('sadza_access_token') || getCookie('sadza_access_token');
+        const refreshToken = localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
+
+        if (token && storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser);
+            if (isMounted) setUser(parsed);
+          } catch {
+            // invalid JSON
+          }
+
+          if (!getCookie('sadza_access_token')) {
+            setCookie('sadza_access_token', token, 15 * 60);
+          }
+
+          // Verify token with backend
+          const apiUrl = getApiBaseUrl();
+          const meRes = await safeFetchJson(`${apiUrl}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (meRes.ok && meRes.data?.data?.user) {
+            if (isMounted) {
+              setUser(meRes.data.data.user);
+              localStorage.setItem('sadza_user', JSON.stringify(meRes.data.data.user));
+            }
+          } else if (refreshToken) {
+            // Try refreshing if access token expired
+            const refreshed = await refreshSession();
+            if (!refreshed && isMounted) {
+              localStorage.removeItem('sadza_user');
+              localStorage.removeItem('sadza_access_token');
+              localStorage.removeItem('sadza_refresh_token');
+              deleteCookie('sadza_access_token');
+              deleteCookie('sadza_refresh_token');
+              setUser(null);
+            }
+          }
+        } else if (refreshToken) {
+          // Token missing but refresh token present
+          await refreshSession();
+        } else {
+          if (isMounted) setUser(null);
+        }
+      } catch {
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshSession]);
+
+  // Periodic silent refresh every 10 minutes while user is authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      refreshSession();
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user, refreshSession]);
 
   const login = useCallback((payload: { user: UserSession; accessToken: string; refreshToken: string }) => {
     try {
@@ -159,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearLogoutError,
         login,
         logout,
+        refreshSession,
       }}
     >
       {children}

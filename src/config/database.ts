@@ -15,19 +15,12 @@ const commonConfig: Knex.Config = {
     loadExtensions: ['.ts', '.js'],
   },
   pool: {
-    min: env.DB_POOL_MIN,
-    max: env.DB_POOL_MAX,
-    // Idle connections reaped quickly before Supabase pooler drops TCP sockets
-    idleTimeoutMillis: 15_000,
-    reapIntervalMillis: 5_000,
-    // Fast, synchronous socket health check — avoids hanging queries on dead TCP sockets
-    validate(conn: { _ending?: boolean; connection?: { stream?: { destroyed?: boolean; readable?: boolean; writable?: boolean } } }) {
-      if (!conn || conn._ending) return false;
-      const stream = conn.connection?.stream;
-      return Boolean(stream && !stream.destroyed && stream.readable && stream.writable);
-    },
+    min: 0,
+    max: 10,
+    idleTimeoutMillis: 30_000,
+    acquireTimeoutMillis: 30_000,
   },
-  acquireConnectionTimeout: 10_000,
+  acquireConnectionTimeout: 30_000,
 };
 
 function connectionConfig(): Knex.Config {

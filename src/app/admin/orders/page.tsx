@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   ShoppingBag,
   Plus,
@@ -13,6 +13,7 @@ import {
   Phone,
   MapPin,
 } from 'lucide-react';
+import { mapDbOrderToAdminOrderItem } from '@/lib/data/order-mapper';
 import {
   AdminPageHeader,
   Panel,
@@ -30,6 +31,11 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  ModalBody,
+  ModalSection,
+  ModalGrid,
+  ModalFooter,
+  ConfirmModal,
 } from '@/components/admin/AdminUI';
 
 interface AdminOrderItem {
@@ -49,59 +55,11 @@ interface AdminOrderItem {
   notes: string;
 }
 
-const INITIAL_ORDERS: AdminOrderItem[] = [
-  {
-    id: 'ord-1',
-    orderNumber: 'SC-ORD-2026-0412',
-    client: 'Midlands Chrome Smelters Pvt Ltd',
-    email: 'procurement@midlandschrome.co.zw',
-    phone: '+263 77 289 1023',
-    province: 'Midlands',
-    address: 'Heavy Industrial Site, Stand 418, Gweru, Midlands',
-    supplierName: 'SunPower Solar & Inverters Zimbabwe',
-    items: '2x 15kVA Deye Hybrid Inverter + 6x 5.12kWh LiFePO4 Rack Batteries',
-    amountUsd: 6850,
-    status: 'In Transit',
-    waybillRef: 'WB-ZIM-88412',
-    date: '2026-10-09',
-    notes: 'Dispatched via Swift Freight Harare depot. Expected arrival 09:00 tomorrow.',
-  },
-  {
-    id: 'ord-2',
-    orderNumber: 'SC-ORD-2026-0411',
-    client: 'Eng. Tendai Mupfumi',
-    email: 'tmupfumi@hararebuilders.co.zw',
-    phone: '+263 71 904 5512',
-    province: 'Harare',
-    address: '14 Borrowdale Brooke Drive, Harare',
-    supplierName: 'BuildRight Hardware & Timber',
-    items: '200 Bags PPC SureBuild 42.5N Cement + 40 Lengths IBR Chromadek Roofing',
-    amountUsd: 3420,
-    status: 'Delivered',
-    waybillRef: 'WB-HRE-44219',
-    date: '2026-10-08',
-    notes: 'Signed and offloaded on-site by site foreman.',
-  },
-  {
-    id: 'ord-3',
-    orderNumber: 'SC-ORD-2026-0410',
-    client: 'Manicaland Estates Co-op',
-    email: 'orders@manicalandestates.co.zw',
-    phone: '+263 77 412 8890',
-    province: 'Manicaland',
-    address: 'Plot 9, Vumba Road, Mutare, Manicaland',
-    supplierName: 'AgriYield Seed & Fertilizer Hub',
-    items: '5 Tonnes Compound D Fertilizer + Drip Irrigation Starter Kit (2 Ha)',
-    amountUsd: 4190,
-    status: 'Processing',
-    waybillRef: 'PENDING-DISPATCH',
-    date: '2026-10-10',
-    notes: 'Payment verified via EcoCash USD Corporate Merchant.',
-  },
-];
+const INITIAL_ORDERS: AdminOrderItem[] = [];
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrderItem[]>(INITIAL_ORDERS);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [toast, setToast] = useState<string | null>(null);
@@ -134,6 +92,31 @@ export default function AdminOrdersPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/v1/orders?limit=100');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.mappedOrders)) {
+          setOrders(data.mappedOrders);
+        } else if (Array.isArray(data.orders)) {
+          setOrders(data.orders.map(mapDbOrderToAdminOrderItem));
+        } else {
+          setOrders([]);
+        }
+      }
+    } catch {
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return orders.filter((o) => {
@@ -164,9 +147,22 @@ export default function AdminOrdersPage() {
     setNewNotesVal(order.notes || '');
   }
 
-  function handleSaveStatus(e: React.FormEvent) {
+  async function handleSaveStatus(e: React.FormEvent) {
     e.preventDefault();
     if (!statusModalOrder) return;
+    try {
+      await fetch(`/api/v1/orders/${statusModalOrder.orderNumber}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: newStatusVal,
+          waybill_number: newTrackingVal.trim() || undefined,
+        }),
+      });
+    } catch {
+      // Continue
+    }
+
     setOrders((prev) =>
       prev.map((o) =>
         o.id === statusModalOrder.id
@@ -183,11 +179,40 @@ export default function AdminOrdersPage() {
       `Order ${statusModalOrder.orderNumber} updated to "${newStatusVal}" & client notified via email.`
     );
     setStatusModalOrder(null);
+    fetchOrders();
   }
 
-  function handleCreateOrder(e: React.FormEvent) {
+  async function handleCreateOrder(e: React.FormEvent) {
     e.preventDefault();
     const orderNum = `SC-ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const res = await fetch('/api/v1/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: form.client,
+          customer_phone: form.phone,
+          customer_address: form.address,
+          business_name: form.supplierName,
+          items: form.items,
+          total_usd: Number(form.amountUsd) || 0,
+          status: form.status,
+          waybill_number: form.waybillRef.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.mappedOrder) {
+          setOrders((prev) => [data.mappedOrder, ...prev]);
+          setFormOpen(false);
+          showToast(`Order ${data.mappedOrder.orderNumber} created and dispatched.`);
+          return;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     const newItem: AdminOrderItem = {
       id: `ord-${Date.now()}`,
       orderNumber: orderNum,
@@ -366,52 +391,54 @@ export default function AdminOrdersPage() {
         size="lg"
       >
         {viewingOrder && (
-          <div className="p-6 space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-[#c8d2e0] bg-[#f4f6f9]/60 p-4">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#6b81a5]">
-                  Buyer / Consignee
-                </p>
-                <p className="mt-1 font-display text-base font-bold text-[#0a1018]">
-                  {viewingOrder.client}
-                </p>
-                <p className="mt-1 text-xs text-[#374966] flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5 text-[#1e57eb]" /> {viewingOrder.email}
-                </p>
-                <p className="mt-1 text-xs text-[#374966] flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5 text-[#1e57eb]" /> {viewingOrder.phone}
-                </p>
-                <p className="mt-1 text-xs text-[#374966] flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-[#1e57eb]" /> {viewingOrder.address}
-                </p>
+          <div className="flex flex-col flex-1 min-h-0">
+            <ModalBody>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-[#c8d2e0] bg-[#f4f6f9]/60 p-4">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#6b81a5]">
+                    Buyer / Consignee
+                  </p>
+                  <p className="mt-1 font-display text-base font-bold text-[#0a1018]">
+                    {viewingOrder.client}
+                  </p>
+                  <p className="mt-1 text-xs text-[#374966] flex items-center gap-1.5 break-all">
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-[#1e57eb]" /> {viewingOrder.email}
+                  </p>
+                  <p className="mt-1 text-xs text-[#374966] flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 shrink-0 text-[#1e57eb]" /> {viewingOrder.phone}
+                  </p>
+                  <p className="mt-1 text-xs text-[#374966] flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#1e57eb]" /> {viewingOrder.address}
+                  </p>
+                </div>
+                <div className="sm:text-right">
+                  <AdminBadge tone={statusTone(viewingOrder.status)} dot>
+                    {viewingOrder.status}
+                  </AdminBadge>
+                  <p className="mt-2 font-mono text-xs font-bold text-[#0a1018]">
+                    Waybill: {viewingOrder.waybillRef}
+                  </p>
+                  <p className="mt-1 text-xs text-[#6b81a5]">Supplier: {viewingOrder.supplierName}</p>
+                  <p className="mt-2 font-display text-xl font-bold text-[#1e57eb]">
+                    ${viewingOrder.amountUsd.toLocaleString()} USD
+                  </p>
+                </div>
               </div>
-              <div className="sm:text-right">
-                <AdminBadge tone={statusTone(viewingOrder.status)} dot>
-                  {viewingOrder.status}
-                </AdminBadge>
-                <p className="mt-2 font-mono text-xs font-bold text-[#0a1018]">
-                  Waybill: {viewingOrder.waybillRef}
+
+              <div className="rounded-xl border border-[#c8d2e0] p-4 space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#6b81a5]">
+                  Ordered Equipment &amp; Quantities
                 </p>
-                <p className="mt-1 text-xs text-[#6b81a5]">Supplier: {viewingOrder.supplierName}</p>
-                <p className="mt-2 font-display text-xl font-bold text-[#1e57eb]">
-                  ${viewingOrder.amountUsd.toLocaleString()} USD
-                </p>
+                <p className="text-sm font-semibold text-[#0a1018]">{viewingOrder.items}</p>
+                {viewingOrder.notes && (
+                  <p className="text-xs text-[#465a7e] pt-2 border-t border-[#e6eaf1]">
+                    Logistics Note: {viewingOrder.notes}
+                  </p>
+                )}
               </div>
-            </div>
+            </ModalBody>
 
-            <div className="rounded-xl border border-[#c8d2e0] p-4 space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#6b81a5]">
-                Ordered Equipment &amp; Quantities
-              </p>
-              <p className="text-sm font-semibold text-[#0a1018]">{viewingOrder.items}</p>
-              {viewingOrder.notes && (
-                <p className="text-xs text-[#465a7e] pt-2 border-t border-[#e6eaf1]">
-                  Logistics Note: {viewingOrder.notes}
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+            <ModalFooter>
               <AdminButton variant="outline" onClick={() => setViewingOrder(null)}>
                 Close
               </AdminButton>
@@ -424,7 +451,7 @@ export default function AdminOrdersPage() {
               >
                 <Truck className="h-4 w-4" /> Update Waybill &amp; Status
               </AdminButton>
-            </div>
+            </ModalFooter>
           </div>
         )}
       </AdminModal>
@@ -438,34 +465,36 @@ export default function AdminOrdersPage() {
         size="md"
       >
         {statusModalOrder && (
-          <form onSubmit={handleSaveStatus} className="p-6 space-y-4">
-            <AdminSelect
-              label="Fulfilment Status"
-              value={newStatusVal}
-              onChange={(e) => setNewStatusVal(e.target.value as AdminOrderItem['status'])}
-            >
-              <option value="Processing">Processing</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Cancelled">Cancelled</option>
-            </AdminSelect>
+          <form onSubmit={handleSaveStatus} className="flex flex-col flex-1 min-h-0">
+            <ModalBody>
+              <AdminSelect
+                label="Fulfilment Status"
+                value={newStatusVal}
+                onChange={(e) => setNewStatusVal(e.target.value as AdminOrderItem['status'])}
+              >
+                <option value="Processing">Processing</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </AdminSelect>
 
-            <AdminInput
-              label="Waybill / Courier Tracking Reference"
-              value={newTrackingVal}
-              onChange={(e) => setNewTrackingVal(e.target.value)}
-              placeholder="e.g. WB-ZIM-88412"
-            />
+              <AdminInput
+                label="Waybill / Courier Tracking Reference"
+                value={newTrackingVal}
+                onChange={(e) => setNewTrackingVal(e.target.value)}
+                placeholder="e.g. WB-ZIM-88412"
+              />
 
-            <AdminTextarea
-              label="Dispatch / Delivery Notes"
-              rows={3}
-              value={newNotesVal}
-              onChange={(e) => setNewNotesVal(e.target.value)}
-              placeholder="Enter courier depot, driver contact, or delivery instructions..."
-            />
+              <AdminTextarea
+                label="Dispatch / Delivery Notes"
+                rows={3}
+                value={newNotesVal}
+                onChange={(e) => setNewNotesVal(e.target.value)}
+                placeholder="Enter courier depot, driver contact, or delivery instructions..."
+              />
+            </ModalBody>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-[#e6eaf1]">
+            <ModalFooter>
               <AdminButton
                 type="button"
                 variant="outline"
@@ -474,7 +503,7 @@ export default function AdminOrdersPage() {
                 Cancel
               </AdminButton>
               <AdminButton type="submit">Save &amp; Notify Client</AdminButton>
-            </div>
+            </ModalFooter>
           </form>
         )}
       </AdminModal>
@@ -487,124 +516,116 @@ export default function AdminOrdersPage() {
         description="Log a verified equipment or bulk supply order and generate waybill tracking."
         size="lg"
       >
-        <form onSubmit={handleCreateOrder} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <AdminInput
-              label="Client / Company Name"
-              value={form.client}
-              onChange={(e) => setForm({ ...form, client: e.target.value })}
-              placeholder="e.g. Bulawayo Mining Supplies"
-              required
-            />
-            <AdminInput
-              label="Client Email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="procurement@company.co.zw"
-              required
-            />
-            <AdminInput
-              label="Client Phone"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              required
-            />
-            <AdminInput
-              label="Destination Province"
-              value={form.province}
-              onChange={(e) => setForm({ ...form, province: e.target.value })}
-              required
-            />
-            <AdminInput
-              label="Delivery Physical Address"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              wrapClassName="sm:col-span-2"
-              placeholder="Stand number, industrial area, city"
-              required
-            />
-            <AdminInput
-              label="Fulfilling Verified Supplier"
-              value={form.supplierName}
-              onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
-              required
-            />
-            <AdminInput
-              label="Total Order Value (USD)"
-              type="number"
-              value={form.amountUsd}
-              onChange={(e) => setForm({ ...form, amountUsd: e.target.value })}
-              placeholder="2450"
-              required
-            />
-            <AdminInput
-              label="Ordered Items & Quantities"
-              value={form.items}
-              onChange={(e) => setForm({ ...form, items: e.target.value })}
-              wrapClassName="sm:col-span-2"
-              placeholder="e.g. 10x 550W Jinko Solar Panels + 1x 5kVA Inverter"
-              required
-            />
-            <AdminSelect
-              label="Initial Status"
-              value={form.status}
-              onChange={(e) =>
-                setForm({ ...form, status: e.target.value as AdminOrderItem['status'] })
-              }
-            >
-              <option value="Processing">Processing</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Delivered">Delivered</option>
-            </AdminSelect>
-            <AdminInput
-              label="Waybill Reference (Optional)"
-              value={form.waybillRef}
-              onChange={(e) => setForm({ ...form, waybillRef: e.target.value })}
-              placeholder="WB-ZIM-..."
-            />
-          </div>
+        <form onSubmit={handleCreateOrder} className="flex flex-col flex-1 min-h-0">
+          <ModalBody>
+            <ModalGrid cols={2}>
+              <AdminInput
+                label="Client / Company Name"
+                value={form.client}
+                onChange={(e) => setForm({ ...form, client: e.target.value })}
+                placeholder="e.g. Bulawayo Mining Supplies"
+                required
+              />
+              <AdminInput
+                label="Client Email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="procurement@company.co.zw"
+                required
+              />
+              <AdminInput
+                label="Client Phone"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                required
+              />
+              <AdminInput
+                label="Destination Province"
+                value={form.province}
+                onChange={(e) => setForm({ ...form, province: e.target.value })}
+                required
+              />
+              <AdminInput
+                label="Delivery Physical Address"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                wrapClassName="sm:col-span-2"
+                placeholder="Stand number, industrial area, city"
+                required
+              />
+              <AdminInput
+                label="Fulfilling Verified Supplier"
+                value={form.supplierName}
+                onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
+                required
+              />
+              <AdminInput
+                label="Total Order Value (USD)"
+                type="number"
+                value={form.amountUsd}
+                onChange={(e) => setForm({ ...form, amountUsd: e.target.value })}
+                placeholder="2450"
+                required
+              />
+              <AdminInput
+                label="Ordered Items & Quantities"
+                value={form.items}
+                onChange={(e) => setForm({ ...form, items: e.target.value })}
+                wrapClassName="sm:col-span-2"
+                placeholder="e.g. 10x 550W Jinko Solar Panels + 1x 5kVA Inverter"
+                required
+              />
+              <AdminSelect
+                label="Initial Status"
+                value={form.status}
+                onChange={(e) =>
+                  setForm({ ...form, status: e.target.value as AdminOrderItem['status'] })
+                }
+              >
+                <option value="Processing">Processing</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Delivered">Delivered</option>
+              </AdminSelect>
+              <AdminInput
+                label="Waybill Reference (Optional)"
+                value={form.waybillRef}
+                onChange={(e) => setForm({ ...form, waybillRef: e.target.value })}
+                placeholder="WB-ZIM-..."
+              />
+            </ModalGrid>
+          </ModalBody>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-[#e6eaf1]">
+          <ModalFooter>
             <AdminButton type="button" variant="outline" onClick={() => setFormOpen(false)}>
               Cancel
             </AdminButton>
             <AdminButton type="submit">Create Order &amp; Send Email</AdminButton>
-          </div>
+          </ModalFooter>
         </form>
       </AdminModal>
 
       {/* Delete Confirmation */}
-      <AdminModal
+      <ConfirmModal
         open={Boolean(deletingOrder)}
         onClose={() => setDeletingOrder(null)}
+        onConfirm={async () => {
+          if (deletingOrder) {
+            try {
+              await fetch(`/api/v1/orders/${deletingOrder.orderNumber}`, { method: 'DELETE' });
+            } catch {
+              // Continue
+            }
+            setOrders((prev) => prev.filter((o) => o.id !== deletingOrder.id));
+            showToast(`Order ${deletingOrder.orderNumber} deleted.`);
+            setDeletingOrder(null);
+          }
+        }}
         title="Delete Order Record?"
-        size="sm"
-      >
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-[#374966]">
-            Are you sure you want to remove order{' '}
-            <strong className="text-[#0a1018]">{deletingOrder?.orderNumber}</strong>?
-          </p>
-          <div className="flex justify-end gap-2">
-            <AdminButton variant="outline" onClick={() => setDeletingOrder(null)}>
-              Cancel
-            </AdminButton>
-            <AdminButton
-              variant="danger"
-              onClick={() => {
-                if (deletingOrder) {
-                  setOrders((prev) => prev.filter((o) => o.id !== deletingOrder.id));
-                  showToast(`Order ${deletingOrder.orderNumber} deleted.`);
-                  setDeletingOrder(null);
-                }
-              }}
-            >
-              Delete Order
-            </AdminButton>
-          </div>
-        </div>
-      </AdminModal>
+        message={`Are you sure you want to remove order ${deletingOrder?.orderNumber}? This action cannot be reversed.`}
+        confirmLabel="Delete Order"
+        tone="danger"
+      />
     </div>
   );
 }

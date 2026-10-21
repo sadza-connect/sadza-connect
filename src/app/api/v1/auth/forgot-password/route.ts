@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     authRateLimiter.check(clientIp);
 
     const body = await parseAndValidateBody(req, forgotPasswordSchema);
-    await authService.forgotPassword(body.email);
+    const target = (body.identifier || body.email)!.trim();
+    await authService.forgotPassword(target);
 
     return jsonResponse(null, requestId, 200);
   } catch (err) {

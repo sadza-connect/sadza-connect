@@ -1,13 +1,15 @@
 'use client';
 
-import React, { Suspense, useState, useRef } from 'react';
+import React, { Suspense, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { CategoryCombobox } from '@/components/ui/CategoryCombobox';
+import { ActionLoader } from '@/components/ui/ActionLoader';
 import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
+import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
 import {
   Building2,
   User,
@@ -20,14 +22,10 @@ import {
   ArrowRight,
   ArrowLeft,
   MapPin,
-  Clock,
   Phone,
   Mail,
   FileCheck,
   X,
-  Briefcase,
-  ShoppingBag,
-  Share2,
   Check,
   Award,
   Layers,
@@ -35,11 +33,10 @@ import {
   Wrench,
   Package,
   Handshake,
-  BadgeCheck,
-  Sparkles,
   Lock,
 } from 'lucide-react';
 
+export type OnboardingTrack = 'registered_entity' | 'owner_operated' | 'association_institutional';
 export type BusinessType = 'sole_proprietor' | 'sme_partnership' | 'registered_company' | 'cooperative';
 export type BusinessScale = 'solo' | 'small_team' | 'medium_enterprise' | 'large_enterprise';
 export type OperatingYears = 'under_1' | '1_to_3' | '3_to_10' | 'over_10';
@@ -60,63 +57,328 @@ const PROVINCES = [
   'Diaspora',
 ];
 
-interface BusinessTypeOption {
-  id: BusinessType;
+export interface OnboardingTrackOption {
+  id: OnboardingTrack;
+  trackCode: string;
   title: string;
   subtitle: string;
+  badgePreview: string;
   description: string;
+  statutoryBasis: string;
   examples: string;
-  verificationNote: string;
-  badgeText: string;
+  verificationSummary: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const BUSINESS_TYPES: BusinessTypeOption[] = [
+export const ONBOARDING_TRACKS: OnboardingTrackOption[] = [
   {
-    id: 'sole_proprietor',
-    title: 'Sole Proprietor / Individual Business',
-    subtitle: 'Independent trader, freelancer, artisan, or self-employed professional',
+    id: 'registered_entity',
+    trackCode: 'Track A',
+    title: 'Formally Registered Business',
+    subtitle: 'Private Limited (Pvt Ltd), PBC, or Corporate',
+    badgePreview: 'Verified Registered Company',
     description:
-      'You own and operate the business independently as an individual, whether from home, a workshop, a market stall, or on-site.',
-    examples: 'Examples: Independent solar technician, farmer, caterer, mechanic, consultant, or sole trader',
-    verificationNote: 'Verified with your National ID or Passport (No company incorporation papers required)',
-    badgeText: 'Sole Proprietor',
-    icon: User,
-  },
-  {
-    id: 'sme_partnership',
-    title: 'Small or Medium Business (SME / Partnership)',
-    subtitle: 'Growing local enterprise, retail shop, workshop, or partnered business',
-    description:
-      'You run an active small-to-medium business or partnership with a team, serving local or regional customers.',
-    examples: 'Examples: Hardware store, agro-dealer shop, auto workshop, clinic, lodge, or family business',
-    verificationNote: 'Verified with Owner ID and Trading License, Shop Lease, or PBA registration',
-    badgeText: 'SME / Partnership',
-    icon: Store,
-  },
-  {
-    id: 'registered_company',
-    title: 'Registered Company (Full Corporate / Pvt Ltd)',
-    subtitle: 'Formally incorporated Private Limited Company or commercial corporation',
-    description:
-      'Your business is officially incorporated with the Registrar of Companies and operates as a full corporate entity.',
-    examples: 'Examples: Distributors, manufacturers, engineering contractors, haulage fleets, or corporate suppliers',
-    verificationNote: 'Verified with Certificate of Incorporation / CR14 and ZIMRA Tax Clearance',
-    badgeText: 'Registered Company (Pvt Ltd)',
+      'Incorporated under the Companies and Other Business Entities Act (COBE Chapter 24:31) or Deeds Registry.',
+    statutoryBasis: 'COBE Act [Chapter 24:31] • Form CR6 / CR5 / Incorporation Cert',
+    examples: 'Companies, PBCs, manufacturers, logistics hauliers, corporate contractors',
+    verificationSummary: 'Verified with Certificate of Incorporation, Form CR6 (Directors), and CR5 (Office)',
     icon: Building2,
   },
   {
-    id: 'cooperative',
-    title: 'Cooperative, Association, or Group Venture',
-    subtitle: 'Farming cooperative, producer group, mining syndicate, or trade association',
+    id: 'owner_operated',
+    trackCode: 'Track B',
+    title: 'Owner-Operated or Informal Enterprise',
+    subtitle: 'Sole trader, market vendor, artisan, or contractor',
+    badgePreview: 'Verified Owner-Operated Business',
     description:
-      'Your enterprise is jointly owned and operated by a group of producers, farmers, artisans, or members working together.',
-    examples: 'Examples: Agricultural cooperative, women’s producer group, small-scale mining syndicate, or union',
-    verificationNote: 'Verified with Cooperative Registration Certificate or Group Constitution & Representative ID',
-    badgeText: 'Cooperative / Group',
+      'Owned and operated directly by you or a local crew, without corporate incorporation requirements.',
+    statutoryBasis: 'Direct Individual Enterprise • National Identity Document + Trade Proof',
+    examples: 'Market stall vendor, solar installer, caterer, auto mechanic, retail shop, artisan',
+    verificationSummary: 'Verified with National ID / Passport, location permit, and workspace photo (No CR6 required)',
+    icon: Store,
+  },
+  {
+    id: 'association_institutional',
+    trackCode: 'Track C',
+    title: 'Cooperative, Trust, Church, or Association',
+    subtitle: 'Producer cooperative, community trust, church, or NGO',
+    badgePreview: 'Verified Organisation',
+    description:
+      'Formed under the Cooperative Societies Act, Deeds Registries Act (Trust Deed), church constitution, or PVO charter.',
+    statutoryBasis: 'Cooperative Societies Act • Deeds Registries • Group Constitution',
+    examples: 'Agricultural cooperatives, churches, charitable trusts, trade associations',
+    verificationSummary: 'Verified with Group Constitution or Trust Deed, Registration Cert, and Committee Resolution',
     icon: Handshake,
   },
 ];
+
+export interface LegalFormOption {
+  id: string;
+  label: string;
+  sub: string;
+  badge: string;
+}
+
+export const LEGAL_FORMS_BY_TRACK: Record<OnboardingTrack, LegalFormOption[]> = {
+  registered_entity: [
+    {
+      id: 'pvt_ltd',
+      label: 'Private Limited Company (Pvt Ltd)',
+      sub: 'Most common commercial company under COBE Act [Chapter 24:31]',
+      badge: 'Verified Registered Company',
+    },
+    {
+      id: 'pbc',
+      label: 'Private Business Corporation (PBC)',
+      sub: 'Simplified corporate structure with members instead of directors',
+      badge: 'Verified Registered Business (PBC)',
+    },
+    {
+      id: 'registered_partnership',
+      label: 'Registered Partnership / Firm',
+      sub: 'Formally documented partnership with joint liability',
+      badge: 'Verified Registered Partnership',
+    },
+    {
+      id: 'foreign_company',
+      label: 'Foreign Company / Local Branch',
+      sub: 'External company registered to establish a place of business in Zimbabwe',
+      badge: 'Verified Registered Company',
+    },
+  ],
+  owner_operated: [
+    {
+      id: 'sole_trader',
+      label: 'Sole Trader / Independent Business',
+      sub: 'Individual entrepreneur trading under personal or business name',
+      badge: 'Verified Owner-Operated Business',
+    },
+    {
+      id: 'informal_trader',
+      label: 'Informal Trader / Market Vendor',
+      sub: 'Market stall, booth, tuckshop, or designated municipal trading area',
+      badge: 'Verified Informal Business',
+    },
+    {
+      id: 'artisan_workshop',
+      label: 'Artisan Workshop / Tradesperson',
+      sub: 'Carpenter, welder, mechanic, tailor, electrician, or craftsman',
+      badge: 'Verified Artisan Enterprise',
+    },
+    {
+      id: 'small_contractor',
+      label: 'Contractor / Independent Service Crew',
+      sub: 'Building contractor, transport operator, landscaper, or service provider',
+      badge: 'Verified Owner-Operated Business',
+    },
+  ],
+  association_institutional: [
+    {
+      id: 'cooperative',
+      label: 'Cooperative Society',
+      sub: 'Producer, farming, housing, or savings cooperative under Cooperative Act',
+      badge: 'Verified Cooperative',
+    },
+    {
+      id: 'registered_trust',
+      label: 'Registered Trust',
+      sub: 'Established by Notarial Deed of Trust registered with the Registrar of Deeds',
+      badge: 'Verified Trust',
+    },
+    {
+      id: 'church_faith',
+      label: 'Church / Faith-Based Organisation',
+      sub: 'Religious ministry, church assembly, or religious institution with a constitution',
+      badge: 'Verified Faith-Based Organisation',
+    },
+    {
+      id: 'association',
+      label: 'Association / Society / Club',
+      sub: 'Trade body, community union, sports club, or voluntary association',
+      badge: 'Verified Organisation',
+    },
+    {
+      id: 'pvo_ngo',
+      label: 'Non-Governmental Organisation (PVO / NGO)',
+      sub: 'Charity or development organisation registered under the PVO Act',
+      badge: 'Verified Organisation',
+    },
+  ],
+};
+
+export interface ApplicantRoleOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const APPLICANT_ROLES_BY_TRACK: Record<OnboardingTrack, ApplicantRoleOption[]> = {
+  registered_entity: [
+    { id: 'director', label: 'Registered Director', description: 'Listed on Form CR6 / CR14 with statutory authority' },
+    { id: 'secretary', label: 'Company Secretary', description: 'Official secretary responsible for corporate filings' },
+    { id: 'owner', label: 'Principal Shareholder / Owner', description: 'Majority shareholder or ultimate beneficial owner' },
+    { id: 'authorised_rep', label: 'Authorised Representative', description: 'Appointed officer holding a written board resolution mandate' },
+  ],
+  owner_operated: [
+    { id: 'owner', label: 'Business Owner / Sole Proprietor', description: 'Primary owner with full operational control' },
+    { id: 'authorised_rep', label: 'Authorised Manager / Family Rep', description: 'Authorized manager or family partner operating on behalf of the owner' },
+  ],
+  association_institutional: [
+    { id: 'trustee', label: 'Board Trustee', description: 'Named trustee under the registered Notarial Deed of Trust' },
+    { id: 'office_bearer', label: 'Executive Committee Member / Pastor', description: 'Chairman, Secretary, Treasurer, or Ordained Minister' },
+    { id: 'coop_member', label: 'Cooperative Chairperson / Member', description: 'Elected officer on the cooperative management board' },
+    { id: 'authorised_rep', label: 'Authorised Representative', description: 'Appointed representative with an official committee resolution' },
+  ],
+};
+
+export function computeBadge(track: OnboardingTrack | null, legalForm: string | null): string {
+  if (!track) return 'Verified Business';
+  const forms = LEGAL_FORMS_BY_TRACK[track] || [];
+  const found = legalForm ? forms.find((f) => f.id === legalForm) : null;
+  if (found) return found.badge;
+  if (track === 'registered_entity') return 'Verified Registered Company';
+  if (track === 'owner_operated') return 'Verified Owner-Operated Business';
+  return 'Verified Organisation';
+}
+
+export interface TrackDocumentRequirement {
+  docType: string;
+  title: string;
+  badge: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isRecommended: boolean;
+  legalNote?: string;
+}
+
+export const DOCUMENT_REQUIREMENTS_BY_TRACK: Record<OnboardingTrack, TrackDocumentRequirement[]> = {
+  registered_entity: [
+    {
+      docType: 'incorporation_cert',
+      title: 'Certificate of Incorporation or PBC Charter',
+      badge: 'Registrar of Companies',
+      description:
+        'Official Certificate of Incorporation or PBC Founding Statement issued under the COBE Act [Chapter 24:31].',
+      icon: Building2,
+      isRecommended: true,
+      legalNote: 'Statutory proof of corporate legal personality.',
+    },
+    {
+      docType: 'cr6_cr14',
+      title: 'Form CR6 (or CR14) — Register of Directors',
+      badge: 'Current Directorship',
+      description:
+        'Form CR6 (or legacy CR14) stamped by the Registrar, listing active directors and secretaries.',
+      icon: Users,
+      isRecommended: true,
+      legalNote: 'Confirms authorized signatories and directors.',
+    },
+    {
+      docType: 'cr5_office',
+      title: 'Form CR5 — Notice of Registered Office',
+      badge: 'Registered Address',
+      description:
+        'Official Form CR5 specifying the registered physical and postal address in Zimbabwe.',
+      icon: MapPin,
+      isRecommended: true,
+      legalNote: 'Prevents fraudulent or non-existent physical entities.',
+    },
+    {
+      docType: 'director_rep_id',
+      title: 'Director / Representative National ID or Passport',
+      badge: 'Representative KYC',
+      description:
+        'Clear copy of the Zimbabwean National ID (metal or plastic) or valid Passport of the director.',
+      icon: User,
+      isRecommended: true,
+      legalNote: 'Personal identity verification for applicant authority.',
+    },
+  ],
+  owner_operated: [
+    {
+      docType: 'owner_national_id',
+      title: 'Owner National ID (Metal/Plastic) or Passport',
+      badge: 'Identity Verification',
+      description:
+        'Clear photo or scan of your official Zimbabwean National ID card or valid Passport.',
+      icon: User,
+      isRecommended: true,
+      legalNote: 'Guarantees the identity of the sole proprietor or artisan.',
+    },
+    {
+      docType: 'proof_of_location',
+      title: 'Proof of Operating Location / Permit / Lease',
+      badge: 'Trading Presence',
+      description:
+        'Municipal stall permit, market receipt, commercial lease agreement, or letter from premise owner.',
+      icon: MapPin,
+      isRecommended: true,
+      legalNote: 'Validates real physical presence in the community.',
+    },
+    {
+      docType: 'storefront_photo',
+      title: 'Storefront, Workshop, or Inventory Photo',
+      badge: 'Visual Trade Proof',
+      description:
+        'A photo showing your workshop, tools, retail counter, stall, vehicle, or stock ready for customers.',
+      icon: Store,
+      isRecommended: true,
+      legalNote: 'Builds direct visual credibility for prospective buyers.',
+    },
+    {
+      docType: 'owner_declaration',
+      title: 'Owner Operating Statement / Trade Card (Optional)',
+      badge: 'Self-Declaration',
+      description:
+        'A brief written letterhead, trade card, or declaration confirming your active commercial trade.',
+      icon: FileCheck,
+      isRecommended: false,
+      legalNote: 'Expedites fast-track same-day verification.',
+    },
+  ],
+  association_institutional: [
+    {
+      docType: 'governing_doc',
+      title: 'Constitution, Trust Deed, or Society Charter',
+      badge: 'Governing Instrument',
+      description:
+        'Signed Constitution, registered Notarial Deed of Trust, or cooperative bylaws defining entity objectives.',
+      icon: FileText,
+      isRecommended: true,
+      legalNote: 'Foundational legal instrument establishing governance.',
+    },
+    {
+      docType: 'institution_reg_cert',
+      title: 'Registration Certificate or Recognition',
+      badge: 'Official Recognition',
+      description:
+        'Cooperative registration certificate, Deeds Registry certificate, Ministry approval, or council permit.',
+      icon: Award,
+      isRecommended: true,
+      legalNote: 'Confirms official institutional standing.',
+    },
+    {
+      docType: 'committee_list',
+      title: 'Executive Committee or Trustees List',
+      badge: 'Leadership Roster',
+      description:
+        'Official document or letterhead identifying current trustees, pastors, elders, or committee members.',
+      icon: Users,
+      isRecommended: true,
+      legalNote: 'Verifies entity governance structure and office bearers.',
+    },
+    {
+      docType: 'rep_resolution_id',
+      title: 'Authorised Representative ID & Resolution',
+      badge: 'Mandate & KYC',
+      description:
+        'National ID of applicant plus signed committee minutes/resolution authorizing profile management.',
+      icon: Handshake,
+      isRecommended: true,
+      legalNote: 'Prevents unauthorized representation of institutions.',
+    },
+  ],
+};
 
 const BUSINESS_SCALES: {
   id: BusinessScale;
@@ -151,10 +413,10 @@ const BUSINESS_SCALES: {
 ];
 
 const OPERATING_YEARS: { id: OperatingYears; label: string; sub: string }[] = [
-  { id: 'under_1', label: 'Newly Starting', sub: 'Less than 1 year' },
-  { id: '1_to_3', label: 'Growing Business', sub: '1 – 3 years' },
-  { id: '3_to_10', label: 'Established', sub: '3 – 10 years' },
-  { id: 'over_10', label: 'Long-Standing', sub: '10+ years' },
+  { id: 'under_1', label: 'Newly Starting', sub: '< 1 year' },
+  { id: '1_to_3', label: 'Growing', sub: '1 – 3 yrs' },
+  { id: '3_to_10', label: 'Established', sub: '3 – 10 yrs' },
+  { id: 'over_10', label: 'Long-Standing', sub: '10+ yrs' },
 ];
 
 interface UploadedDocument {
@@ -163,122 +425,373 @@ interface UploadedDocument {
   size: string;
   type: string;
   docType: string;
+  url?: string;
+  key?: string;
+  storageType?: string;
+  isPublic?: boolean;
 }
 
 function BusinessOnboardingContent() {
   const searchParams = useSearchParams();
 
-  // Immutable registered account values passed from signup
-  const registeredBusinessName = searchParams.get('name') || 'Your Registered Business';
+  // Query parameters pre-population
+  const [registeredBusinessName, setRegisteredBusinessName] = useState(() => searchParams.get('name') || '');
   const registeredOwner = searchParams.get('owner') || '';
   const registeredEmail = searchParams.get('email') || 'verified@business.co.zw';
   const registeredPhone = searchParams.get('phone') || '+263 77 000 0000';
   const isEmailVerified = searchParams.get('verified') === 'true';
 
-  // 4-step interactive onboarding + Step 5 completion screen
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  // Progressive disclosure selection states - default to null (no pre-selection)
+  const [onboardingTrack, setOnboardingTrack] = useState<OnboardingTrack | null>(null);
+  const [legalForm, setLegalForm] = useState<string | null>(null);
+  const [applicantRole, setApplicantRole] = useState<string | null>(null);
 
-  // Step 1: Business Type, Scale & Experience
-  const [businessType, setBusinessType] = useState<BusinessType>('sme_partnership');
-  const [businessScale, setBusinessScale] = useState<BusinessScale>('small_team');
-  const [operatingYears, setOperatingYears] = useState<OperatingYears>('1_to_3');
+  // Step 4: Scale & Experience states - default to null (no pre-selection)
+  const [businessScale, setBusinessScale] = useState<BusinessScale | null>(null);
+  const [operatingYears, setOperatingYears] = useState<OperatingYears | null>(null);
+  const [step4Completed, setStep4Completed] = useState(false);
+  const [step4Error, setStep4Error] = useState('');
 
-  // Step 2: Optional Trading Name, Industry Sector & Offerings (Registered Business Name is locked)
+  // Step 5: Business Name, Industry & Offerings states - empty / null by default
+  const [registrationNumber, setRegistrationNumber] = useState('');
   const [tradingName, setTradingName] = useState('');
-  const [sector, setSector] = useState(INDUSTRY_CATEGORIES[0].name);
+  const [sector, setSector] = useState(''); // EMPTY BY DEFAULT - Forces user selection
   const [customSector, setCustomSector] = useState('');
-  const [offeringType, setOfferingType] = useState<OfferingType>('both');
+  const [offeringType, setOfferingType] = useState<OfferingType | null>(null); // NULL BY DEFAULT - Forces user selection
   const [description, setDescription] = useState('');
-  const [step2Error, setStep2Error] = useState('');
+  const [step5Completed, setStep5Completed] = useState(false);
+  const [step5Error, setStep5Error] = useState('');
 
-  // Step 3: Location & Additional Public Contact Details (Registered Email & Phone are locked)
-  const [serviceMode, setServiceMode] = useState<ServiceMode>('both_modes');
+  // Step 6: Operating Location & Contact states - empty / null by default
+  const [serviceMode, setServiceMode] = useState<ServiceMode | null>(null); // NULL BY DEFAULT - Forces user selection
   const [province, setProvince] = useState(() => {
     const paramProv = searchParams.get('province');
     if (paramProv && PROVINCES.includes(paramProv)) return paramProv;
-    return PROVINCES[0];
+    return ''; // EMPTY BY DEFAULT - Forces user selection
   });
-  const [city, setCity] = useState('Harare');
+  const [city, setCity] = useState(''); // EMPTY BY DEFAULT - Forces user entry
   const [streetAddress, setStreetAddress] = useState('');
   const [publicWhatsApp, setPublicWhatsApp] = useState('');
   const [publicEmail, setPublicEmail] = useState('');
-  const [step3Error, setStep3Error] = useState('');
+  const [step6Completed, setStep6Completed] = useState(false);
+  const [step6Error, setStep6Error] = useState('');
 
-  // Step 4: Verification Documents
+  // Step 7: Verification KYC Documents states
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDocument[]>([]);
+  const [uploadingDocTypes, setUploadingDocTypes] = useState<Record<string, boolean>>({});
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSkipped, setVerificationSkipped] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [createdSlug, setCreatedSlug] = useState('');
 
-  const selectedTypeObj =
-    BUSINESS_TYPES.find((t) => t.id === businessType) || BUSINESS_TYPES[1];
-  const selectedScaleObj =
-    BUSINESS_SCALES.find((s) => s.id === businessScale) || BUSINESS_SCALES[1];
-  const selectedYearsObj =
-    OPERATING_YEARS.find((y) => y.id === operatingYears) || OPERATING_YEARS[1];
+  // Restore draft progress on load if returning from Save & Exit
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('sadza_business_onboarding_draft');
+        if (saved) {
+          const draft = JSON.parse(saved);
+          if (draft.onboardingTrack) setOnboardingTrack(draft.onboardingTrack);
+          if (draft.legalForm) setLegalForm(draft.legalForm);
+          if (draft.applicantRole) setApplicantRole(draft.applicantRole);
+          if (draft.businessScale) setBusinessScale(draft.businessScale);
+          if (draft.operatingYears) setOperatingYears(draft.operatingYears);
+          if (draft.step4Completed) setStep4Completed(draft.step4Completed);
+          if (draft.registeredBusinessName) setRegisteredBusinessName(draft.registeredBusinessName);
+          if (draft.registrationNumber) setRegistrationNumber(draft.registrationNumber);
+          if (draft.tradingName) setTradingName(draft.tradingName);
+          if (draft.sector) setSector(draft.sector);
+          if (draft.customSector) setCustomSector(draft.customSector);
+          if (draft.offeringType) setOfferingType(draft.offeringType);
+          if (draft.description) setDescription(draft.description);
+          if (draft.step5Completed) setStep5Completed(draft.step5Completed);
+          if (draft.serviceMode) setServiceMode(draft.serviceMode);
+          if (draft.province) setProvince(draft.province);
+          if (draft.city) setCity(draft.city);
+          if (draft.streetAddress) setStreetAddress(draft.streetAddress);
+          if (draft.publicWhatsApp) setPublicWhatsApp(draft.publicWhatsApp);
+          if (draft.publicEmail) setPublicEmail(draft.publicEmail);
+          if (draft.step6Completed) setStep6Completed(draft.step6Completed);
+        }
+      } catch (err) {
+        console.warn('Could not restore onboarding draft from localStorage', err);
+      }
+    }
+  }, []);
 
-  const handleFileUpload = (docType: string, file: File) => {
-    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-    const sizeStr =
-      file.size > 1024 * 1024
-        ? `${sizeMb} MB`
-        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
-    const newDoc: UploadedDocument = {
-      id: Math.random().toString(36).substring(7),
-      name: file.name,
-      size: sizeStr,
-      type: file.type || 'application/octet-stream',
-      docType,
-    };
-    setUploadedDocs((prev) => [...prev.filter((d) => d.docType !== docType), newDoc]);
+  // Save current progress when clicking Save & Exit
+  const handleSaveAndExit = () => {
+    if (typeof window !== 'undefined') {
+      const draft = {
+        onboardingTrack,
+        legalForm,
+        applicantRole,
+        businessScale,
+        operatingYears,
+        step4Completed,
+        registeredBusinessName,
+        registrationNumber,
+        tradingName,
+        sector,
+        customSector,
+        offeringType,
+        description,
+        step5Completed,
+        serviceMode,
+        province,
+        city,
+        streetAddress,
+        publicWhatsApp,
+        publicEmail,
+        step6Completed,
+      };
+      try {
+        localStorage.setItem('sadza_business_onboarding_draft', JSON.stringify(draft));
+        window.dispatchEvent(new Event('sadza-onboarding-updated'));
+      } catch (err) {
+        console.warn('Could not save onboarding draft', err);
+      }
+    }
+  };
+
+  // DOM Refs for smooth offset scrolling
+  const step1Ref = useRef<HTMLDivElement>(null);
+  const step2Ref = useRef<HTMLDivElement>(null);
+  const step3Ref = useRef<HTMLDivElement>(null);
+  const step4Ref = useRef<HTMLDivElement>(null);
+  const step5Ref = useRef<HTMLDivElement>(null);
+  const step6Ref = useRef<HTMLDivElement>(null);
+  const step7Ref = useRef<HTMLDivElement>(null);
+
+  // Smooth scroll with responsive header offset to avoid hiding beneath sticky header
+  const scrollToStep = (ref: React.RefObject<HTMLDivElement | null>) => {
+    setTimeout(() => {
+      if (ref.current) {
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+        const headerOffset = isMobile ? 84 : 100;
+        const elementPosition = ref.current.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({
+          top: Math.max(0, offsetPosition),
+          behavior: 'smooth',
+        });
+      }
+    }, 120);
+  };
+
+  // Upstream Track change resets downstream answers
+  const handleTrackChange = (track: OnboardingTrack) => {
+    if (onboardingTrack === track) return;
+    setOnboardingTrack(track);
+    setLegalForm(null);
+    setApplicantRole(null);
+    setStep4Completed(false);
+    setStep5Completed(false);
+    setStep6Completed(false);
+    scrollToStep(step2Ref);
+  };
+
+  // Upstream Legal Form change resets downstream answers
+  const handleLegalFormChange = (formId: string) => {
+    setLegalForm(formId);
+    setApplicantRole(null);
+    setStep4Completed(false);
+    setStep5Completed(false);
+    setStep6Completed(false);
+    scrollToStep(step3Ref);
+  };
+
+  // Role selection advances to Step 4
+  const handleRoleChange = (roleId: string) => {
+    setApplicantRole(roleId);
+    scrollToStep(step4Ref);
+  };
+
+  // Step 4 Continue Validation
+  const handleContinueStep4 = () => {
+    setStep4Error('');
+    if (!businessScale) {
+      setStep4Error('Please select your current business or team size.');
+      return;
+    }
+    if (!operatingYears) {
+      setStep4Error('Please select how long your business has been operating.');
+      return;
+    }
+    setStep4Completed(true);
+    scrollToStep(step5Ref);
+  };
+
+  // Step 5 Continue Validation - Forces explicit entry/selection for all fields
+  const handleContinueStep5 = () => {
+    setStep5Error('');
+    if (!registeredBusinessName.trim()) {
+      setStep5Error('Please enter your official registered business or enterprise name.');
+      return;
+    }
+    if (!sector.trim()) {
+      setStep5Error('Please search or select your business sector or industry.');
+      return;
+    }
+    if (sector.startsWith('Other') && !customSector.trim()) {
+      setStep5Error('Please specify your custom industry trade or specialty.');
+      return;
+    }
+    if (!offeringType) {
+      setStep5Error('Please choose what your business provides (Products, Services, or Both).');
+      return;
+    }
+    setStep5Completed(true);
+    scrollToStep(step6Ref);
+  };
+
+  // Step 6 Continue Validation - Forces explicit entry/selection for all fields
+  const handleContinueStep6 = () => {
+    setStep6Error('');
+    if (!serviceMode) {
+      setStep6Error('Please choose how you serve your customers (Service Mode).');
+      return;
+    }
+    if (!province.trim()) {
+      setStep6Error('Please select the province where your business is based.');
+      return;
+    }
+    if (!city.trim()) {
+      setStep6Error('Please enter the city or town where your business operates.');
+      return;
+    }
+    setStep6Completed(true);
+    scrollToStep(step7Ref);
+  };
+
+  // Step 7 Cloudflare R2 Upload
+  const handleFileUpload = async (docType: string, file: File) => {
+    setUploadingDocTypes((prev) => ({ ...prev, [docType]: true }));
+    setUploadErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[docType];
+      return copy;
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('partition', 'kyc-documents');
+      formData.append('is_public', 'false');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || 'File upload failed');
+      }
+
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      const sizeStr =
+        file.size > 1024 * 1024
+          ? `${sizeMb} MB`
+          : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+      const newDoc: UploadedDocument = {
+        id: json.data?.key || Math.random().toString(36).substring(7),
+        name: file.name,
+        size: sizeStr,
+        type: file.type || 'application/octet-stream',
+        docType,
+        url: json.data?.url,
+        key: json.data?.key,
+        storageType: json.data?.storageType || 'r2',
+        isPublic: false,
+      };
+
+      setUploadedDocs((prev) => [...prev.filter((d) => d.docType !== docType), newDoc]);
+    } catch (err: any) {
+      console.error(`Upload error for ${docType}:`, err);
+      setUploadErrors((prev) => ({
+        ...prev,
+        [docType]: err.message || 'Upload failed. Please check network or file format.',
+      }));
+    } finally {
+      setUploadingDocTypes((prev) => ({ ...prev, [docType]: false }));
+    }
   };
 
   const handleRemoveDoc = (docType: string) => {
     setUploadedDocs((prev) => prev.filter((d) => d.docType !== docType));
   };
 
-  const goToStep = (step: 1 | 2 | 3 | 4 | 5) => {
-    setCurrentStep(step);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleContinueFromStep1 = (e: React.FormEvent) => {
-    e.preventDefault();
-    goToStep(2);
-  };
-
-  const handleContinueFromStep2 = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStep2Error('');
-    if (sector.startsWith('Other') && !customSector.trim()) {
-      setStep2Error('Please specify your custom industry or trade.');
-      return;
-    }
-    goToStep(3);
-  };
-
-  const handleContinueFromStep3 = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStep3Error('');
-    if (!city.trim()) {
-      setStep3Error('Please enter the city or town where your business operates.');
-      return;
-    }
-    goToStep(4);
-  };
-
-  const handleCompleteOnboarding = (skipped: boolean) => {
+  // Final Registration Submission
+  const handleCompleteOnboarding = async (skipped: boolean) => {
+    if (!onboardingTrack || !legalForm) return;
     setIsSubmitting(true);
     setVerificationSkipped(skipped);
-    setTimeout(() => {
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch('/api/v1/businesses', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          name: registeredBusinessName.trim(),
+          province: province.trim() || 'Harare',
+          city: city.trim(),
+          address: streetAddress.trim(),
+          sector: displaySector,
+          business_type: selectedTrackObj?.title || 'Registered Business',
+          onboarding_track: onboardingTrack,
+          legal_form: legalForm,
+          applicant_role: applicantRole || 'owner',
+          verification_badge: calculatedBadge,
+          registration_number: registrationNumber.trim() || undefined,
+          phone: registeredPhone,
+          email: registeredEmail,
+          whatsapp: publicWhatsApp.trim() || registeredPhone,
+          description: description.trim(),
+          kyc_documents: uploadedDocs,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data?.business?.slug) {
+        setCreatedSlug(data.data.business.slug);
+      }
+      // Mark onboarding completed and purge draft
+      setOnboardingCompleted(true);
+    } catch (err) {
+      console.error('Failed to submit onboarding business record:', err);
+    } finally {
       setIsSubmitting(false);
-      goToStep(5);
-    }, 600);
+      setIsCompleted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
-  const displayBusinessName = tradingName.trim() || registeredBusinessName;
+  const selectedTrackObj = onboardingTrack
+    ? ONBOARDING_TRACKS.find((t) => t.id === onboardingTrack) || null
+    : null;
+  const selectedLegalFormObj =
+    onboardingTrack && legalForm
+      ? (LEGAL_FORMS_BY_TRACK[onboardingTrack] || []).find((f) => f.id === legalForm) || null
+      : null;
+  const selectedApplicantRoleObj =
+    onboardingTrack && applicantRole
+      ? (APPLICANT_ROLES_BY_TRACK[onboardingTrack] || []).find((r) => r.id === applicantRole) || null
+      : null;
+  const calculatedBadge = computeBadge(onboardingTrack, legalForm);
+
+  const displayBusinessName = tradingName.trim() || registeredBusinessName.trim() || 'Your Business';
   const displaySector = sector.startsWith('Other')
     ? customSector.trim() || 'Specialized Business'
-    : sector;
+    : sector || 'Business Profile';
 
   const initials = displayBusinessName
     .split(' ')
@@ -288,272 +801,413 @@ function BusinessOnboardingContent() {
     .join('')
     .toUpperCase() || 'BZ';
 
-  const STEPS = [
-    { num: 1, title: 'Business Type & Size', subtitle: 'Structure & team scale' },
-    { num: 2, title: 'Industry & Offerings', subtitle: 'What your business does' },
-    { num: 3, title: 'Location & Contact', subtitle: 'Where customers find you' },
-    { num: 4, title: 'Verification & Finish', subtitle: 'Confirm & launch profile' },
-  ] as const;
+  // Dynamic Progress Calculation across 7 steps
+  const getProgressInfo = () => {
+    if (isCompleted) return { step: 7, total: 7, percent: 100, label: 'Profile Ready' };
+    if (step6Completed) return { step: 7, total: 7, percent: 100, label: 'Step 7: Verification & Launch' };
+    if (step5Completed) return { step: 6, total: 7, percent: 85, label: 'Step 6: Location & Contact' };
+    if (step4Completed) return { step: 5, total: 7, percent: 70, label: 'Step 5: Business Name & Industry' };
+    if (applicantRole) return { step: 4, total: 7, percent: 55, label: 'Step 4: Scale & Experience' };
+    if (legalForm) return { step: 3, total: 7, percent: 40, label: 'Step 3: Your Authority / Role' };
+    if (onboardingTrack) return { step: 2, total: 7, percent: 25, label: 'Step 2: Exact Legal Form' };
+    return { step: 1, total: 7, percent: 10, label: 'Step 1: Choose Business Track' };
+  };
+
+  const progress = getProgressInfo();
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col">
       {/* =========================================================================
-          TOP ENTERPRISE NAVIGATION BAR
+          UNIFIED STICKY NAVIGATION & PROGRESS HEADER
           ========================================================================= */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 sm:px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Logo size="md" priority />
-            <div className="hidden md:flex items-center gap-2.5 pl-4 border-l border-slate-200 dark:border-slate-700">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xs">
+        {/* Top Navbar */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <Logo size="sm" priority className="sm:hidden shrink-0" />
+            <div className="hidden sm:block shrink-0">
+              <Logo size="md" priority />
+            </div>
+            <div className="hidden md:flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-700">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
                 Business Profile Setup
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {(isEmailVerified || registeredEmail) && (
-              <div className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>
-                  Email Confirmed{registeredEmail ? `: ${registeredEmail}` : ''}
-                </span>
+              <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="truncate max-w-[180px]">{registeredEmail}</span>
               </div>
             )}
             <ThemeToggle />
             <Link
               href="/"
-              className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              onClick={handleSaveAndExit}
+              className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               Save &amp; Exit
             </Link>
           </div>
         </div>
+
+        {/* Integrated Progress Indicator Bar */}
+        {!isCompleted && (
+          <div className="border-t border-slate-100 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8 py-2 bg-slate-50/70 dark:bg-slate-900/60">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 min-w-0">
+                  <span className="flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] sm:text-[11px] font-bold text-white shrink-0">
+                    {progress.step}
+                  </span>
+                  <span className="font-bold truncate text-xs sm:text-sm">{progress.label}</span>
+                </div>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 shrink-0 ml-2 text-xs sm:text-sm">
+                  {progress.percent}% Completed
+                </span>
+              </div>
+              <div className="h-1.5 sm:h-2 w-full bg-slate-200/70 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-600 transition-all duration-500 ease-out rounded-full shadow-xs"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* =========================================================================
-          CLEAR, MATURE 4-STEP PROGRESS BAR
+          MAIN BALANCED WORKSPACE (RESPONSIVE MULTI-COLUMN DESKTOP)
           ========================================================================= */}
-      {currentStep <= 4 && (
-        <div className="border-b border-slate-200 dark:border-slate-800/90 bg-white dark:bg-slate-900/60 py-5 px-4 sm:px-8 shadow-xs">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {STEPS.map((step) => {
-                const isActive = currentStep === step.num;
-                const isCompleted = currentStep > step.num;
-                return (
-                  <button
-                    key={step.num}
-                    type="button"
-                    onClick={() => {
-                      if (step.num < currentStep) {
-                        goToStep(step.num);
-                      }
-                    }}
-                    disabled={step.num > currentStep}
-                    className={`flex items-center gap-3.5 p-3.5 sm:p-4 rounded-2xl border text-left transition-all ${
-                      isActive
-                        ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20 shadow-xs'
-                        : isCompleted
-                        ? 'border-emerald-300 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-950/20 cursor-pointer hover:border-emerald-500'
-                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 opacity-70 cursor-default'
-                    }`}
-                  >
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-colors ${
-                        isCompleted
-                          ? 'bg-emerald-600 text-white'
-                          : isActive
-                          ? 'bg-emerald-600 text-white shadow-sm'
-                          : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {isCompleted ? <Check className="h-5 w-5" /> : step.num}
-                    </div>
-                    <div className="min-w-0">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 pb-16">
+        {!isCompleted ? (
+          <div className="space-y-5 sm:space-y-8">
+            {/* =================================================================
+                STEP 1: CHOOSE ONBOARDING TRACK (SIDE-BY-SIDE ON DESKTOP)
+                ================================================================= */}
+            <section
+              ref={step1Ref}
+              id="onboarding-step-1"
+              className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6"
+            >
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                  <span>Step 1 of 7 • Legal Track</span>
+                </div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                  {registeredOwner
+                    ? `Welcome, ${registeredOwner.split(' ')[0]}. Select your business structure.`
+                    : '1. Choose your Onboarding Track'}
+                </h1>
+                <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+                  Sadza Connect supports registered companies, informal sole traders, artisans, cooperatives, churches, and trusts. Choose your track to receive the tailored statutory checklist and verified badge.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                    Select your business track: <span className="text-emerald-600">*</span>
+                  </h2>
+                  {onboardingTrack && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" /> Selected
+                    </span>
+                  )}
+                </div>
+
+                {/* 3 Tracks: Stacked on mobile, 3-column side-by-side on desktop */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
+                  {ONBOARDING_TRACKS.map((trackOption) => {
+                    const IconComponent = trackOption.icon;
+                    const isSelected = onboardingTrack === trackOption.id;
+
+                    return (
                       <div
-                        className={`text-sm sm:text-base font-bold truncate ${
-                          isActive
-                            ? 'text-emerald-950 dark:text-emerald-200'
-                            : isCompleted
-                            ? 'text-slate-900 dark:text-white'
-                            : 'text-slate-500 dark:text-slate-400'
+                        key={trackOption.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleTrackChange(trackOption.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleTrackChange(trackOption.id);
+                          }
+                        }}
+                        className={`relative flex flex-col justify-between p-4 sm:p-5 lg:p-6 rounded-2xl border-2 cursor-pointer transition-all text-left ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-sm'
+                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800/60'
                         }`}
                       >
-                        {step.title}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {step.subtitle}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          MAIN FULL-SCALE CONTENT WORKSPACE
-          ========================================================================= */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {currentStep <= 4 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-            {/* LEFT / MAIN INTERACTIVE QUESTIONNAIRE COLUMN (8 Columns on Desktop) */}
-            <div className="lg:col-span-8 space-y-8">
-              {/* =================================================================
-                  STEP 1: WHAT TYPE OF BUSINESS DO YOU OPERATE?
-                  ================================================================= */}
-              {currentStep === 1 && (
-                <form
-                  onSubmit={handleContinueFromStep1}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm space-y-10"
-                >
-                  {/* Step 1 Intro Header */}
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3">
-                      <span>Step 1 of 4 • Business Classification</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      {registeredOwner
-                        ? `Welcome, ${registeredOwner.split(' ')[0]}. Tell us about your business.`
-                        : 'Tell us what type of business you operate'}
-                    </h1>
-                    <p className="mt-2.5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Every business is different. Whether you run a solo trade on your own, a growing local shop, a registered company, or a cooperative, we tailor your profile and verification to fit how you work.
-                    </p>
-                  </div>
-
-                  {/* Question 1: Business Structure / Type */}
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        1. Which of these best describes your business? <span className="text-emerald-600">*</span>
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Select the option that matches how your business is currently operated or registered.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 pt-1">
-                      {BUSINESS_TYPES.map((typeOption) => {
-                        const IconComponent = typeOption.icon;
-                        const isSelected = businessType === typeOption.id;
-
-                        return (
-                          <div
-                            key={typeOption.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              setBusinessType(typeOption.id);
-                              if (typeOption.id === 'sole_proprietor') {
-                                setBusinessScale('solo');
-                              } else if (typeOption.id === 'sme_partnership' && businessScale === 'solo') {
-                                setBusinessScale('small_team');
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setBusinessType(typeOption.id);
-                              }
-                            }}
-                            className={`relative flex flex-col justify-between p-5 sm:p-6 rounded-2xl border-2 cursor-pointer transition-all text-left ${
-                              isSelected
-                                ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-md'
-                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800/60'
-                            }`}
-                          >
-                            <div>
-                              <div className="flex items-start justify-between gap-3">
-                                <div
-                                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors ${
-                                    isSelected
-                                      ? 'bg-emerald-600 text-white shadow-sm'
-                                      : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                                  }`}
-                                >
-                                  <IconComponent className="h-6 w-6" />
-                                </div>
-
-                                <div
-                                  className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
-                                    isSelected
-                                      ? 'border-emerald-600 bg-emerald-600 text-white'
-                                      : 'border-slate-300 dark:border-slate-600'
-                                  }`}
-                                >
-                                  {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                                </div>
-                              </div>
-
-                              <h3 className="mt-4 text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                                {typeOption.title}
-                              </h3>
-                              <p className="mt-1 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                                {typeOption.subtitle}
-                              </p>
-                              <p className="mt-2.5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                                {typeOption.description}
-                              </p>
+                        <div>
+                          {/* Top Row: Icon + Badge + Check Indicator */}
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div
+                              className={`flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                                isSelected
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              <IconComponent className="h-5 w-5 sm:h-6 sm:w-6" />
                             </div>
 
-                            <div className="mt-4 pt-3.5 border-t border-slate-200/80 dark:border-slate-700/70 space-y-1.5">
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {typeOption.examples}
-                              </p>
-                              <p className="text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                <span>{typeOption.verificationNote}</span>
-                              </p>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                {trackOption.trackCode}
+                              </span>
+                              <div
+                                className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                                  isSelected
+                                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                                    : 'border-slate-300 dark:border-slate-600'
+                                }`}
+                              >
+                                {isSelected && <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[3]" />}
+                              </div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
+                            {trackOption.title}
+                          </h3>
+                          <p className="mt-1 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-400 leading-tight">
+                            {trackOption.subtitle}
+                          </p>
+
+                          <p className="mt-2.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {trackOption.description}
+                          </p>
+                        </div>
+
+                        {/* Bottom Anchored Details */}
+                        <div className="mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-700/70 space-y-1.5 text-[11px] sm:text-xs">
+                          <div className="flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-400">
+                            <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{trackOption.statutoryBasis}</span>
+                          </div>
+                          <p className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="line-clamp-2">{trackOption.verificationSummary}</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================================
+                STEP 2: SELECT YOUR EXACT LEGAL FORM OR OPERATIONAL STATUS
+                ================================================================= */}
+            {onboardingTrack && (
+              <section
+                ref={step2Ref}
+                id="onboarding-step-2"
+                className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6 animate-in fade-in duration-300"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                    <span>Step 2 of 7 • Legal Subtype</span>
                   </div>
+                  <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                    2. Select your exact legal form or operational status <span className="text-emerald-600">*</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Choose the formal or operational subtype that matches your business under{' '}
+                    <strong className="text-slate-800 dark:text-slate-200">{selectedTrackObj?.trackCode}: {selectedTrackObj?.title}</strong>.
+                  </p>
+                </div>
 
-                  {/* Question 2: Business Size / Team Scale */}
-                  <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        2. How big is your business or team right now? <span className="text-emerald-600">*</span>
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        This helps us match your business with appropriate customers, bulk buyers, or suppliers.
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  {(LEGAL_FORMS_BY_TRACK[onboardingTrack] || []).map((formOpt) => {
+                    const isSelected = legalForm === formOpt.id;
+                    return (
+                      <div
+                        key={formOpt.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleLegalFormChange(formOpt.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleLegalFormChange(formOpt.id);
+                          }
+                        }}
+                        className={`p-4 rounded-xl sm:rounded-2xl border-2 cursor-pointer transition-all text-left flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                              {formOpt.label}
+                            </span>
+                            <div
+                              className={`flex h-4 w-4 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors mt-0.5 ${
+                                isSelected
+                                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                                  : 'border-slate-300 dark:border-slate-600'
+                              }`}
+                            >
+                              {isSelected && <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[3]" />}
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {formOpt.sub}
+                          </p>
+                        </div>
+                        <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                          <ShieldCheck className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{formOpt.badge}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {BUSINESS_SCALES.map((scale) => {
-                        const isSelected = businessScale === scale.id;
-                        return (
+            {/* =================================================================
+                STEP 3: WHAT IS YOUR ROLE OR AUTHORITY IN THIS BUSINESS?
+                ================================================================= */}
+            {onboardingTrack && legalForm && (
+              <section
+                ref={step3Ref}
+                id="onboarding-step-3"
+                className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6 animate-in fade-in duration-300"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                    <span>Step 3 of 7 • Capacity &amp; Authority</span>
+                  </div>
+                  <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                    3. What is your role or authority in this business? <span className="text-emerald-600">*</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Declare your legal authority to manage this profile on behalf of <strong className="text-slate-800 dark:text-slate-200">{selectedLegalFormObj?.label}</strong>.
+                  </p>
+                </div>
+
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${(APPLICANT_ROLES_BY_TRACK[onboardingTrack] || []).length > 2 ? 'lg:grid-cols-4' : ''} gap-3.5`}>
+                  {(APPLICANT_ROLES_BY_TRACK[onboardingTrack] || []).map((roleOpt) => {
+                    const isSelected = applicantRole === roleOpt.id;
+                    return (
+                      <div
+                        key={roleOpt.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleRoleChange(roleOpt.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleRoleChange(roleOpt.id);
+                          }
+                        }}
+                        className={`p-4 rounded-xl sm:rounded-2xl border-2 cursor-pointer transition-all text-left flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                            {roleOpt.label}
+                          </span>
                           <div
-                            key={scale.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setBusinessScale(scale.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setBusinessScale(scale.id);
-                              }
-                            }}
-                            className={`p-4 sm:p-5 rounded-2xl border-2 cursor-pointer transition-all text-left ${
+                            className={`flex h-4 w-4 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors mt-0.5 ${
                               isSelected
-                                ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
-                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300 dark:hover:border-slate-700'
+                                ? 'border-emerald-600 bg-emerald-600 text-white'
+                                : 'border-slate-300 dark:border-slate-600'
                             }`}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-base font-bold text-slate-900 dark:text-white">
+                            {isSelected && <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 stroke-[3]" />}
+                          </div>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                          {roleOpt.description}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* =================================================================
+                STEP 4: BUSINESS SCALE & OPERATING YEARS
+                ================================================================= */}
+            {applicantRole && (
+              <section
+                ref={step4Ref}
+                id="onboarding-step-4"
+                className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6 animate-in fade-in duration-300"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                    <span>Step 4 of 7 • Scale &amp; Maturity</span>
+                  </div>
+                  <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                    4. How big is your team and how long have you been operating?
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Helps us match you with retail buyers, tenders, or wholesale partners.
+                  </p>
+                </div>
+
+                {step4Error && (
+                  <div className="p-3 sm:p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs sm:text-sm font-semibold text-rose-700 dark:text-rose-300">
+                    {step4Error}
+                  </div>
+                )}
+
+                {/* Team Scale */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    Current Team Size <span className="text-emerald-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    {BUSINESS_SCALES.map((scale) => {
+                      const isSelected = businessScale === scale.id;
+                      return (
+                        <div
+                          key={scale.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setBusinessScale(scale.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setBusinessScale(scale.id);
+                            }
+                          }}
+                          className={`p-4 rounded-xl sm:rounded-2xl border-2 cursor-pointer transition-all text-left flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                                 {scale.label}
                               </span>
                               <span
-                                className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                                className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${
                                   isSelected
                                     ? 'bg-emerald-600 text-white'
                                     : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -562,167 +1216,169 @@ function BusinessOnboardingContent() {
                                 {scale.teamRange}
                               </span>
                             </div>
-                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                               {scale.description}
                             </p>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
 
-                  {/* Question 3: Years in Operation */}
-                  <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        3. How long have you been in business?
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        New businesses and long-standing enterprises are equally welcome.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                      {OPERATING_YEARS.map((yr) => {
-                        const isSelected = operatingYears === yr.id;
-                        return (
-                          <button
-                            key={yr.id}
-                            type="button"
-                            onClick={() => setOperatingYears(yr.id)}
-                            className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                              isSelected
-                                ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
-                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                              {yr.label}
-                            </div>
-                            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                              {yr.sub}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Step 1 Footer Navigation */}
-                  <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <Link
-                      href="/signup?type=business"
-                      className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                      <span>Back to Account Registration</span>
-                    </Link>
-
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="lg"
-                      className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-base font-semibold py-3.5 px-8 rounded-xl shadow-md"
-                    >
-                      <span>Continue: Industry &amp; Offerings</span>
-                      <ArrowRight className="h-5 w-5 ml-2" />
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {/* =================================================================
-                  STEP 2: WHAT KIND OF BUSINESS ARE YOU DOING? (INDUSTRY & OFFERINGS)
-                  ================================================================= */}
-              {currentStep === 2 && (
-                <form
-                  onSubmit={handleContinueFromStep2}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm space-y-10 animate-in fade-in duration-200"
-                >
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3">
-                      <span>Step 2 of 4 • Industry &amp; Core Offerings</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      What kind of business do you do?
-                    </h1>
-                    <p className="mt-2.5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Let customers and business partners know your trading name, the industry sector you operate in, and the main products or services you provide.
-                    </p>
-                  </div>
-
-                  {step2Error && (
-                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-sm sm:text-base font-medium text-rose-700 dark:text-rose-300">
-                      {step2Error}
-                    </div>
-                  )}
-
-                  {/* Question 1: Locked Registered Business Name + Optional Trading Name */}
-                  <div className="space-y-5">
-                    <div>
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <label
-                          htmlFor="registered-business-name"
-                          className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
+                {/* Operating Years */}
+                <div className="space-y-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <label className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    Years in Operation <span className="text-emerald-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {OPERATING_YEARS.map((yr) => {
+                      const isSelected = operatingYears === yr.id;
+                      return (
+                        <button
+                          key={yr.id}
+                          type="button"
+                          onClick={() => setOperatingYears(yr.id)}
+                          className={`p-3.5 rounded-xl sm:rounded-2xl border-2 text-left transition-all ${
+                            isSelected
+                              ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
+                          }`}
                         >
-                          1. Registered Business Name
-                        </label>
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                          <Lock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span>Locked to Registration</span>
-                        </span>
-                      </div>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mb-3">
-                        This is the official business name used when creating your account and cannot be altered here.
-                      </p>
-                      <div className="relative flex items-center">
-                        <Building2 className="pointer-events-none absolute left-4 h-5 w-5 text-slate-400 dark:text-slate-500" />
-                        <input
-                          id="registered-business-name"
-                          type="text"
-                          readOnly
-                          disabled
-                          value={registeredBusinessName}
-                          className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/60 py-3.5 pl-12 pr-10 text-base sm:text-lg text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
-                        />
-                        <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-slate-400" />
-                      </div>
-                    </div>
+                          <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                            {yr.label}
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {yr.sub}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    {/* Optional Trading As (DBA) Name */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/30 border border-slate-200/80 dark:border-slate-800 space-y-2">
-                      <label
-                        htmlFor="trading-name-input"
-                        className="block text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200"
-                      >
-                        Trading As / Storefront Display Name <span className="text-xs font-normal text-slate-500">(Optional)</span>
-                      </label>
-                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                        Only fill this in if your shop or brand trades publicly under a different name than your registered name above.
-                      </p>
+                <div className="pt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={handleContinueStep4}
+                    variant="primary"
+                    size="lg"
+                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-sm sm:text-base font-semibold py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl shadow-md justify-center"
+                  >
+                    <span>Continue to Business Details</span>
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                  </Button>
+                </div>
+              </section>
+            )}
+
+            {/* =================================================================
+                STEP 5: BUSINESS NAME, INDUSTRY SECTOR & OFFERINGS
+                ================================================================= */}
+            {step4Completed && (
+              <section
+                ref={step5Ref}
+                id="onboarding-step-5"
+                className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6 animate-in fade-in duration-300"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                    <span>Step 5 of 7 • Business Profile</span>
+                  </div>
+                  <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                    5. What is your business name and what do you offer?
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                    Let buyers know your trading brand, industry, and main commercial offerings.
+                  </p>
+                </div>
+
+                {step5Error && (
+                  <div className="p-3 sm:p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs sm:text-sm font-semibold text-rose-700 dark:text-rose-300">
+                    {step5Error}
+                  </div>
+                )}
+
+                {/* Name & Registration Inputs in 2-column Desktop Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      htmlFor="registered-business-name-input"
+                      className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white mb-1.5"
+                    >
+                      Registered Business / Enterprise Name <span className="text-emerald-600">*</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <Building2 className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
                       <input
-                        id="trading-name-input"
+                        id="registered-business-name-input"
                         type="text"
-                        maxLength={80}
-                        value={tradingName}
-                        onChange={(e) => setTradingName(e.target.value)}
-                        placeholder={`Leave blank to display "${registeredBusinessName}"`}
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 px-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
+                        required
+                        value={registeredBusinessName}
+                        onChange={(e) => setRegisteredBusinessName(e.target.value)}
+                        placeholder="e.g. Midlands Solar & Agro Enterprises"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 pl-10 pr-3 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
                       />
                     </div>
                   </div>
 
-                  {/* Question 2: Primary Industry Sector */}
-                  <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <label className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        2. Which industry or sector is your business in? <span className="text-emerald-600">*</span>
-                      </label>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Search from 20 commercial sectors below, or pick a popular category. If your trade is unique, select &ldquo;Other&rdquo; to enter your exact specialty.
-                      </p>
+                  <div>
+                    <label
+                      htmlFor="reg-number-field"
+                      className="block text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 mb-1.5"
+                    >
+                      {onboardingTrack === 'registered_entity'
+                        ? 'COBE Registration / Inc Number'
+                        : onboardingTrack === 'owner_operated'
+                        ? 'Council Stall Permit or BP Number'
+                        : 'Deeds Registry / Cooperative Reg'}{' '}
+                      <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <FileText className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
+                      <input
+                        id="reg-number-field"
+                        type="text"
+                        maxLength={80}
+                        value={registrationNumber}
+                        onChange={(e) => setRegistrationNumber(e.target.value)}
+                        placeholder={
+                          onboardingTrack === 'registered_entity'
+                            ? 'e.g. 10423/2023 or PBC/421/2022'
+                            : onboardingTrack === 'owner_operated'
+                            ? 'e.g. HCC/STALL/2024/098'
+                            : 'e.g. MA 456/2018 or COOP/12/2021'
+                        }
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 pl-10 pr-3 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                      />
                     </div>
+                  </div>
+                </div>
 
+                {/* Trading Name & Industry Sector in 2-column Desktop Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label
+                      htmlFor="trading-name-field"
+                      className="block text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 mb-1.5"
+                    >
+                      Trading As / Storefront Display Name <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
+                    </label>
+                    <input
+                      id="trading-name-field"
+                      type="text"
+                      maxLength={80}
+                      value={tradingName}
+                      onChange={(e) => setTradingName(e.target.value)}
+                      placeholder={`Leave blank to display "${registeredBusinessName.trim() || 'registered business name'}"`}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 px-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white mb-1.5">
+                      Industry Sector <span className="text-emerald-600">*</span>
+                    </label>
                     <CategoryCombobox
                       value={sector}
                       onChange={(newSector) => {
@@ -735,820 +1391,550 @@ function BusinessOnboardingContent() {
                         setSector('Other (Please specify)');
                         setCustomSector(specialty);
                       }}
-                    />
-
-                    {/* Quick-Select Sector Pills for immediate 1-click selection */}
-                    <div className="pt-2">
-                      <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 block mb-2.5">
-                        Or quick-select a common business sector:
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {INDUSTRY_CATEGORIES.slice(0, 8).map((cat) => {
-                          const active = sector === cat.name;
-                          return (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => {
-                                setSector(cat.name);
-                                setCustomSector('');
-                              }}
-                              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all ${
-                                active
-                                  ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
-                                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
-                              }`}
-                            >
-                              {cat.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Custom Specialty Input when "Other" is selected */}
-                    {sector.startsWith('Other') && (
-                      <div className="p-5 rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 space-y-3">
-                        <label className="block text-base font-bold text-slate-900 dark:text-white">
-                          Please specify your exact business trade or specialty <span className="text-emerald-600">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          maxLength={80}
-                          value={customSector}
-                          onChange={(e) => setCustomSector(e.target.value)}
-                          placeholder="e.g. Borehole Drilling, Poultry Hatchery, Event Equipment Hire, Borehole Siting..."
-                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-3.5 px-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Question 3: What do you offer? (Products vs Services vs Both) */}
-                  <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        3. What does your business provide to customers? <span className="text-emerald-600">*</span>
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Choose whether you sell physical goods, deliver services, or offer both.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {[
-                        {
-                          id: 'products' as OfferingType,
-                          title: 'Physical Products',
-                          desc: 'We sell goods, stock, equipment, farm produce, or retail items.',
-                          icon: Package,
-                        },
-                        {
-                          id: 'services' as OfferingType,
-                          title: 'Professional Services',
-                          desc: 'We provide repairs, installations, transport, consulting, or skilled work.',
-                          icon: Wrench,
-                        },
-                        {
-                          id: 'both' as OfferingType,
-                          title: 'Both Products & Services',
-                          desc: 'We supply products and also install, maintain, or deliver them.',
-                          icon: Layers,
-                        },
-                      ].map((item) => {
-                        const IconComp = item.icon;
-                        const isSelected = offeringType === item.id;
-                        return (
-                          <div
-                            key={item.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setOfferingType(item.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setOfferingType(item.id);
-                              }
-                            }}
-                            className={`p-5 rounded-2xl border-2 cursor-pointer transition-all text-left ${
-                              isSelected
-                                ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
-                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
-                            }`}
-                          >
-                            <div
-                              className={`flex h-10 w-10 items-center justify-center rounded-xl mb-3 ${
-                                isSelected
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                              }`}
-                            >
-                              <IconComp className="h-5 w-5" />
-                            </div>
-                            <div className="text-base font-bold text-slate-900 dark:text-white">
-                              {item.title}
-                            </div>
-                            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                              {item.desc}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Question 4: Clear Business Description */}
-                  <div className="space-y-3 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-2">
-                      <label
-                        htmlFor="business-description"
-                        className="block text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
-                      >
-                        4. Briefly describe your main products or services
-                      </label>
-                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
-                        {description.length}/500
-                      </span>
-                    </div>
-                    <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">
-                      Write a clear summary explaining what customers can buy from you or hire you for.
-                    </p>
-                    <textarea
-                      id="business-description"
-                      rows={4}
-                      maxLength={500}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder={`e.g. We supply and install reliable ${displaySector.toLowerCase()} solutions for homes, farms, and businesses with full after-sales support.`}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 px-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      error={step5Error && !sector ? step5Error : undefined}
                     />
                   </div>
+                </div>
 
-                  {/* Step 2 Footer Navigation */}
-                  <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <button
-                      type="button"
-                      onClick={() => goToStep(1)}
-                      className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                      <span>Back to Business Type</span>
-                    </button>
-
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="lg"
-                      className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-base font-semibold py-3.5 px-8 rounded-xl shadow-md"
-                    >
-                      <span>Continue: Location &amp; Contact</span>
-                      <ArrowRight className="h-5 w-5 ml-2" />
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {/* =================================================================
-                  STEP 3: OPERATING LOCATION & CUSTOMER CONTACT
-                  ================================================================= */}
-              {currentStep === 3 && (
-                <form
-                  onSubmit={handleContinueFromStep3}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm space-y-10 animate-in fade-in duration-200"
-                >
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3">
-                      <span>Step 3 of 4 • Operating Location &amp; Contact</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      Where is your business located?
-                    </h1>
-                    <p className="mt-2.5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Help customers find your premises or know which areas you serve. Your registered email and phone number are locked for security, and you can optionally add a public WhatsApp or sales email below.
-                    </p>
-                  </div>
-
-                  {step3Error && (
-                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-sm sm:text-base font-medium text-rose-700 dark:text-rose-300">
-                      {step3Error}
-                    </div>
-                  )}
-
-                  {/* Question 1: How do customers interact with your location? */}
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        1. How do you serve your customers? <span className="text-emerald-600">*</span>
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Let customers know whether they can visit your shop/office or if you deliver to them.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {[
-                        {
-                          id: 'physical_premises' as ServiceMode,
-                          title: 'Physical Shop / Office',
-                          desc: 'Customers visit our shop, office, workshop, or farm.',
-                          icon: Store,
-                        },
-                        {
-                          id: 'mobile_delivery' as ServiceMode,
-                          title: 'Mobile / Delivery Only',
-                          desc: 'We travel to clients or deliver orders directly to their location.',
-                          icon: Truck,
-                        },
-                        {
-                          id: 'both_modes' as ServiceMode,
-                          title: 'Premises & Delivery',
-                          desc: 'Customers can visit our premises or request delivery / on-site callouts.',
-                          icon: MapPin,
-                        },
-                      ].map((mode) => {
-                        const IconComp = mode.icon;
-                        const isSelected = serviceMode === mode.id;
-                        return (
-                          <div
-                            key={mode.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setServiceMode(mode.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setServiceMode(mode.id);
-                              }
-                            }}
-                            className={`p-5 rounded-2xl border-2 cursor-pointer transition-all text-left ${
-                              isSelected
-                                ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
-                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
-                            }`}
-                          >
-                            <div
-                              className={`flex h-10 w-10 items-center justify-center rounded-xl mb-3 ${
-                                isSelected
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                              }`}
-                            >
-                              <IconComp className="h-5 w-5" />
-                            </div>
-                            <div className="text-base font-bold text-slate-900 dark:text-white">
-                              {mode.title}
-                            </div>
-                            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                              {mode.desc}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Question 2: Province, City & Address */}
-                  <div className="space-y-5 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        2. Operating Location &amp; Address <span className="text-emerald-600">*</span>
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Select your province and enter the city or town where your business is based.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div>
-                        <label
-                          htmlFor="province-select"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-2"
-                        >
-                          Province <span className="text-emerald-600">*</span>
-                        </label>
-                        <div className="relative flex items-center">
-                          <MapPin className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                          <select
-                            id="province-select"
-                            value={province}
-                            onChange={(e) => setProvince(e.target.value)}
-                            className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 pl-12 pr-8 text-base text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer font-medium"
-                          >
-                            {PROVINCES.map((prov) => (
-                              <option
-                                key={prov}
-                                value={prov}
-                                className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                              >
-                                {prov}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="city-input"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-2"
-                        >
-                          City or Town <span className="text-emerald-600">*</span>
-                        </label>
-                        <input
-                          id="city-input"
-                          type="text"
-                          required
-                          maxLength={60}
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder="e.g. Harare, Bulawayo, Gweru, Mutare"
-                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 px-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label
-                          htmlFor="street-address-input"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-2"
-                        >
-                          Physical Street Address, Stand Number, or Operating Area
-                        </label>
-                        <input
-                          id="street-address-input"
-                          type="text"
-                          maxLength={120}
-                          value={streetAddress}
-                          onChange={(e) => setStreetAddress(e.target.value)}
-                          placeholder="e.g. Stand 405, 5th Street, Light Industrial Site, or CBD Shop 12"
-                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 px-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Question 3: Locked Registration Credentials + Optional Public Contact Channels */}
-                  <div className="space-y-6 pt-6 border-t border-slate-200 dark:border-slate-800">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        3. Account &amp; Customer Contact Details
-                      </h2>
-                      <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-1">
-                        Your registered email and phone number are permanently tied to your account and cannot be changed here. If you have a separate active WhatsApp line or sales email for customer inquiries, you may add them below.
-                      </p>
-                    </div>
-
-                    {/* Locked Primary Registration Credentials */}
-                    <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                          <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>Registered Account Credentials (Locked)</span>
-                        </span>
-                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                          Verified
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                            Registered Phone Number
-                          </label>
-                          <div className="relative flex items-center">
-                            <Phone className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-                            <input
-                              type="tel"
-                              readOnly
-                              disabled
-                              value={registeredPhone}
-                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900/70 py-3 pl-10 pr-9 text-sm sm:text-base text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
-                            />
-                            <Lock className="pointer-events-none absolute right-3.5 h-4 w-4 text-slate-400" />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                            Registered Email Address
-                          </label>
-                          <div className="relative flex items-center">
-                            <Mail className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400" />
-                            <input
-                              type="email"
-                              readOnly
-                              disabled
-                              value={registeredEmail}
-                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900/70 py-3 pl-10 pr-9 text-sm sm:text-base text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
-                            />
-                            <Lock className="pointer-events-none absolute right-3.5 h-4 w-4 text-slate-400" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Optional Secondary / Public Customer Inquiry Channels */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div>
-                        <label
-                          htmlFor="public-whatsapp"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
-                        >
-                          Active WhatsApp / Sales Line <span className="text-xs font-normal text-slate-500">(Optional)</span>
-                        </label>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                          Leave blank to use your registered phone number.
-                        </p>
-                        <div className="relative flex items-center">
-                          <Phone className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                          <input
-                            id="public-whatsapp"
-                            type="tel"
-                            maxLength={25}
-                            value={publicWhatsApp}
-                            onChange={(e) => setPublicWhatsApp(e.target.value)}
-                            placeholder="e.g. +263 78 000 0000"
-                            className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 pl-12 pr-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="public-email"
-                          className="block text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
-                        >
-                          Active Sales / Inquiry Email <span className="text-xs font-normal text-slate-500">(Optional)</span>
-                        </label>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                          Leave blank to use your registered email address.
-                        </p>
-                        <div className="relative flex items-center">
-                          <Mail className="pointer-events-none absolute left-4 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                          <input
-                            id="public-email"
-                            type="email"
-                            maxLength={80}
-                            value={publicEmail}
-                            onChange={(e) => setPublicEmail(e.target.value)}
-                            placeholder="e.g. sales@yourbusiness.co.zw"
-                            className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3.5 pl-12 pr-4 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 3 Footer Navigation */}
-                  <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <button
-                      type="button"
-                      onClick={() => goToStep(2)}
-                      className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                      <span>Back to Industry &amp; Offerings</span>
-                    </button>
-
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="lg"
-                      className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-base font-semibold py-3.5 px-8 rounded-xl shadow-md"
-                    >
-                      <span>Continue: Verification &amp; Review</span>
-                      <ArrowRight className="h-5 w-5 ml-2" />
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              {/* =================================================================
-                  STEP 4: TAILORED VERIFICATION & FINAL LAUNCH
-                  ================================================================= */}
-              {currentStep === 4 && (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-sm space-y-8 animate-in fade-in duration-200">
-                  <div className="border-b border-slate-200 dark:border-slate-800 pb-6">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3">
-                      <span>Step 4 of 4 • Verification &amp; Profile Completion</span>
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                      Verify your {selectedTypeObj.badgeText} profile
-                    </h1>
-                    <p className="mt-2.5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Because you selected <strong className="text-slate-900 dark:text-white">{selectedTypeObj.title}</strong>, we have tailored the verification checklist below to match your exact business structure. You can upload these documents now or skip and upload them later from your dashboard.
-                    </p>
-                  </div>
-
-                  {/* Tailored Document Upload Checklist */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        Recommended Documents for {selectedTypeObj.badgeText}
-                      </h2>
-                      <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                        {uploadedDocs.length} Document{uploadedDocs.length === 1 ? '' : 's'} Attached
-                      </span>
-                    </div>
-
-                    {businessType === 'sole_proprietor' && (
-                      <div className="space-y-4">
-                        <DocumentUploadCard
-                          title="Owner National ID or Passport"
-                          badge="No CR14 Required"
-                          description="Upload a clear photo or scan of your National ID card or valid Passport to confirm your identity as the sole proprietor."
-                          docType="national_id"
-                          icon={User}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'national_id')}
-                          onUpload={(file) => handleFileUpload('national_id', file)}
-                          onRemove={() => handleRemoveDoc('national_id')}
-                        />
-                        <DocumentUploadCard
-                          title="Proof of Trade, Vendor Permit, or Workspace Photo (Optional)"
-                          badge="Builds Customer Trust"
-                          description="A photo of your workshop, market stall, stock, trade certificate, or local council permit."
-                          docType="proof_of_trade"
-                          icon={Store}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'proof_of_trade')}
-                          onUpload={(file) => handleFileUpload('proof_of_trade', file)}
-                          onRemove={() => handleRemoveDoc('proof_of_trade')}
-                        />
-                      </div>
-                    )}
-
-                    {businessType === 'sme_partnership' && (
-                      <div className="space-y-4">
-                        <DocumentUploadCard
-                          title="Owner or Partner National ID / Passport"
-                          badge="Identity Confirmation"
-                          description="National ID or Passport of the primary business owner or managing partner."
-                          docType="owner_id"
-                          icon={User}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'owner_id')}
-                          onUpload={(file) => handleFileUpload('owner_id', file)}
-                          onRemove={() => handleRemoveDoc('owner_id')}
-                        />
-                        <DocumentUploadCard
-                          title="Shop Trading License, Lease Agreement, or PBC Certificate"
-                          badge="Business Operation Proof"
-                          description="Local council shop license, commercial lease agreement, or Private Business Corporation (PBC) registration."
-                          docType="sme_license"
-                          icon={Store}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'sme_license')}
-                          onUpload={(file) => handleFileUpload('sme_license', file)}
-                          onRemove={() => handleRemoveDoc('sme_license')}
-                        />
-                      </div>
-                    )}
-
-                    {businessType === 'registered_company' && (
-                      <div className="space-y-4">
-                        <DocumentUploadCard
-                          title="Certificate of Incorporation or CR14 / CR6"
-                          badge="Registrar of Companies"
-                          description="Official company registration certificate or CR14 listing the company directors and registered address."
-                          docType="cr14"
-                          icon={Building2}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'cr14')}
-                          onUpload={(file) => handleFileUpload('cr14', file)}
-                          onRemove={() => handleRemoveDoc('cr14')}
-                        />
-                        <DocumentUploadCard
-                          title="ZIMRA Tax Clearance Certificate (ITF263)"
-                          badge="Tax Compliance"
-                          description="Valid tax clearance certificate or proof of tax registration for corporate directory verification."
-                          docType="tax_clearance"
-                          icon={FileText}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'tax_clearance')}
-                          onUpload={(file) => handleFileUpload('tax_clearance', file)}
-                          onRemove={() => handleRemoveDoc('tax_clearance')}
-                        />
-                      </div>
-                    )}
-
-                    {businessType === 'cooperative' && (
-                      <div className="space-y-4">
-                        <DocumentUploadCard
-                          title="Cooperative Registration Certificate or Group Constitution"
-                          badge="Group Registration"
-                          description="Official registration certificate, ministry letter, or signed constitution of your cooperative or association."
-                          docType="coop_cert"
-                          icon={Handshake}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'coop_cert')}
-                          onUpload={(file) => handleFileUpload('coop_cert', file)}
-                          onRemove={() => handleRemoveDoc('coop_cert')}
-                        />
-                        <DocumentUploadCard
-                          title="Chairperson or Representative National ID"
-                          badge="Representative ID"
-                          description="National ID or Passport of the authorized representative managing this cooperative account."
-                          docType="rep_id"
-                          icon={Users}
-                          uploadedDoc={uploadedDocs.find((d) => d.docType === 'rep_id')}
-                          onUpload={(file) => handleFileUpload('rep_id', file)}
-                          onRemove={() => handleRemoveDoc('rep_id')}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Benefits of Verification */}
-                  <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mb-3">
-                      What you get when your business profile goes live:
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700 dark:text-slate-300">
-                      <div className="flex items-center gap-2.5">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                        <span>Public listing in the national business directory</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                        <span>Direct WhatsApp &amp; phone inquiries from buyers</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                        <span>Ability to post products, services, and job openings</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                        <span>Verified Business badge once documents are reviewed</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 4 Action Buttons */}
-                  <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <button
-                      type="button"
-                      onClick={() => goToStep(3)}
-                      className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                      <span>Back to Location &amp; Contact</span>
-                    </button>
-
-                    <div className="flex flex-col sm:flex-row items-center gap-3.5 w-full sm:w-auto">
-                      {uploadedDocs.length === 0 && (
+                {/* Common Industry Quick-Pills */}
+                <div className="pt-1">
+                  <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">
+                    Or click a popular industry to select:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {INDUSTRY_CATEGORIES.slice(0, 10).map((cat) => {
+                      const active = sector === cat.name;
+                      return (
                         <button
+                          key={cat.id}
                           type="button"
-                          onClick={() => handleCompleteOnboarding(true)}
-                          className="w-full sm:w-auto px-5 py-3.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm sm:text-base font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          onClick={() => {
+                            setSector(cat.name);
+                            setCustomSector('');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                            active
+                              ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
+                              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
+                          }`}
                         >
-                          Skip Documents &amp; Finish Setup
+                          {cat.name}
                         </button>
-                      )}
-
-                      <Button
-                        type="button"
-                        onClick={() => handleCompleteOnboarding(uploadedDocs.length === 0)}
-                        variant="primary"
-                        size="lg"
-                        loading={isSubmitting}
-                        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-base font-semibold py-3.5 px-8 rounded-xl shadow-md"
-                      >
-                        <span>
-                          {uploadedDocs.length > 0
-                            ? `Submit & Launch Business Profile (${uploadedDocs.length})`
-                            : 'Complete Business Setup Now'}
-                        </span>
-                        <ArrowRight className="h-5 w-5 ml-2" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* =================================================================
-                RIGHT SIDEBAR: LIVE BUSINESS PROFILE SUMMARY (4 Columns on Desktop)
-                ================================================================= */}
-            <aside className="lg:col-span-4 lg:sticky lg:top-24 space-y-6 min-w-0">
-              <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-sm space-y-6 overflow-hidden">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Your Business Summary
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Live Preview
-                  </span>
-                </div>
-
-                {/* Business Identity Header */}
-                <div className="flex items-start gap-4 min-w-0">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white font-bold text-lg shadow-sm">
-                    {initials}
-                  </div>
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white break-words [overflow-wrap:anywhere] line-clamp-2">
-                      {displayBusinessName}
-                    </h3>
-                    {tradingName.trim() && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        Registered: {registeredBusinessName}
-                      </p>
-                    )}
-                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mt-0.5 break-words [overflow-wrap:anywhere] line-clamp-2">
-                      {displaySector}
-                    </p>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Structured Profile Details */}
-                <div className="space-y-3.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Business Type</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
-                      {selectedTypeObj.badgeText}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Team Size</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
-                      {selectedScaleObj.label} ({selectedScaleObj.teamRange})
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Experience</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right">
-                      {selectedYearsObj.sub}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Main Offering</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right capitalize">
-                      {offeringType === 'both'
-                        ? 'Products & Services'
-                        : offeringType === 'products'
-                        ? 'Physical Products'
-                        : 'Services'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400 shrink-0">Location</span>
-                    <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
-                      {city || 'City'}, {province}
-                    </span>
-                  </div>
-
-                  {registeredOwner && (
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-slate-500 dark:text-slate-400 shrink-0">Account Owner</span>
-                      <span className="font-semibold text-slate-900 dark:text-white text-right break-words [overflow-wrap:anywhere]">
-                        {registeredOwner}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {description.trim() && (
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-h-36 overflow-y-auto overflow-x-hidden break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
-                    &ldquo;{description.trim()}&rdquo;
+                {sector.startsWith('Other') && (
+                  <div className="p-3.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      Specify your exact specialty trade <span className="text-emerald-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={80}
+                      value={customSector}
+                      onChange={(e) => setCustomSector(e.target.value)}
+                      placeholder="e.g. Borehole Drilling, Poultry Hatchery, Solar Inverters..."
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 px-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                    />
                   </div>
                 )}
 
-                {/* Reassuring Helper Box */}
-                <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 text-sm text-emerald-900 dark:text-emerald-200 space-y-1.5">
-                  <div className="font-bold flex items-center gap-2">
-                    <BadgeCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Tailored to Your Business</span>
+                {/* Offering Type: 3-column Grid on Desktop - Null by default */}
+                <div className="space-y-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <label className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    What does your business provide? <span className="text-emerald-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    {[
+                      {
+                        id: 'products' as OfferingType,
+                        title: 'Physical Products',
+                        desc: 'Goods, merchandise, farm produce, or retail inventory.',
+                        icon: Package,
+                      },
+                      {
+                        id: 'services' as OfferingType,
+                        title: 'Professional Services',
+                        desc: 'Repairs, installations, skilled trade, consulting.',
+                        icon: Wrench,
+                      },
+                      {
+                        id: 'both' as OfferingType,
+                        title: 'Products & Services',
+                        desc: 'We supply products and provide installations or repairs.',
+                        icon: Layers,
+                      },
+                    ].map((item) => {
+                      const IconComp = item.icon;
+                      const isSelected = offeringType === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setOfferingType(item.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setOfferingType(item.id);
+                            }
+                          }}
+                          className={`p-4 rounded-xl sm:rounded-2xl border-2 cursor-pointer transition-all text-left flex items-start md:flex-col gap-3 md:gap-2.5 ${
+                            isSelected
+                              ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
+                          }`}
+                        >
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <IconComp className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </div>
+                          <div>
+                            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                              {item.title}
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                              {item.desc}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p className="text-xs sm:text-sm text-emerald-800/90 dark:text-emerald-300/90 leading-relaxed">
-                    You can update any of your business details, products, or verification documents at any time from your account settings.
+                </div>
+
+                {/* Business Bio / Description */}
+                <div className="space-y-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="business-desc-input"
+                      className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white"
+                    >
+                      Brief Profile Description
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      {description.length}/500
+                    </span>
+                  </div>
+                  <textarea
+                    id="business-desc-input"
+                    rows={3}
+                    maxLength={500}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={`e.g. We supply reliable ${displaySector.toLowerCase()} solutions for homes and enterprises across Zimbabwe.`}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 px-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={handleContinueStep5}
+                    variant="primary"
+                    size="lg"
+                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-sm sm:text-base font-semibold py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl shadow-md justify-center"
+                  >
+                    <span>Continue to Operating Location</span>
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                  </Button>
+                </div>
+              </section>
+            )}
+
+            {/* =================================================================
+                STEP 6: OPERATING LOCATION & CUSTOMER CONTACT
+                ================================================================= */}
+            {step5Completed && (
+              <section
+                ref={step6Ref}
+                id="onboarding-step-6"
+                className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6 animate-in fade-in duration-300"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                    <span>Step 6 of 7 • Location &amp; Contact</span>
+                  </div>
+                  <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                    6. Where is your business located and how can customers reach you?
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                    Where buyers can find your shop or premises, or which areas you serve.
                   </p>
                 </div>
-              </div>
-            </aside>
+
+                {step6Error && (
+                  <div className="p-3 sm:p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs sm:text-sm font-semibold text-rose-700 dark:text-rose-300">
+                    {step6Error}
+                  </div>
+                )}
+
+                {/* Service Mode in 3-column Desktop Grid - Null by default */}
+                <div className="space-y-2.5">
+                  <label className="block text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    Service Mode <span className="text-emerald-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    {[
+                      {
+                        id: 'physical_premises' as ServiceMode,
+                        title: 'Physical Premises',
+                        desc: 'Clients visit our shop, workshop, stall, or office.',
+                        icon: Store,
+                      },
+                      {
+                        id: 'mobile_delivery' as ServiceMode,
+                        title: 'Mobile / Delivery',
+                        desc: 'We deliver or travel to client locations on-site.',
+                        icon: Truck,
+                      },
+                      {
+                        id: 'both_modes' as ServiceMode,
+                        title: 'Both Modes',
+                        desc: 'Physical premises plus mobile callouts & deliveries.',
+                        icon: MapPin,
+                      },
+                    ].map((mode) => {
+                      const IconComp = mode.icon;
+                      const isSelected = serviceMode === mode.id;
+                      return (
+                        <div
+                          key={mode.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setServiceMode(mode.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setServiceMode(mode.id);
+                            }
+                          }}
+                          className={`p-4 rounded-xl sm:rounded-2xl border-2 cursor-pointer transition-all text-left flex items-start md:flex-col gap-3 md:gap-2.5 ${
+                            isSelected
+                              ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 hover:border-slate-300'
+                          }`}
+                        >
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <IconComp className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </div>
+                          <div>
+                            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                              {mode.title}
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                              {mode.desc}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Location Inputs in 3-column Desktop Grid - Province & City empty by default */}
+                <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label
+                        htmlFor="province-dropdown"
+                        className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
+                      >
+                        Province <span className="text-emerald-600">*</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <MapPin className="pointer-events-none absolute left-3.5 h-4 w-4 text-emerald-600" />
+                        <select
+                          id="province-dropdown"
+                          value={province}
+                          onChange={(e) => setProvince(e.target.value)}
+                          className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 pl-10 pr-8 text-base focus:outline-none focus:border-emerald-500 font-medium cursor-pointer ${
+                            !province ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
+                          }`}
+                        >
+                          <option value="" disabled className="text-slate-400">
+                            Select your province...
+                          </option>
+                          {PROVINCES.map((prov) => (
+                            <option key={prov} value={prov} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                              {prov}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="city-text-input"
+                        className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
+                      >
+                        City or Town <span className="text-emerald-600">*</span>
+                      </label>
+                      <input
+                        id="city-text-input"
+                        type="text"
+                        required
+                        maxLength={60}
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="e.g. Harare, Bulawayo, Gweru"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 px-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="street-address-field"
+                        className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1.5"
+                      >
+                        Street Address / Stand <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
+                      </label>
+                      <input
+                        id="street-address-field"
+                        type="text"
+                        maxLength={120}
+                        value={streetAddress}
+                        onChange={(e) => setStreetAddress(e.target.value)}
+                        placeholder="e.g. Stand 405, 5th Street"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-3 px-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Locked Account Credentials */}
+                <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <Lock className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Registered Account Details (Locked)</span>
+                      </span>
+                      <span className="text-xs font-semibold text-emerald-600">Verified</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
+                      <div className="relative flex items-center">
+                        <Phone className="pointer-events-none absolute left-3.5 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          type="tel"
+                          readOnly
+                          disabled
+                          value={registeredPhone}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900/70 py-2.5 pl-9 pr-8 text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
+                        />
+                        <Lock className="pointer-events-none absolute right-3 h-3 w-3 text-slate-400" />
+                      </div>
+
+                      <div className="relative flex items-center">
+                        <Mail className="pointer-events-none absolute left-3.5 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          type="email"
+                          readOnly
+                          disabled
+                          value={registeredEmail}
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-100 dark:bg-slate-900/70 py-2.5 pl-9 pr-8 text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-semibold cursor-not-allowed select-none"
+                        />
+                        <Lock className="pointer-events-none absolute right-3 h-3 w-3 text-slate-400" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        htmlFor="public-whatsapp-field"
+                        className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1"
+                      >
+                        Public WhatsApp / Sales Line <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <Phone className="pointer-events-none absolute left-3.5 h-4 w-4 text-emerald-600" />
+                        <input
+                          id="public-whatsapp-field"
+                          type="tel"
+                          maxLength={25}
+                          value={publicWhatsApp}
+                          onChange={(e) => setPublicWhatsApp(e.target.value)}
+                          placeholder="Leave blank to use registered phone"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-2.5 pl-10 pr-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="public-email-field"
+                        className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1"
+                      >
+                        Public Sales Email <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <Mail className="pointer-events-none absolute left-3.5 h-4 w-4 text-emerald-600" />
+                        <input
+                          id="public-email-field"
+                          type="email"
+                          maxLength={80}
+                          value={publicEmail}
+                          onChange={(e) => setPublicEmail(e.target.value)}
+                          placeholder="Leave blank to use registered email"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-2.5 pl-10 pr-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={handleContinueStep6}
+                    variant="primary"
+                    size="lg"
+                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-sm sm:text-base font-semibold py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl shadow-md justify-center"
+                  >
+                    <span>Continue to Verification</span>
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                  </Button>
+                </div>
+              </section>
+            )}
+
+            {/* =================================================================
+                STEP 7: TAILORED VERIFICATION KYC DOCUMENTS & PROFILE LAUNCH
+                ================================================================= */}
+            {step6Completed && onboardingTrack && (
+              <section
+                ref={step7Ref}
+                id="onboarding-step-7"
+                className="scroll-mt-24 sm:scroll-mt-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xs space-y-5 sm:space-y-6 animate-in fade-in duration-300"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                    <span>Step 7 of 7 • Tailored Verification</span>
+                  </div>
+                  <h2 className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-snug">
+                    7. Verify your {calculatedBadge} profile
+                  </h2>
+                  <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Checklist for <strong className="text-slate-800 dark:text-slate-200">{selectedTrackObj?.trackCode}: {selectedTrackObj?.title}</strong>. You may upload files now or skip and complete in dashboard.
+                  </p>
+                </div>
+
+                {/* Bank-Grade Security & Privacy Guarantee Callout */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 flex items-start gap-3">
+                  <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                      Bank-Grade Document Encryption &amp; Confidentiality
+                    </h3>
+                    <p className="mt-0.5 text-xs text-emerald-900/80 dark:text-emerald-300/80 leading-relaxed">
+                      All business compliance documents and identification files are encrypted (AES-256) and strictly confidential. They are only reviewed by authorized Sadza Connect verification officers and are <strong>never</strong> displayed publicly or shared with third parties.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Document Upload Checklist in 2-column Desktop Grid */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      Statutory Checklist:
+                    </h3>
+                    <span className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                      {uploadedDocs.length} Attached
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {(DOCUMENT_REQUIREMENTS_BY_TRACK[onboardingTrack] || []).map((req) => (
+                      <DocumentUploadCard
+                        key={req.docType}
+                        title={req.title}
+                        badge={req.badge}
+                        description={req.description}
+                        legalNote={req.legalNote}
+                        docType={req.docType}
+                        icon={req.icon}
+                        uploadedDoc={uploadedDocs.find((d) => d.docType === req.docType)}
+                        isUploading={Boolean(uploadingDocTypes[req.docType])}
+                        uploadError={uploadErrors[req.docType]}
+                        onUpload={(file) => handleFileUpload(req.docType, file)}
+                        onRemove={() => handleRemoveDoc(req.docType)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Launch Action Buttons */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+                  {uploadedDocs.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleCompleteOnboarding(true)}
+                      className="w-full sm:w-auto px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-center"
+                    >
+                      Skip Documents &amp; Finish Setup
+                    </button>
+                  )}
+
+                  <Button
+                    type="button"
+                    onClick={() => handleCompleteOnboarding(uploadedDocs.length === 0)}
+                    variant="primary"
+                    size="lg"
+                    loading={isSubmitting}
+                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-sm sm:text-base font-semibold py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl shadow-md justify-center"
+                  >
+                    <span>
+                      {uploadedDocs.length > 0
+                        ? `Submit & Launch (${uploadedDocs.length})`
+                        : 'Complete Business Setup Now'}
+                    </span>
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                  </Button>
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           /* =====================================================================
-             STEP 5: COMPLETED & LIVE BUSINESS PROFILE SUMMARY
+             STEP 8: COMPLETED & LIVE BUSINESS PROFILE SCREEN
              ===================================================================== */
-          <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-200">
-            <div className="rounded-3xl border-2 border-emerald-500/30 bg-white dark:bg-slate-900 p-8 sm:p-10 text-center shadow-lg">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md">
-                <Award className="h-9 w-9" />
+          <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
+            <div className="rounded-2xl sm:rounded-3xl border-2 border-emerald-500/30 bg-white dark:bg-slate-900 p-6 sm:p-10 text-center shadow-lg">
+              <div className="mx-auto flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md">
+                <Award className="h-8 w-8 sm:h-9 sm:w-9" />
               </div>
-              <h1 className="mt-5 text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              <h1 className="mt-4 text-xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 Your Business Profile is Ready!
               </h1>
-              <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed break-words [overflow-wrap:anywhere]">
+              <p className="mt-2 text-xs sm:text-base text-slate-600 dark:text-slate-300 max-w-xl mx-auto leading-relaxed break-words [overflow-wrap:anywhere]">
                 {verificationSkipped
-                  ? `${displayBusinessName} is now listed on Sadza Connect as a ${selectedTypeObj.badgeText}. You can upload verification documents anytime from your dashboard.`
-                  : `${displayBusinessName} is now active and your verification documents have been submitted to our review team.`}
+                  ? `${displayBusinessName} is now listed on Sadza Connect with standard directory visibility. You can complete verification and claim your "${calculatedBadge}" badge anytime from your business dashboard.`
+                  : `${displayBusinessName} is now active and your verification documents have been securely uploaded to our compliance team for review.`}
               </p>
             </div>
 
             {/* Official Business Profile Summary Card */}
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 lg:p-10 shadow-sm space-y-6 overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white font-bold text-xl">
+            <div className="rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-8 lg:p-10 shadow-xs space-y-6 overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="flex h-12 w-12 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white font-bold text-lg sm:text-2xl shadow-xs">
                     {initials}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1557,88 +1943,102 @@ function BusinessOnboardingContent() {
                         {displaySector}
                       </span>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300">
-                        {selectedTypeObj.badgeText}
+                      <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+                        {selectedTrackObj?.trackCode}: {selectedLegalFormObj?.label}
                       </span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1 break-words [overflow-wrap:anywhere]">
+                    <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 break-words [overflow-wrap:anywhere]">
                       {displayBusinessName}
                     </h2>
                   </div>
                 </div>
 
-                <div>
-                  {!verificationSkipped ? (
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                      <span>Verification Submitted</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                      <Clock className="h-4 w-4 text-amber-600" />
-                      <span>Standard Profile (Verify Anytime)</span>
-                    </span>
-                  )}
+                <div className="shrink-0">
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>{calculatedBadge}</span>
+                  </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm sm:text-base">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs sm:text-sm">
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold">
-                    Structure &amp; Scale
+                    Legal Classification
                   </span>
                   <span className="font-semibold text-slate-900 dark:text-white mt-1 block">
-                    {selectedTypeObj.badgeText} ({selectedScaleObj.teamRange})
+                    {selectedLegalFormObj?.label}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block mt-0.5">
+                    Role: {selectedApplicantRoleObj?.label}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold">
-                    Location
+                    Registration &amp; Location
                   </span>
                   <span className="font-semibold text-slate-900 dark:text-white mt-1 block break-words [overflow-wrap:anywhere]">
                     {city}, {province}
                   </span>
+                  {registrationNumber.trim() && (
+                    <span className="font-mono text-xs text-slate-600 dark:text-slate-400 block mt-0.5">
+                      Reg: {registrationNumber.trim()}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block text-xs uppercase font-bold">
-                    Direct Contact
+                    Direct Contact &amp; KYC
                   </span>
                   <span className="font-semibold text-slate-900 dark:text-white mt-1 block break-words [overflow-wrap:anywhere]">
                     {publicWhatsApp.trim() || registeredPhone || publicEmail.trim() || registeredEmail}
                   </span>
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
+                    {uploadedDocs.length} Document{uploadedDocs.length === 1 ? '' : 's'} Encrypted in R2
+                  </span>
                 </div>
               </div>
 
+              {/* Review Timeline SLA Box */}
+              <div className="p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-600 dark:text-slate-300 space-y-1">
+                <p className="font-bold text-slate-900 dark:text-white">
+                  Compliance Verification SLA (24 – 48 Hours):
+                </p>
+                <p>
+                  Our legal compliance team will inspect your uploaded documents. Once approved, your profile displays the official verified trust badge across search and directory pages.
+                </p>
+              </div>
+
               {/* Next Step Actions */}
-              <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => goToStep(4)}
-                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  onClick={() => setIsCompleted(false)}
+                  className="inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white py-2"
                 >
-                  <ArrowLeft className="h-5 w-5" />
-                  <span>Back to Verification Step</span>
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Review Form Fields</span>
                 </button>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <Link href="/businesses" className="w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="lg"
-                      className="w-full text-base font-semibold py-3.5 px-6 rounded-xl"
+                      className="w-full text-xs sm:text-sm font-semibold py-3 px-5 rounded-xl justify-center"
                     >
-                      View Business Directory
+                      View Directory
                     </Button>
                   </Link>
 
-                  <Link href="/" className="w-full sm:w-auto">
+                  <Link href="/dashboard/business" className="w-full sm:w-auto">
                     <Button
                       variant="primary"
                       size="lg"
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-base font-semibold py-3.5 px-8 rounded-xl shadow-md"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm font-semibold py-3 px-6 rounded-xl shadow-md justify-center"
                     >
-                      <span>Go to Business Dashboard</span>
-                      <ArrowRight className="h-5 w-5 ml-2" />
+                      <span>Business Dashboard</span>
+                      <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </Link>
                 </div>
@@ -1646,6 +2046,13 @@ function BusinessOnboardingContent() {
             </div>
           </div>
         )}
+
+        {/* Global Action Loader Feedback */}
+        <ActionLoader
+          isVisible={isSubmitting}
+          title="Registering Your Business..."
+          subtitle="Creating storefront directory listing and provisioning KYC profile in PostgreSQL..."
+        />
       </main>
     </div>
   );
@@ -1655,17 +2062,23 @@ function DocumentUploadCard({
   title,
   badge,
   description,
+  legalNote,
   icon: Icon,
   uploadedDoc,
+  isUploading,
+  uploadError,
   onUpload,
   onRemove,
 }: {
   title: string;
   badge: string;
   description: string;
+  legalNote?: string;
   docType: string;
   icon: React.ComponentType<{ className?: string }>;
   uploadedDoc?: UploadedDocument;
+  isUploading?: boolean;
+  uploadError?: string;
   onUpload: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -1673,83 +2086,105 @@ function DocumentUploadCard({
 
   return (
     <div
-      className={`rounded-2xl border-2 p-5 sm:p-6 transition-all ${
+      className={`rounded-xl sm:rounded-2xl border-2 p-3.5 sm:p-4 lg:p-5 transition-all flex flex-col justify-between ${
         uploadedDoc
           ? 'border-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20'
-          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-slate-300 dark:hover:border-slate-700'
+          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-slate-300'
       }`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-              uploadedDoc
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            {uploadedDoc ? <FileCheck className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                {title}
-              </h3>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                {badge}
-              </span>
-            </div>
-            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
-              {description}
-            </p>
-          </div>
+      <div className="flex items-start gap-3 min-w-0">
+        <div
+          className={`flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl ${
+            uploadedDoc
+              ? 'bg-emerald-600 text-white'
+              : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+          }`}
+        >
+          {uploadedDoc ? <FileCheck className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
         </div>
-
-        <div className="shrink-0 flex items-center justify-end">
-          {uploadedDoc ? (
-            <div className="flex items-center gap-2.5 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 px-4 py-2.5 rounded-xl">
-              <FileCheck className="h-5 w-5 text-emerald-600 shrink-0" />
-              <div className="text-sm">
-                <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[160px] inline-block align-middle">
-                  {uploadedDoc.name}
-                </span>
-                <span className="text-slate-500 ml-1.5">({uploadedDoc.size})</span>
-              </div>
-              <button
-                type="button"
-                onClick={onRemove}
-                className="text-slate-400 hover:text-rose-600 p-1 ml-1"
-                aria-label="Remove document"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    onUpload(file);
-                    e.target.value = '';
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-600 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-              >
-                <UploadCloud className="h-5 w-5" />
-                <span>Select File to Upload</span>
-              </button>
-            </>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h4 className="text-xs sm:text-sm lg:text-base font-bold text-slate-900 dark:text-white leading-snug">
+              {title}
+            </h4>
+            <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+              {badge}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            {description}
+          </p>
+          {legalNote && (
+            <p className="mt-1.5 text-[11px] font-medium text-emerald-800 dark:text-emerald-400/90 flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>{legalNote}</span>
+            </p>
+          )}
+          {uploadError && (
+            <p className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+              {uploadError}
+            </p>
           )}
         </div>
+      </div>
+
+      <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800 flex justify-end">
+        {isUploading ? (
+          <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-xs font-semibold w-full sm:w-auto">
+            <div className="h-3.5 w-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin shrink-0" />
+            <span>Securing in R2...</span>
+          </div>
+        ) : uploadedDoc ? (
+          <div className="flex items-center justify-between sm:justify-start gap-2 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 px-3 py-2 rounded-xl shadow-xs w-full sm:w-auto">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+              <div className="text-xs min-w-0">
+                <div className="font-semibold text-slate-900 dark:text-white truncate max-w-[150px] sm:max-w-[180px]">
+                  {uploadedDoc.name}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                  <span>{uploadedDoc.size}</span>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-0.5 text-emerald-600">
+                    <Lock className="h-2.5 w-2.5" /> R2 Encrypted
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer shrink-0 ml-2"
+              aria-label="Remove document"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onUpload(file);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-600 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-600 transition-colors cursor-pointer"
+            >
+              <UploadCloud className="h-4 w-4" />
+              <span>Select File to Upload</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

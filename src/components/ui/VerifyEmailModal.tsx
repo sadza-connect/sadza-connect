@@ -27,7 +27,7 @@ interface VerifyEmailModalProps {
   initialStep?: 'confirm' | 'otp';
   onConfirmSendCode?: () => Promise<void>;
   onEditEmail?: () => void;
-  onVerified: () => void;
+  onVerified: (sessionData?: any) => void;
 }
 
 const DISPATCH_MESSAGES = [
@@ -211,9 +211,11 @@ export function VerifyEmailModal({
       setIsSuccess(true);
       setIsNavigating(true);
 
+      const sessionData = result.data?.data;
+
       // Keep smooth loading transition while triggering parent routing
       setTimeout(() => {
-        onVerified();
+        onVerified(sessionData);
       }, 1400);
     } catch (err: any) {
       setErrorMessage(err.message || 'Verification failed. Please check the PIN.');

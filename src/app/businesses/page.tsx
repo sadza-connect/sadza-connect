@@ -22,11 +22,11 @@ import { Footer } from '@/components/landing/Footer';
 import { BusinessListing, SAMPLE_BUSINESSES } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
-  getStoredBusinesses,
   getSavedBusinessIds,
   toggleSavedBusinessId,
 } from '@/data/platformStore';
 import { createBusinessInquiryLink } from '@/lib/utils/whatsapp';
+import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 
 const BUSINESS_TYPES = [
   'All Types',
@@ -37,23 +37,50 @@ const BUSINESS_TYPES = [
 ];
 
 export default function BusinessesDirectoryPage() {
-  const [businesses, setBusinesses] = useState<BusinessListing[]>(SAMPLE_BUSINESSES);
+  const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [selectedBusinessType, setSelectedBusinessType] = useState('All Types');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    setBusinesses(getStoredBusinesses());
+    let isMounted = true;
+
+    async function loadDirectory() {
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/v1/businesses?limit=100');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.businesses)) {
+          if (isMounted) {
+            const mapped = json.data.businesses.map(mapDbBusinessToListing);
+            setBusinesses(mapped);
+          }
+        } else {
+          if (isMounted) setBusinesses([]);
+        }
+      } catch {
+        if (isMounted) setBusinesses([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadDirectory();
     setSavedIds(getSavedBusinessIds());
+
     const sync = () => {
-      setBusinesses(getStoredBusinesses());
+      loadDirectory();
       setSavedIds(getSavedBusinessIds());
     };
     window.addEventListener('sadza-platform-updated', sync);
-    return () => window.removeEventListener('sadza-platform-updated', sync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', sync);
+    };
   }, []);
 
   const filteredBusinesses = useMemo(() => {
@@ -79,7 +106,8 @@ export default function BusinessesDirectoryPage() {
         selectedBusinessType === 'All Types' ||
         biz.businessType === selectedBusinessType;
 
-      const matchesVerified = !verifiedOnly || biz.cr14Verified;
+      const matchesVerified =
+        !verifiedOnly || Boolean(biz.cr14Verified);
 
       return (
         matchesSearch &&
@@ -297,14 +325,14 @@ export default function BusinessesDirectoryPage() {
                             {biz.categoryName}
                           </span>
                           {biz.cr14Verified ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white shadow-xs">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              CR14 Verified
+                              {biz.verificationBadge || 'Verified Company'}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white/95 text-slate-800">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                              ID Verified
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/90 text-white shadow-xs">
+                              <Clock className="w-3.5 h-3.5" />
+                              Unverified
                             </span>
                           )}
                         </div>

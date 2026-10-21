@@ -29,6 +29,12 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  ModalBody,
+  ModalSection,
+  ModalGrid,
+  ModalFooter,
+  ModalToggle,
+  ConfirmModal,
 } from '@/components/admin/AdminUI';
 import { ImageUploader, GalleryItem } from '@/components/admin/ImageUploader';
 import {
@@ -39,14 +45,42 @@ import {
 import {
   getStoredBusinesses,
   saveStoredBusinesses,
+  getPlatformSettings,
+  PlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
 } from '@/data/platformStore';
+import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+
+export function getEffectiveBusinessPrice(b: BusinessListing, st: PlatformSettings) {
+  if (b.customMonthlyPriceUsd !== undefined && b.customMonthlyPriceUsd !== null) {
+    return {
+      price: b.customMonthlyPriceUsd,
+      isCustom: true,
+      label: `$${b.customMonthlyPriceUsd.toFixed(2)}/mo (Admin Custom)`,
+    };
+  }
+  const track = b.onboardingTrack || 'registered_entity';
+  if (track === 'owner_operated') {
+    const p = st.soloMonthlyPriceUsd ?? 5;
+    return { price: p, isCustom: false, label: `$${p.toFixed(2)}/mo (Track B Solo)` };
+  }
+  if (track === 'association_institutional') {
+    const p = st.coopMonthlyPriceUsd ?? 10;
+    return { price: p, isCustom: false, label: `$${p.toFixed(2)}/mo (Track C Coop)` };
+  }
+  const p = st.corporateMonthlyPriceUsd ?? st.monthlySubscriptionPriceUsd ?? 15;
+  return { price: p, isCustom: false, label: `$${p.toFixed(2)}/mo (Track A Corporate)` };
+}
 
 export default function AdminBusinessesPage() {
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [query, setQuery] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [trackFilter, setTrackFilter] = useState('all');
   const [toast, setToast] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,16 +99,42 @@ export default function AdminBusinessesPage() {
     openingHours: 'Mon - Sat: 08:00 - 17:00',
     subscriptionStatus: 'Month 1 Grace Period' as BusinessListing['subscriptionStatus'],
     graceDaysRemaining: '30',
+    customMonthlyPriceUsd: '',
     cr14Verified: true,
     featured: false,
     images: [] as GalleryItem[],
   });
 
   useEffect(() => {
-    const sync = () => setBusinesses(getStoredBusinesses());
-    sync();
+    let isMounted = true;
+    async function loadAdminBusinesses() {
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/v1/businesses?limit=100');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.businesses)) {
+          if (isMounted) {
+            const mapped = json.data.businesses.map(mapDbBusinessToListing);
+            setBusinesses(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load businesses from database:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadAdminBusinesses();
+
+    const sync = () => {
+      loadAdminBusinesses();
+    };
     window.addEventListener('sadza-platform-updated', sync);
-    return () => window.removeEventListener('sadza-platform-updated', sync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', sync);
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -93,9 +153,13 @@ export default function AdminBusinessesPage() {
         b.address.toLowerCase().includes(q);
       const matchesProv = provinceFilter === 'all' || b.province === provinceFilter;
       const matchesStatus = statusFilter === 'all' || b.subscriptionStatus === statusFilter;
-      return matchesQ && matchesProv && matchesStatus;
+      const matchesTrack =
+        trackFilter === 'all' ||
+        b.onboardingTrack === trackFilter ||
+        (!b.onboardingTrack && trackFilter === 'registered_entity');
+      return matchesQ && matchesProv && matchesStatus && matchesTrack;
     });
-  }, [businesses, query, provinceFilter, statusFilter]);
+  }, [businesses, query, provinceFilter, statusFilter, trackFilter]);
 
   function openCreate() {
     setEditingId(null);
@@ -112,6 +176,7 @@ export default function AdminBusinessesPage() {
       openingHours: 'Mon - Sat: 08:00 - 17:00',
       subscriptionStatus: 'Month 1 Grace Period',
       graceDaysRemaining: '30',
+      customMonthlyPriceUsd: '',
       cr14Verified: true,
       featured: false,
       images: [
@@ -139,6 +204,10 @@ export default function AdminBusinessesPage() {
       openingHours: b.openingHours || 'Mon - Sat: 08:00 - 17:00',
       subscriptionStatus: b.subscriptionStatus || 'Paid Subscriber',
       graceDaysRemaining: String(b.graceDaysRemaining ?? 30),
+      customMonthlyPriceUsd:
+        b.customMonthlyPriceUsd !== undefined && b.customMonthlyPriceUsd !== null
+          ? String(b.customMonthlyPriceUsd)
+          : '',
       cr14Verified: b.cr14Verified,
       featured: b.featured,
       images: b.image ? [{ src: b.image, caption: b.name }] : [],
@@ -146,7 +215,7 @@ export default function AdminBusinessesPage() {
     setFormOpen(true);
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     const catObj =
       BUSINESS_CATEGORIES.find((c) => c.name === form.categoryName) || BUSINESS_CATEGORIES[0];
@@ -158,7 +227,35 @@ export default function AdminBusinessesPage() {
       .map((s) => s.trim())
       .filter(Boolean);
 
+    const customPriceNum =
+      form.customMonthlyPriceUsd.trim() !== ''
+        ? Math.max(0, parseFloat(form.customMonthlyPriceUsd))
+        : null;
+
     if (editingId) {
+      const existing = businesses.find((b) => b.id === editingId);
+      if (existing) {
+        try {
+          await fetch(`/api/v1/businesses/${encodeURIComponent(existing.slug)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description: form.description,
+              province: form.province,
+              address: form.address,
+              sector: catObj.name,
+              whatsapp: form.whatsapp,
+              cover_url: coverImg,
+              logo_url: coverImg,
+              is_featured: form.featured,
+              custom_monthly_price_usd: customPriceNum,
+            }),
+          });
+        } catch (err) {
+          console.error('Failed to update business in database:', err);
+        }
+      }
+
       const updated = businesses.map((b) =>
         b.id === editingId
           ? {
@@ -180,6 +277,7 @@ export default function AdminBusinessesPage() {
                 form.subscriptionStatus === 'Month 1 Grace Period'
                   ? Math.max(1, Number(form.graceDaysRemaining) || 30)
                   : undefined,
+              customMonthlyPriceUsd: customPriceNum,
               cr14Verified: form.cr14Verified,
               zimraVerified: form.cr14Verified,
               featured: form.featured,
@@ -191,6 +289,28 @@ export default function AdminBusinessesPage() {
       setBusinesses(updated);
       showToast(`Updated enterprise profile for ${form.name}`);
     } else {
+      try {
+        await fetch('/api/v1/businesses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name,
+            province: form.province,
+            address: form.address,
+            sector: catObj.name,
+            phone: form.phone,
+            whatsapp: form.whatsapp,
+            email: form.email,
+            description: form.description,
+            cover_url: coverImg,
+            logo_url: coverImg,
+            custom_monthly_price_usd: customPriceNum,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to create business in database:', err);
+      }
+
       const slug = form.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -207,6 +327,7 @@ export default function AdminBusinessesPage() {
           form.subscriptionStatus === 'Month 1 Grace Period'
             ? Math.max(1, Number(form.graceDaysRemaining) || 30)
             : undefined,
+        customMonthlyPriceUsd: customPriceNum,
         rating: 4.9,
         reviewCount: 12,
         province: form.province,
@@ -233,15 +354,27 @@ export default function AdminBusinessesPage() {
     setFormOpen(false);
   }
 
-  function toggleKyc(b: BusinessListing) {
+  async function toggleKyc(b: BusinessListing) {
     const nextVal = !b.cr14Verified;
+    const nextStatus = nextVal ? 'Verified' : 'Pending';
+
+    try {
+      await fetch(`/api/v1/businesses/${encodeURIComponent(b.slug)}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+    } catch (err) {
+      console.error('Failed to update KYC in database:', err);
+    }
+
     const updated = businesses.map((item) =>
       item.id === b.id ? { ...item, cr14Verified: nextVal, zimraVerified: nextVal } : item
     );
     saveStoredBusinesses(updated);
     setBusinesses(updated);
     showToast(
-      `${b.name}: CR14 & ZIMRA KYC ${nextVal ? 'Approved (Verified)' : 'Marked Pending'}`
+      `${b.name}: CR14 & ZIMRA KYC ${nextVal ? 'Approved & Verified' : 'Marked Pending'}`
     );
   }
 
@@ -332,6 +465,17 @@ export default function AdminBusinessesPage() {
             ))}
           </FilterSelect>
           <FilterSelect
+            value={trackFilter}
+            onChange={setTrackFilter}
+            label="Filter by legal track"
+            className="sm:w-52"
+          >
+            <option value="all">All Legal Tracks</option>
+            <option value="registered_entity">Track A: Registered Company / PBC</option>
+            <option value="owner_operated">Track B: Owner-Operated / Informal</option>
+            <option value="association_institutional">Track C: Cooperative / Trust / Church</option>
+          </FilterSelect>
+          <FilterSelect
             value={statusFilter}
             onChange={setStatusFilter}
             label="Filter by billing status"
@@ -358,13 +502,16 @@ export default function AdminBusinessesPage() {
                 <tr className="border-b border-[#e6eaf1] bg-[#f4f6f9]/80 text-xs font-semibold uppercase tracking-wider text-[#6b81a5]">
                   <th className="px-5 py-3 sm:px-6">Enterprise &amp; Sector</th>
                   <th className="px-4 py-3">Province</th>
-                  <th className="px-4 py-3">CR14 / ZIMRA KYC</th>
+                  <th className="px-4 py-3">Legal Track &amp; KYC Badge</th>
                   <th className="px-4 py-3">Subscription &amp; Grace</th>
+                  <th className="px-4 py-3">Monthly Rate</th>
                   <th className="px-5 py-3 text-right sm:px-6">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6eaf1]">
-                {filtered.map((b) => (
+                {filtered.map((b) => {
+                  const rateInfo = getEffectiveBusinessPrice(b, settings);
+                  return (
                   <tr key={b.id} className="transition-colors hover:bg-[#f4f6f9]/60">
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex items-center gap-3">
@@ -390,16 +537,39 @@ export default function AdminBusinessesPage() {
                     </td>
                     <td className="px-4 py-4 font-semibold text-[#1f2a3d]">{b.province}</td>
                     <td className="px-4 py-4">
-                      <button
-                        type="button"
-                        onClick={() => toggleKyc(b)}
-                        className="cursor-pointer"
-                        title="Click to toggle CR14/ZIMRA KYC verification"
-                      >
-                        <AdminBadge tone={b.cr14Verified ? 'success' : 'warning'} dot>
-                          {b.cr14Verified ? 'CR14 Verified' : 'Pending KYC'}
-                        </AdminBadge>
-                      </button>
+                      <div className="space-y-1">
+                        <div>
+                          {b.onboardingTrack === 'registered_entity' ? (
+                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              Track A: Registered
+                            </span>
+                          ) : b.onboardingTrack === 'owner_operated' ? (
+                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                              Track B: Owner-Operated
+                            </span>
+                          ) : b.onboardingTrack === 'association_institutional' ? (
+                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                              Track C: Institution / NGO
+                            </span>
+                          ) : (
+                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                              {b.businessType}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleKyc(b)}
+                          className="cursor-pointer text-left block"
+                          title="Click to toggle KYC verification status"
+                        >
+                          <AdminBadge tone={b.cr14Verified ? 'success' : 'warning'} dot>
+                            {b.cr14Verified
+                              ? b.verificationBadge || 'Verified'
+                              : 'Pending Review'}
+                          </AdminBadge>
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
                       <button
@@ -416,6 +586,25 @@ export default function AdminBusinessesPage() {
                         </AdminBadge>
                       </button>
                     </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="space-y-1">
+                        <div className="font-bold text-slate-900 text-sm">
+                          ${rateInfo.price.toFixed(2)}
+                          <span className="text-[11px] font-normal text-slate-500"> /mo</span>
+                        </div>
+                        <div>
+                          <span
+                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              rateInfo.isCustom
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}
+                          >
+                            {rateInfo.isCustom ? '★ Admin Custom' : 'Track Default'}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-5 py-4 text-right sm:px-6">
                       <div className="flex items-center justify-end gap-1">
                         <IconButton
@@ -424,7 +613,7 @@ export default function AdminBusinessesPage() {
                           tone="brand"
                           onClick={() =>
                             showToast(
-                              `Dispatched $10/mo subscription reminder to ${b.name} (${b.phone})`
+                              `Dispatched $${rateInfo.price.toFixed(2)}/mo subscription reminder to ${b.name} (${b.phone})`
                             )
                           }
                         />
@@ -447,210 +636,211 @@ export default function AdminBusinessesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Panel>
 
-      {/* Ultra-Spacious 2XL Business Editor Modal */}
+      {/* Business editor */}
       <AdminModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        size="2xl"
-        title={editingId ? 'Edit Enterprise Dossier & KYC' : 'Register New Verified Enterprise'}
-        description="Configure corporate identity, clean provincial assignment, 30-day grace status, and cover photography."
+        size="xl"
+        icon={editingId ? Pencil : Building2}
+        title={editingId ? 'Edit business' : 'Register a business'}
+        description="Business details, billing status and cover photo."
       >
-        <form onSubmit={handleSave} className="space-y-6 p-6 sm:p-8">
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-              1. Corporate Identity &amp; Provincial Location
-            </h4>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <AdminInput
-                label="Registered Business Name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. SunPower Solar & Inverters Zimbabwe"
+        <form onSubmit={handleSave}>
+          <ModalBody>
+            <ModalSection title="Business details">
+              <ModalGrid>
+                <AdminInput
+                  label="Business name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. SunPower Solar Zimbabwe"
+                  required
+                  wrapClassName="sm:col-span-2"
+                />
+                <AdminSelect
+                  label="Category"
+                  value={form.categoryName}
+                  onChange={(e) => setForm({ ...form, categoryName: e.target.value })}
+                >
+                  {BUSINESS_CATEGORIES.map((c) => (
+                    <option key={c.slug} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </AdminSelect>
+                <AdminSelect
+                  label="Province"
+                  value={form.province}
+                  onChange={(e) => setForm({ ...form, province: e.target.value })}
+                >
+                  {ZIMBABWE_PROVINCES.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </AdminSelect>
+                <AdminInput
+                  label="Street address"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  placeholder="Stand / street address"
+                  required
+                  wrapClassName="sm:col-span-2"
+                />
+                <AdminInput
+                  label="Phone"
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  required
+                />
+                <AdminInput
+                  label="WhatsApp"
+                  type="tel"
+                  inputMode="numeric"
+                  hint="Digits only, e.g. 263771234567"
+                  value={form.whatsapp}
+                  onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                  required
+                />
+                <AdminInput
+                  label="Opening hours"
+                  value={form.openingHours}
+                  onChange={(e) => setForm({ ...form, openingHours: e.target.value })}
+                  wrapClassName="sm:col-span-2"
+                />
+              </ModalGrid>
+              <AdminTextarea
+                label="About the business"
+                rows={4}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
                 required
               />
-              <AdminSelect
-                label="Commercial Sector"
-                value={form.categoryName}
-                onChange={(e) => setForm({ ...form, categoryName: e.target.value })}
-              >
-                {BUSINESS_CATEGORIES.map((c) => (
-                  <option key={c.slug} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </AdminSelect>
-              <AdminSelect
-                label="Province (Clean National Name)"
-                value={form.province}
-                onChange={(e) => setForm({ ...form, province: e.target.value })}
-              >
-                {ZIMBABWE_PROVINCES.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </AdminSelect>
               <AdminInput
-                label="Physical Depot / Office Address"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                placeholder="Stand / Street Address"
-                required
+                label="Services"
+                hint="Separate with commas"
+                value={form.services}
+                onChange={(e) => setForm({ ...form, services: e.target.value })}
               />
-              <AdminInput
-                label="Primary Telephone"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                required
+            </ModalSection>
+
+            <ModalSection
+              title="Subscription & Commercial Rates"
+              description="Monthly subscription fees are determined by Admin. Leave custom price blank to use the legal track default, or set a custom rate for this business."
+            >
+              <ModalGrid>
+                <AdminSelect
+                  label="Subscription Status"
+                  value={form.subscriptionStatus}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      subscriptionStatus: e.target.value as BusinessListing['subscriptionStatus'],
+                    })
+                  }
+                >
+                  <option value="Paid Subscriber">Paid subscriber</option>
+                  <option value="Month 1 Grace Period">Free grace period</option>
+                  <option value="Expired">Expired</option>
+                </AdminSelect>
+                {form.subscriptionStatus === 'Month 1 Grace Period' && (
+                  <AdminInput
+                    label="Grace days left"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={60}
+                    value={form.graceDaysRemaining}
+                    onChange={(e) => setForm({ ...form, graceDaysRemaining: e.target.value })}
+                  />
+                )}
+                <AdminInput
+                  label="Admin Custom Monthly Price ($ USD / mo)"
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g. 8.00 (leave empty for track default)"
+                  hint="Determined by Admin. Overrides the legal track default rate."
+                  value={form.customMonthlyPriceUsd}
+                  onChange={(e) => setForm({ ...form, customMonthlyPriceUsd: e.target.value })}
+                  wrapClassName="sm:col-span-2"
+                />
+              </ModalGrid>
+            </ModalSection>
+
+            <ModalSection title="Cover photo">
+              <ImageUploader
+                label="Upload a cover image"
+                multiple={false}
+                images={form.images}
+                onChange={(imgs) => setForm({ ...form, images: imgs })}
               />
-              <AdminInput
-                label="WhatsApp Number (Digits Only)"
-                value={form.whatsapp}
-                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                required
-              />
-            </div>
-          </div>
+            </ModalSection>
 
-          <div className="space-y-4 border-t border-[#e6eaf1] pt-6">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-              2. Subscription, 30-Day Grace &amp; KYC Verification
-            </h4>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <AdminSelect
-                label="Subscription Tier"
-                value={form.subscriptionStatus}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    subscriptionStatus: e.target.value as BusinessListing['subscriptionStatus'],
-                  })
-                }
-              >
-                <option value="Paid Subscriber">Paid Subscriber ($10/mo)</option>
-                <option value="Month 1 Grace Period">Free 30-Day Grace Period</option>
-                <option value="Expired">Grace Expired</option>
-              </AdminSelect>
-              <AdminInput
-                label="Grace Days Remaining"
-                type="number"
-                min={0}
-                max={60}
-                value={form.graceDaysRemaining}
-                onChange={(e) => setForm({ ...form, graceDaysRemaining: e.target.value })}
-              />
-              <AdminInput
-                label="Opening Hours"
-                value={form.openingHours}
-                onChange={(e) => setForm({ ...form, openingHours: e.target.value })}
-              />
-            </div>
-
-            <AdminTextarea
-              label="Company Overview & Capabilities"
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              required
-            />
-
-            <AdminInput
-              label="Core Services & Supplies (Comma-separated)"
-              value={form.services}
-              onChange={(e) => setForm({ ...form, services: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-4 border-t border-[#e6eaf1] pt-6">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-              3. Storefront Cover Photography (Upload from Device)
-            </h4>
-            <ImageUploader
-              label="Select Enterprise Cover Image"
-              multiple={false}
-              images={form.images}
-              onChange={(imgs) => setForm({ ...form, images: imgs })}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="flex items-center justify-between rounded-xl border border-[#c8d2e0] bg-[#f4f6f9]/60 p-4 cursor-pointer">
-              <div>
-                <p className="text-sm font-bold text-[#0a1018]">CR14 &amp; ZIMRA Verified</p>
-                <p className="text-xs text-[#6b81a5]">Display official green KYC badge</p>
+            <ModalSection title="Visibility">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <ModalToggle
+                  label="Statutory KYC Verified"
+                  description="Awards verified badge according to declared legal track"
+                  checked={form.cr14Verified}
+                  onChange={(v) => setForm({ ...form, cr14Verified: v })}
+                />
+                <ModalToggle
+                  label="Featured"
+                  description="Highlight on the homepage"
+                  checked={form.featured}
+                  onChange={(v) => setForm({ ...form, featured: v })}
+                />
               </div>
-              <input
-                type="checkbox"
-                checked={form.cr14Verified}
-                onChange={(e) => setForm({ ...form, cr14Verified: e.target.checked })}
-                className="h-5 w-5 rounded border-[#c8d2e0] text-[#1e57eb]"
-              />
-            </label>
-            <label className="flex items-center justify-between rounded-xl border border-[#c8d2e0] bg-[#f4f6f9]/60 p-4 cursor-pointer">
-              <div>
-                <p className="text-sm font-bold text-[#0a1018]">Featured Enterprise</p>
-                <p className="text-xs text-[#6b81a5]">Highlight on homepage directory</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                className="h-5 w-5 rounded border-[#c8d2e0] text-[#1e57eb]"
-              />
-            </label>
-          </div>
+            </ModalSection>
+          </ModalBody>
 
-          <div className="flex justify-end gap-3 border-t border-[#e6eaf1] pt-6">
+          <ModalFooter>
             <AdminButton type="button" variant="outline" onClick={() => setFormOpen(false)}>
               Cancel
             </AdminButton>
-            <AdminButton type="submit">
-              {editingId ? 'Save Enterprise Changes' : 'Register Enterprise'}
-            </AdminButton>
-          </div>
+            <AdminButton type="submit">{editingId ? 'Save changes' : 'Register business'}</AdminButton>
+          </ModalFooter>
         </form>
       </AdminModal>
 
-      {/* Delete Modal */}
-      <AdminModal
+      <ConfirmModal
         open={Boolean(deletingBiz)}
         onClose={() => setDeletingBiz(null)}
-        title="Remove Enterprise from Directory?"
-        size="sm"
-      >
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-[#374966]">
-            This will permanently remove{' '}
-            <strong className="text-[#0a1018]">{deletingBiz?.name}</strong> from the directory.
-          </p>
-          <div className="flex justify-end gap-2">
-            <AdminButton variant="outline" onClick={() => setDeletingBiz(null)}>
-              Cancel
-            </AdminButton>
-            <AdminButton
-              variant="danger"
-              onClick={() => {
-                if (deletingBiz) {
-                  const next = businesses.filter((b) => b.id !== deletingBiz.id);
-                  saveStoredBusinesses(next);
-                  setBusinesses(next);
-                  showToast(`Removed ${deletingBiz.name}`);
-                  setDeletingBiz(null);
-                }
-              }}
-            >
-              Delete Business
-            </AdminButton>
-          </div>
-        </div>
-      </AdminModal>
+        icon={Trash2}
+        title="Delete this business?"
+        message={
+          <>
+            <strong className="text-[#0a1018]">{deletingBiz?.name}</strong> will be removed from the
+            directory. This can’t be undone.
+          </>
+        }
+        confirmLabel="Delete business"
+        onConfirm={async () => {
+          if (deletingBiz) {
+            try {
+              await fetch(`/api/v1/businesses/${encodeURIComponent(deletingBiz.slug)}`, {
+                method: 'DELETE',
+              });
+            } catch (err) {
+              console.error('Failed to delete business from database:', err);
+            }
+            const next = businesses.filter((b) => b.id !== deletingBiz.id);
+            saveStoredBusinesses(next);
+            setBusinesses(next);
+            showToast(`Removed ${deletingBiz.name}`);
+            setDeletingBiz(null);
+          }
+        }}
+      />
     </div>
   );
 }

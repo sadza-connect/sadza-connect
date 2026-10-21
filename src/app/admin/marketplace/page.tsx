@@ -17,6 +17,12 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  ModalBody,
+  ModalSection,
+  ModalGrid,
+  ModalFooter,
+  ModalToggle,
+  ConfirmModal,
 } from '@/components/admin/AdminUI';
 import { ImageUploader, GalleryItem } from '@/components/admin/ImageUploader';
 import {
@@ -30,9 +36,13 @@ import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
 } from '@/data/platformStore';
+import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 
 export default function AdminMarketplacePage() {
   const [productsList, setProductsList] = useState<MarketplaceProduct[]>([]);
+  const [availableBusinesses, setAvailableBusinesses] = useState<
+    Array<{ id: string; name: string; slug: string; province: string }>
+  >([]);
   const [zigRate, setZigRate] = useState(DEFAULT_PLATFORM_SETTINGS.usdToZigRate);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
@@ -43,6 +53,7 @@ export default function AdminMarketplacePage() {
 
   const [form, setForm] = useState({
     title: '',
+    selectedBusinessId: '',
     sellerName: 'SunPower Solar & Inverters Zimbabwe',
     category: BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy',
     province: 'Harare',
@@ -57,13 +68,58 @@ export default function AdminMarketplacePage() {
   });
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function loadAdminData() {
+      // 1. Load Products from live API
+      try {
+        const res = await fetch('/api/v1/products?limit=100', { credentials: 'include' });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data?.products)) {
+          if (isMounted) {
+            const mapped = json.data.products.map(mapDbProductToMarketplaceProduct);
+            setProductsList(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load products from database:', err);
+      }
+
+      // 2. Load Businesses for supplier dropdown
+      try {
+        const bRes = await fetch('/api/v1/businesses?limit=100', { credentials: 'include' });
+        const bJson = await bRes.json();
+        if (bJson.success && Array.isArray(bJson.data?.businesses)) {
+          if (isMounted) {
+            setAvailableBusinesses(
+              bJson.data.businesses.map((b: any) => ({
+                id: b.id,
+                name: b.name,
+                slug: b.slug,
+                province: b.province || 'Harare',
+              }))
+            );
+          }
+        }
+      } catch {
+        // Fallback businesses if needed
+      }
+
+      if (isMounted) {
+        setZigRate(getPlatformSettings().usdToZigRate);
+      }
+    }
+
+    loadAdminData();
+
     const sync = () => {
-      setProductsList(getStoredProducts());
-      setZigRate(getPlatformSettings().usdToZigRate);
+      loadAdminData();
     };
-    sync();
     window.addEventListener('sadza-platform-updated', sync);
-    return () => window.removeEventListener('sadza-platform-updated', sync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('sadza-platform-updated', sync);
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -91,11 +147,13 @@ export default function AdminMarketplacePage() {
 
   function openCreate() {
     setEditingSlug(null);
+    const defaultBiz = availableBusinesses[0];
     setForm({
       title: '',
-      sellerName: 'SunPower Solar & Inverters Zimbabwe',
+      selectedBusinessId: defaultBiz?.id || '',
+      sellerName: defaultBiz?.name || 'SunPower Solar & Inverters Zimbabwe',
       category: categories[0] || 'Solar & Clean Energy',
-      province: 'Harare',
+      province: defaultBiz?.province || 'Harare',
       priceUsd: '480',
       unit: 'Per Complete Unit',
       stockNote: 'In Stock • Immediate Dispatch',
@@ -117,6 +175,7 @@ export default function AdminMarketplacePage() {
     setEditingSlug(prod.slug);
     setForm({
       title: prod.title,
+      selectedBusinessId: prod.sellerId || '',
       sellerName: prod.sellerName,
       category: prod.category,
       province: prod.province,
@@ -132,7 +191,7 @@ export default function AdminMarketplacePage() {
     setFormOpen(true);
   }
 
-  function saveForm(e: React.FormEvent) {
+  async function saveForm(e: React.FormEvent) {
     e.preventDefault();
     const parsedHighlights = [
       ...form.highlights.split('\n').map((s) => s.trim()),
@@ -143,7 +202,26 @@ export default function AdminMarketplacePage() {
       form.image[0]?.src ||
       'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
     const usd = Math.max(1, Number(form.priceUsd) || 0);
+
     if (editingSlug) {
+      try {
+        await fetch(`/api/v1/products/${encodeURIComponent(editingSlug)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: form.title,
+            category: form.category,
+            price_usd: usd,
+            description: form.description,
+            is_featured: form.featured,
+            images: [imgSrc],
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to update product in database:', err);
+      }
+
       const next = productsList.map((p) =>
         p.slug === editingSlug
           ? {
@@ -166,6 +244,31 @@ export default function AdminMarketplacePage() {
       setProductsList(next);
       showToast(`Product updated: ${form.title}`);
     } else {
+      const targetBiz =
+        availableBusinesses.find((b) => b.id === form.selectedBusinessId) ||
+        availableBusinesses[0];
+
+      try {
+        await fetch('/api/v1/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            business_id: targetBiz?.id,
+            business_slug: targetBiz?.slug,
+            name: form.title,
+            category: form.category,
+            price_usd: usd,
+            description: form.description,
+            images: [imgSrc],
+            in_stock: true,
+            is_featured: form.featured,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to create product in database:', err);
+      }
+
       const slug = form.title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -183,8 +286,8 @@ export default function AdminMarketplacePage() {
         stockNote: form.stockNote,
         location: `${form.province} • Nationwide Delivery`,
         condition: 'Brand New',
-        sellerId: 'b1',
-        sellerSlug: 'midlands-solar-agro-solutions',
+        sellerId: targetBiz?.id || 'b1',
+        sellerSlug: targetBiz?.slug || 'midlands-solar-agro-solutions',
         sellerName: form.sellerName,
         sellerType: 'Registered Company (Pvt Ltd)',
         sellerPlan: 'Paid Subscriber',
@@ -323,179 +426,185 @@ export default function AdminMarketplacePage() {
         )}
       </Panel>
 
-      {/* Ultra-Spacious 2XL Product Editor Modal */}
+      {/* Product editor */}
       <AdminModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        size="2xl"
-        title={editingSlug ? 'Edit Product Catalogue Entry' : 'Add New Product'}
-        description="Update pricing, technical specifications, description, and device image uploads."
+        size="xl"
+        icon={editingSlug ? Pencil : Package}
+        title={editingSlug ? 'Edit product' : 'Add new product'}
+        description="Update pricing, technical specifications, and photos."
       >
-        <form onSubmit={saveForm} className="space-y-6 p-6 sm:p-8">
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-              1. Product Identity &amp; Pricing
-            </h4>
-            <AdminInput
-              label="Product / System Name"
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="e.g. 15kVA Commercial Hybrid Solar System"
-              required
-            />
+        <form onSubmit={saveForm}>
+          <ModalBody>
+            <ModalSection title="Product details">
+              <ModalGrid>
+                <AdminInput
+                  label="Product name"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. 15kVA Commercial Hybrid Solar System"
+                  required
+                  wrapClassName="sm:col-span-2"
+                />
+                {availableBusinesses.length > 0 ? (
+                  <AdminSelect
+                    label="Verified Supplier / Enterprise"
+                    value={form.selectedBusinessId}
+                    onChange={(e) => {
+                      const sel = availableBusinesses.find((b) => b.id === e.target.value);
+                      setForm((f) => ({
+                        ...f,
+                        selectedBusinessId: e.target.value,
+                        sellerName: sel ? sel.name : f.sellerName,
+                        province: sel ? sel.province : f.province,
+                      }));
+                    }}
+                  >
+                    {availableBusinesses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.province})
+                      </option>
+                    ))}
+                  </AdminSelect>
+                ) : (
+                  <AdminInput
+                    label="Supplier / Brand"
+                    value={form.sellerName}
+                    onChange={(e) => setForm((f) => ({ ...f, sellerName: e.target.value }))}
+                    required
+                  />
+                )}
+                <AdminInput
+                  label="Price (USD)"
+                  type="number"
+                  inputMode="numeric"
+                  value={form.priceUsd}
+                  onChange={(e) => setForm((f) => ({ ...f, priceUsd: e.target.value }))}
+                  placeholder="450"
+                  required
+                />
+                <AdminSelect
+                  label="Category"
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </AdminSelect>
+                <AdminSelect
+                  label="Province"
+                  value={form.province}
+                  onChange={(e) => setForm((f) => ({ ...f, province: e.target.value }))}
+                >
+                  {ZIMBABWE_PROVINCES.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </AdminSelect>
+                <AdminInput
+                  label="Stock status"
+                  value={form.stockNote}
+                  onChange={(e) => setForm((f) => ({ ...f, stockNote: e.target.value }))}
+                  placeholder="In Stock • Immediate Dispatch"
+                  wrapClassName="sm:col-span-2"
+                />
+              </ModalGrid>
+            </ModalSection>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <AdminInput
-                label="Verified Supplier / Brand Name"
-                value={form.sellerName}
-                onChange={(e) => setForm((f) => ({ ...f, sellerName: e.target.value }))}
+            <ModalSection title="Description & specifications">
+              <AdminTextarea
+                label="Technical description"
+                rows={4}
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Detailed breakdown, warranty, protective features..."
                 required
               />
-              <AdminInput
-                label="Price (USD)"
-                type="number"
-                value={form.priceUsd}
-                onChange={(e) => setForm((f) => ({ ...f, priceUsd: e.target.value }))}
-                placeholder="450"
-                required
+              <ModalGrid>
+                <AdminTextarea
+                  label="Specifications"
+                  hint="Format: Label: Value (1 per line)"
+                  rows={4}
+                  value={form.specs}
+                  onChange={(e) => setForm((f) => ({ ...f, specs: e.target.value }))}
+                />
+                <AdminTextarea
+                  label="Key highlights"
+                  hint="1 highlight per line"
+                  rows={4}
+                  value={form.highlights}
+                  onChange={(e) => setForm((f) => ({ ...f, highlights: e.target.value }))}
+                />
+              </ModalGrid>
+            </ModalSection>
+
+            <ModalSection title="Product photos">
+              <ImageUploader
+                label="Product images"
+                hint="Upload 1 or more photos from your device."
+                multiple={true}
+                images={form.image}
+                onChange={(imgs) => setForm((f) => ({ ...f, image: imgs }))}
               />
-            </div>
+            </ModalSection>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <AdminSelect
-                label="Category"
-                value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </AdminSelect>
-
-              <AdminSelect
-                label="Province"
-                value={form.province}
-                onChange={(e) => setForm((f) => ({ ...f, province: e.target.value }))}
-              >
-                {ZIMBABWE_PROVINCES.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </AdminSelect>
-
-              <AdminInput
-                label="Availability / Stock Note"
-                value={form.stockNote}
-                onChange={(e) => setForm((f) => ({ ...f, stockNote: e.target.value }))}
+            <ModalSection title="Visibility">
+              <ModalToggle
+                label="Featured product"
+                description="Highlight this product on the homepage and top catalogue rail."
+                checked={form.featured}
+                onChange={(v) => setForm((f) => ({ ...f, featured: v }))}
               />
-            </div>
-          </div>
+            </ModalSection>
+          </ModalBody>
 
-          <div className="space-y-4 border-t border-[#e6eaf1] pt-6">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-              2. Descriptions &amp; Specifications
-            </h4>
-            <AdminTextarea
-              label="Full Technical Description"
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Detailed engineering breakdown, protective features, load rating..."
-              required
-            />
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <AdminTextarea
-                label="Technical Specs (Format: Label: Value, 1 per line)"
-                rows={4}
-                value={form.specs}
-                onChange={(e) => setForm((f) => ({ ...f, specs: e.target.value }))}
-              />
-              <AdminTextarea
-                label="Key Highlights (1 per line)"
-                rows={4}
-                value={form.highlights}
-                onChange={(e) => setForm((f) => ({ ...f, highlights: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4 border-t border-[#e6eaf1] pt-6">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-              3. Device Product Photos (Single or Multiple)
-            </h4>
-            <ImageUploader
-              label="Select Product Images from Device"
-              hint="Select 1 or multiple photos directly from your phone or laptop disk."
-              multiple={true}
-              images={form.image}
-              onChange={(imgs) => setForm((f) => ({ ...f, image: imgs }))}
-            />
-          </div>
-
-          <label className="flex items-center justify-between rounded-xl border border-[#c8d2e0] bg-[#f4f6f9]/60 p-4 cursor-pointer">
-            <div>
-              <p className="text-sm font-bold text-[#0a1018]">Featured Product</p>
-              <p className="text-xs text-[#6b81a5]">
-                Showcase this item on the homepage and top catalogue rail.
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={form.featured}
-              onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))}
-              className="h-5 w-5 rounded border-[#c8d2e0] text-[#1e57eb]"
-            />
-          </label>
-
-          <div className="flex justify-end gap-3 border-t border-[#e6eaf1] pt-6">
+          <ModalFooter>
             <AdminButton type="button" variant="outline" onClick={() => setFormOpen(false)}>
               Cancel
             </AdminButton>
             <AdminButton type="submit">
-              {editingSlug ? 'Save Product Changes' : 'Create Product'}
+              {editingSlug ? 'Save product changes' : 'Create product'}
             </AdminButton>
-          </div>
+          </ModalFooter>
         </form>
       </AdminModal>
 
-      {/* Delete confirmation modal */}
-      <AdminModal
+      {/* Delete confirmation */}
+      <ConfirmModal
         open={Boolean(deleting)}
         onClose={() => setDeleting(null)}
-        title="Delete product?"
-        size="sm"
-      >
-        <div className="p-6">
-          <p className="text-sm text-[#374966]">
-            This will permanently remove{' '}
-            <strong className="font-bold text-[#0a1018]">{deleting?.title}</strong> from the
-            catalogue.
-          </p>
-          <div className="mt-6 flex justify-end gap-2">
-            <AdminButton variant="outline" onClick={() => setDeleting(null)}>
-              Cancel
-            </AdminButton>
-            <AdminButton
-              variant="danger"
-              onClick={() => {
-                if (deleting) {
-                  const next = productsList.filter((p) => p.slug !== deleting.slug);
-                  saveStoredProducts(next);
-                  setProductsList(next);
-                  showToast(`Deleted ${deleting.title}`);
-                  setDeleting(null);
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4" /> Delete Product
-            </AdminButton>
-          </div>
-        </div>
-      </AdminModal>
+        icon={Trash2}
+        title="Delete this product?"
+        message={
+          <>
+            <strong className="text-[#0a1018]">{deleting?.title}</strong> will be permanently removed
+            from the catalogue.
+          </>
+        }
+        confirmLabel="Delete product"
+        onConfirm={async () => {
+          if (deleting) {
+            try {
+              await fetch(`/api/v1/products/${encodeURIComponent(deleting.slug)}`, {
+                method: 'DELETE',
+                credentials: 'include',
+              });
+            } catch (err) {
+              console.error('Failed to delete product from database:', err);
+            }
+            const next = productsList.filter((p) => p.slug !== deleting.slug);
+            saveStoredProducts(next);
+            setProductsList(next);
+            showToast(`Deleted ${deleting.title}`);
+            setDeleting(null);
+          }
+        }}
+      />
     </div>
   );
 }

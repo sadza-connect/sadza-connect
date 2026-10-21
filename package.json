@@ -17,10 +17,13 @@
     "start": "next start",
     "lint": "next lint",
     "test": "tsx scripts/test-auth-smoke.ts",
+    "create-admin": "tsx scripts/create-admin.ts",
     "db:migrate": "knex migrate:latest --knexfile src/config/knexfile.ts",
     "db:rollback": "knex migrate:rollback --knexfile src/config/knexfile.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1150.0",
+    "@aws-sdk/s3-request-presigner": "^3.1150.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.49.1",
     "@types/bcryptjs": "^2.4.6",

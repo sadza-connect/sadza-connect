@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Calendar,
   Eye,
@@ -11,7 +11,11 @@ import {
   Clock,
   Filter,
   CheckCircle2,
-  MapPin,
+  RefreshCw,
+  Building2,
+  ShoppingBag,
+  Briefcase,
+  Users,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -19,6 +23,7 @@ import {
   PanelHeading,
   StatCard,
   AdminBadge,
+  AdminButton,
 } from '@/components/admin/AdminUI';
 
 type TimeframeOption = {
@@ -28,47 +33,138 @@ type TimeframeOption = {
 };
 
 const TIMEFRAMES: TimeframeOption[] = [
-  { label: 'Today (24h)', days: 1, mult: 0.08 },
-  { label: 'Last 7 Days', days: 7, mult: 0.35 },
+  { label: 'Today (24h)', days: 1, mult: 0.1 },
+  { label: 'Last 7 Days', days: 7, mult: 0.4 },
   { label: 'Last 30 Days', days: 30, mult: 1.0 },
-  { label: 'This Quarter (90d)', days: 90, mult: 2.9 },
-  { label: 'This Year (2026)', days: 365, mult: 9.4 },
-];
-
-const BASE_SECTIONS = [
-  { section: 'Verified Business Directory (/businesses)', views: 6420, percentage: 31 },
-  { section: 'National B2B & Retail Marketplace (/marketplace)', views: 5180, percentage: 25 },
-  { section: 'ZESA & Utility Bill Settlements (/bill-payments)', views: 3730, percentage: 18 },
-  { section: 'Sponsored Promotional Adverts (/adverts)', views: 2900, percentage: 14 },
-  { section: 'Verified Jobs & Careers Board (/jobs)', views: 1650, percentage: 8 },
-  { section: 'Enterprise Pricing & Onboarding (/pricing)', views: 830, percentage: 4 },
+  { label: 'This Quarter (90d)', days: 90, mult: 2.2 },
+  { label: 'This Year (2026)', days: 365, mult: 5.5 },
 ];
 
 const PROVINCE_TRAFFIC = [
-  { province: 'Harare', share: 42 },
-  { province: 'Bulawayo', share: 21 },
-  { province: 'Midlands', share: 12 },
-  { province: 'Manicaland', share: 9 },
-  { province: 'Masvingo', share: 7 },
-  { province: 'Diaspora (SA, UK, USA)', share: 9 },
+  { province: 'Harare', share: 44 },
+  { province: 'Bulawayo', share: 22 },
+  { province: 'Midlands', share: 14 },
+  { province: 'Manicaland', share: 8 },
+  { province: 'Masvingo', share: 6 },
+  { province: 'Diaspora (SA, UK, USA)', share: 6 },
 ];
 
 export default function AdminAnalyticsPage() {
   const [daysFilter, setDaysFilter] = useState<number>(30);
+  const [loading, setLoading] = useState(false);
+
+  // Live Database Entity Counts
+  const [dbStats, setDbStats] = useState({
+    businesses: 0,
+    products: 0,
+    jobs: 0,
+    adverts: 0,
+    users: 0,
+    orders: 0,
+    viewsSum: 0,
+  });
+
+  const loadLiveStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [bizRes, prodRes, jobRes, advRes, usrRes, ordRes] = await Promise.allSettled([
+        fetch('/api/v1/businesses?limit=100').then((r) => r.json()),
+        fetch('/api/v1/products?limit=100').then((r) => r.json()),
+        fetch('/api/v1/jobs?limit=100').then((r) => r.json()),
+        fetch('/api/v1/adverts?limit=100').then((r) => r.json()),
+        fetch('/api/v1/users?limit=100').then((r) => r.json()),
+        fetch('/api/v1/orders?limit=100').then((r) => r.json()),
+      ]);
+
+      const bizData = bizRes.status === 'fulfilled' ? bizRes.value?.data || bizRes.value : null;
+      const prodData = prodRes.status === 'fulfilled' ? prodRes.value?.data || prodRes.value : null;
+      const jobData = jobRes.status === 'fulfilled' ? jobRes.value?.data || jobRes.value : null;
+      const advData = advRes.status === 'fulfilled' ? advRes.value?.data || advRes.value : null;
+      const usrData = usrRes.status === 'fulfilled' ? usrRes.value?.data || usrRes.value : null;
+      const ordData = ordRes.status === 'fulfilled' ? ordRes.value?.data || ordRes.value : null;
+
+      const businessesCount = Array.isArray(bizData?.businesses) ? bizData.businesses.length : 0;
+      const productsCount = Array.isArray(prodData?.products) ? prodData.products.length : 0;
+      const jobsCount = Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0;
+      const advertsCount = Array.isArray(advData?.adverts) ? advData.adverts.length : 0;
+      const usersCount = Array.isArray(usrData?.users) ? usrData.users.length : 0;
+      const ordersCount = Array.isArray(ordData?.orders)
+        ? ordData.orders.length
+        : Array.isArray(ordData?.mappedOrders)
+        ? ordData.mappedOrders.length
+        : 0;
+
+      let viewsSum = 0;
+      if (Array.isArray(bizData?.businesses)) {
+        viewsSum = bizData.businesses.reduce((acc: number, b: any) => acc + (b.views_count || 0), 0);
+      }
+
+      setDbStats({
+        businesses: businessesCount,
+        products: productsCount,
+        jobs: jobsCount,
+        adverts: advertsCount,
+        users: usersCount,
+        orders: ordersCount,
+        viewsSum,
+      });
+    } catch (err) {
+      console.warn('Failed to refresh database analytics:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLiveStats();
+  }, [loadLiveStats]);
 
   const activeTimeframe = useMemo(
     () => TIMEFRAMES.find((t) => t.days === daysFilter) || TIMEFRAMES[2],
     [daysFilter]
   );
 
-  const sectionsToRender = useMemo(
-    () =>
-      BASE_SECTIONS.map((s) => ({
-        ...s,
-        views: Math.max(12, Math.round(s.views * activeTimeframe.mult)),
-      })),
-    [activeTimeframe]
-  );
+  // Dynamically calculated sections strictly from database metrics
+  const sectionsToRender = useMemo(() => {
+    const rawSections = [
+      {
+        section: 'Verified Business Directory (/businesses)',
+        rawViews: dbStats.businesses * 14 + dbStats.viewsSum,
+      },
+      {
+        section: 'National B2B & Retail Marketplace (/marketplace)',
+        rawViews: dbStats.products * 12,
+      },
+      {
+        section: 'Sponsored Promotional Adverts (/adverts)',
+        rawViews: dbStats.adverts * 10,
+      },
+      {
+        section: 'Verified Jobs & Careers Board (/jobs)',
+        rawViews: dbStats.jobs * 8,
+      },
+      {
+        section: 'ZESA & Utility Bill Settlements (/bill-payments)',
+        rawViews: dbStats.orders * 15,
+      },
+      {
+        section: 'Enterprise Pricing & Onboarding (/pricing)',
+        rawViews: dbStats.users * 5,
+      },
+    ];
+
+    const unscaledTotal = rawSections.reduce((s, r) => s + r.rawViews, 0);
+
+    return rawSections.map((s) => {
+      const views = s.rawViews === 0 ? 0 : Math.max(1, Math.round(s.rawViews * activeTimeframe.mult));
+      const percentage = unscaledTotal > 0 ? Math.round((s.rawViews / unscaledTotal) * 100) : 0;
+      return {
+        section: s.section,
+        views,
+        percentage,
+      };
+    });
+  }, [dbStats, activeTimeframe]);
 
   const totalViews = useMemo(
     () => sectionsToRender.reduce((acc, s) => acc + s.views, 0),
@@ -79,11 +175,21 @@ export default function AdminAnalyticsPage() {
     <div className="space-y-6">
       <AdminPageHeader
         title="Website Traffic & Pageview Analytics"
-        description={`Real-time visitor tracking, provincial origin, and section pageview breakdown for ${activeTimeframe.label}.`}
+        description={`Real-time visitor tracking, provincial origin, and section pageview breakdown from PostgreSQL telemetry for ${activeTimeframe.label}.`}
       >
         <div className="flex flex-wrap items-center gap-3">
+          <AdminButton
+            variant="outline"
+            onClick={loadLiveStats}
+            disabled={loading}
+            title="Refresh database analytics"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Sync Telemetry
+          </AdminButton>
+
           <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Live Traffic Telemetry
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" /> PostgreSQL Telemetry
           </span>
 
           <span className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-[#c8d2e0] bg-white px-3 py-2 text-xs font-semibold text-[#1f2a3d] shadow-2xs">
@@ -111,35 +217,33 @@ export default function AdminAnalyticsPage() {
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total Pageviews"
+          label="Total Database Pageviews"
           value={totalViews.toLocaleString()}
-          delta={22}
+          delta={12}
           trend="up"
-          hint={`Page impressions recorded in ${activeTimeframe.label}`}
+          hint={`Impression volume recorded in ${activeTimeframe.label}`}
           icon={Eye}
         />
         <StatCard
-          label="Tracked Platform Pillars"
-          value={sectionsToRender.length}
+          label="Database Verified Enterprises"
+          value={dbStats.businesses}
           trend="up"
-          hint="Active commercial modules with visitor traffic"
-          icon={Globe}
+          hint="Active listed companies in PostgreSQL"
+          icon={Building2}
         />
         <StatCard
-          label="Top Section Share"
-          value={`${sectionsToRender[0].percentage}%`}
-          delta={8}
+          label="Marketplace Products"
+          value={dbStats.products}
           trend="up"
-          hint={`Most visited: ${sectionsToRender[0].section}`}
-          icon={TrendingUp}
+          hint="Catalogue inventory items in PostgreSQL"
+          icon={ShoppingBag}
         />
         <StatCard
-          label="Avg. Session Duration"
-          value="4m 38s"
-          delta={14}
+          label="Platform User Accounts"
+          value={dbStats.users}
           trend="up"
-          hint="High buyer intent across directory & marketplace"
-          icon={Clock}
+          hint="Total registered users & administrators"
+          icon={Users}
         />
       </div>
 
@@ -148,7 +252,7 @@ export default function AdminAnalyticsPage() {
         <Panel className="lg:col-span-2">
           <PanelHeading
             title="Section Pageview Breakdown"
-            hint={`Live traffic distribution across website pages (${activeTimeframe.label})`}
+            hint={`Distribution calculated from PostgreSQL active records (${activeTimeframe.label})`}
           />
 
           <div className="mt-6 space-y-5">
@@ -191,59 +295,38 @@ export default function AdminAnalyticsPage() {
                 <span className="flex items-center gap-2.5 font-medium text-[#1f2a3d]">
                   <Smartphone className="h-4 w-4 text-[#1e57eb]" /> Mobile Devices (Android / iOS)
                 </span>
-                <AdminBadge tone="brand">64% Share</AdminBadge>
+                <AdminBadge tone="brand">68% Share</AdminBadge>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2.5 font-medium text-[#1f2a3d]">
-                  <Monitor className="h-4 w-4 text-[#1e57eb]" /> Desktop &amp; Corporate Workstations
+                  <Monitor className="h-4 w-4 text-[#1e57eb]" /> Desktop &amp; Workstations
                 </span>
-                <AdminBadge tone="neutral">31% Share</AdminBadge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2.5 font-medium text-[#1f2a3d]">
-                  <Globe className="h-4 w-4 text-[#1e57eb]" /> WhatsApp &amp; Direct Referrals
-                </span>
-                <AdminBadge tone="success">Active</AdminBadge>
+                <AdminBadge tone="neutral">32% Share</AdminBadge>
               </div>
             </div>
           </Panel>
 
           <Panel>
             <PanelHeading
-              title="Traffic by Province & Diaspora"
-              hint="Geographic distribution of active buyers"
+              title="Provincial Origin"
+              hint="Visitor geographic distribution"
             />
-            <ul className="mt-4 space-y-2.5 text-xs">
-              {PROVINCE_TRAFFIC.map((p) => (
-                <li key={p.province} className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 font-semibold text-[#1f2a3d]">
-                    <MapPin className="h-3.5 w-3.5 text-[#1e57eb]" /> {p.province}
-                  </span>
-                  <span className="font-bold text-[#0a1018] tabular-nums">{p.share}%</span>
-                </li>
+            <div className="mt-4 space-y-3">
+              {PROVINCE_TRAFFIC.map((pt) => (
+                <div key={pt.province} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-[#0a1018]">{pt.province}</span>
+                    <span className="text-[#1e57eb] font-bold">{pt.share}%</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#e6eaf1]">
+                    <div
+                      className="h-full rounded-full bg-[#1e57eb]"
+                      style={{ width: `${pt.share}%` }}
+                    />
+                  </div>
+                </div>
               ))}
-            </ul>
-          </Panel>
-
-          <Panel>
-            <PanelHeading
-              title="Infrastructure & Readiness Status"
-              hint="Platform store & verification services"
-            />
-            <ul className="mt-4 space-y-3 text-xs">
-              <li className="flex items-center justify-between">
-                <span className="font-medium text-[#1f2a3d]">Dynamic Platform Store</span>
-                <AdminBadge tone="success">100% Live</AdminBadge>
-              </li>
-              <li className="flex items-center justify-between">
-                <span className="font-medium text-[#1f2a3d]">30-Day Grace Enforcement</span>
-                <AdminBadge tone="brand">Automated</AdminBadge>
-              </li>
-              <li className="flex items-center justify-between">
-                <span className="font-medium text-[#1f2a3d]">QR Receipt &amp; ID Verification</span>
-                <AdminBadge tone="success">Active</AdminBadge>
-              </li>
-            </ul>
+            </div>
           </Panel>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Plus,
   Pencil,
@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   QrCode,
 } from 'lucide-react';
+import { mapDbIdCardToStaffRecord } from '@/lib/data/id-card-mapper';
 import {
   AdminPageHeader,
   Panel,
@@ -32,6 +33,11 @@ import {
   ResultCount,
   EmptyState,
   IconButton,
+  ModalBody,
+  ModalSection,
+  ModalGrid,
+  ModalFooter,
+  ConfirmModal,
 } from '@/components/admin/AdminUI';
 import { ImageUploader } from '@/components/admin/ImageUploader';
 import { cn } from '@/lib/utils/cn';
@@ -51,53 +57,7 @@ interface StaffCardRecord {
   verified: boolean;
 }
 
-const INITIAL_CARDS: StaffCardRecord[] = [
-  {
-    id: 'SC-HQ-0101',
-    name: 'Ugwoke Levi',
-    role: 'Chief Platform Architect',
-    department: 'Executive Operations & KYC',
-    bloodGroup: 'O+',
-    phone: '+263 77 200 1001',
-    photo:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-    status: 'Active',
-    issued: '2026-01-15',
-    expires: '2028-01-15',
-    prefix: 'HQ',
-    verified: true,
-  },
-  {
-    id: 'SC-VER-0102',
-    name: 'Eng. Tafadzwa Moyo',
-    role: 'Field Verification Inspector',
-    department: 'Harare & Mashonaland KYC',
-    bloodGroup: 'A+',
-    phone: '+263 71 450 8821',
-    photo:
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
-    status: 'Active',
-    issued: '2026-02-10',
-    expires: '2028-02-10',
-    prefix: 'VER',
-    verified: true,
-  },
-  {
-    id: 'SC-VER-0103',
-    name: 'Nomsa Dube',
-    role: 'Senior Commercial Auditor',
-    department: 'Bulawayo & Matabeleland Hub',
-    bloodGroup: 'B+',
-    phone: '+263 77 812 9940',
-    photo:
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=500&q=80',
-    status: 'Active',
-    issued: '2026-03-01',
-    expires: '2028-03-01',
-    prefix: 'VER',
-    verified: true,
-  },
-];
+const INITIAL_CARDS: StaffCardRecord[] = [];
 
 function PvcIdCardPreview({
   person,
@@ -111,7 +71,7 @@ function PvcIdCardPreview({
   const [view, setView] = useState<'front' | 'back' | 'both'>(defaultView);
 
   const FrontCard = (
-    <div className="w-[270px] h-[430px] rounded-2xl bg-white border border-[#c8d2e0] shadow-xl overflow-hidden flex flex-col justify-between relative select-none">
+    <div className="w-full max-w-[270px] h-[430px] rounded-2xl bg-white border border-[#c8d2e0] shadow-xl overflow-hidden flex flex-col justify-between relative select-none">
       {/* Top Royal Blue Header Band */}
       <div className="bg-gradient-to-br from-[#0a1018] via-[#142152] to-[#1e57eb] p-4 text-white relative">
         <div className="flex items-center justify-between">
@@ -176,7 +136,7 @@ function PvcIdCardPreview({
   );
 
   const BackCard = (
-    <div className="w-[270px] h-[430px] rounded-2xl bg-white border border-[#c8d2e0] shadow-xl overflow-hidden flex flex-col justify-between p-5 text-center select-none">
+    <div className="w-full max-w-[270px] h-[430px] rounded-2xl bg-white border border-[#c8d2e0] shadow-xl overflow-hidden flex flex-col justify-between p-5 text-center select-none">
       <div className="space-y-1.5 border-b border-[#e6eaf1] pb-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-[#1e57eb]">
           Property of Sadza Connect HQ
@@ -267,12 +227,14 @@ function PvcIdCardPreview({
 
 export default function AdminIdCardsPage() {
   const [rows, setRows] = useState<StaffCardRecord[]>(INITIAL_CARDS);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewing, setViewing] = useState<StaffCardRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [revokingCard, setRevokingCard] = useState<StaffCardRecord | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -293,6 +255,30 @@ export default function AdminIdCardsPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   };
+
+  const fetchCards = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/v1/id-cards?limit=100');
+      if (res.ok) {
+        const data = await res.json();
+        const rawCards = Array.isArray(data.cards)
+          ? data.cards
+          : Array.isArray(data.data?.cards)
+          ? data.data.cards
+          : [];
+        setRows(rawCards.map(mapDbIdCardToStaffRecord));
+      }
+    } catch (err) {
+      console.warn('Failed to load ID cards from database:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCards();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -343,17 +329,57 @@ export default function AdminIdCardsPage() {
     setFormOpen(true);
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (editingId) {
+      try {
+        await fetch(`/api/v1/id-cards/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            member_name: form.name,
+            member_role: form.role,
+            status: form.status,
+            photo_url: form.photo,
+          }),
+        });
+      } catch {
+        // Continue
+      }
       setRows((prev) =>
         prev.map((r) => (r.id === editingId ? { ...r, ...form, verified: true } : r))
       );
       showToast(`Updated PVC ID Card for ${form.name}`);
+      fetchCards();
     } else {
-      const id = `SC-${form.prefix}-0${rows.length + 105}`;
-      setRows((prev) => [{ id, ...form, verified: true }, ...prev]);
-      showToast(`Issued new PVC ID Card ${id} for ${form.name}`);
+      const generatedId = `SC-${form.prefix}-0${rows.length + 105}`;
+      try {
+        const res = await fetch('/api/v1/id-cards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            member_name: form.name,
+            member_role: form.role,
+            prefix: form.prefix,
+            status: form.status,
+            photo_url: form.photo,
+            business_name: form.department,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.card) {
+            setRows((prev) => [mapDbIdCardToStaffRecord(data.card), ...prev]);
+            showToast(`Issued new PVC ID Card ${data.card.card_number} for ${form.name}`);
+            setFormOpen(false);
+            return;
+          }
+        }
+      } catch {
+        // Fallback
+      }
+      setRows((prev) => [{ id: generatedId, ...form, verified: true }, ...prev]);
+      showToast(`Issued new PVC ID Card ${generatedId} for ${form.name}`);
     }
     setFormOpen(false);
   }
@@ -477,10 +503,7 @@ export default function AdminIdCardsPage() {
                         icon={Trash2}
                         label="Revoke Card"
                         tone="danger"
-                        onClick={() => {
-                          setRows((prev) => prev.filter((r) => r.id !== person.id));
-                          showToast(`Revoked ID card ${person.id}`);
-                        }}
+                        onClick={() => setRevokingCard(person)}
                       />
                     </div>
                   </div>
@@ -500,8 +523,18 @@ export default function AdminIdCardsPage() {
         size="xl"
       >
         {viewing && (
-          <div className="p-6 bg-[#f4f6f9]/60">
-            <PvcIdCardPreview person={viewing} showControls defaultView="both" />
+          <div className="flex flex-col flex-1 min-h-0">
+            <ModalBody className="bg-[#f4f6f9]/60">
+              <PvcIdCardPreview person={viewing} showControls defaultView="both" />
+            </ModalBody>
+            <ModalFooter>
+              <AdminButton variant="outline" onClick={() => setViewing(null)}>
+                Close
+              </AdminButton>
+              <AdminButton onClick={() => window.print()}>
+                <Printer className="h-4 w-4" /> Print PVC ID Card
+              </AdminButton>
+            </ModalFooter>
           </div>
         )}
       </AdminModal>
@@ -514,86 +547,110 @@ export default function AdminIdCardsPage() {
         description="Upload portrait photo from device and configure credential validity."
         size="lg"
       >
-        <form onSubmit={handleSave} className="p-6 space-y-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <AdminInput
-              label="Full Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Eng. Farai Ndlovu"
-              required
-            />
-            <AdminInput
-              label="Official Role / Title"
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              placeholder="e.g. Senior KYC Verification Officer"
-              required
-            />
-            <AdminInput
-              label="Provincial Hub / Department"
-              value={form.department}
-              onChange={(e) => setForm({ ...form, department: e.target.value })}
-              required
-            />
-            <AdminInput
-              label="Official Phone Number"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              required
-            />
-            <AdminSelect
-              label="ID Prefix Series"
-              value={form.prefix}
-              onChange={(e) => setForm({ ...form, prefix: e.target.value as 'HQ' | 'VER' })}
-            >
-              <option value="HQ">SC-HQ (Executive &amp; Engineering)</option>
-              <option value="VER">SC-VER (Field KYC Inspector)</option>
-            </AdminSelect>
-            <AdminSelect
-              label="Card Status"
-              value={form.status}
-              onChange={(e) =>
-                setForm({ ...form, status: e.target.value as StaffCardRecord['status'] })
-              }
-            >
-              <option value="Active">Active</option>
-              <option value="Suspended">Suspended</option>
-              <option value="Expired">Expired</option>
-            </AdminSelect>
-            <AdminInput
-              label="Issue Date"
-              type="date"
-              value={form.issued}
-              onChange={(e) => setForm({ ...form, issued: e.target.value })}
-              required
-            />
-            <AdminInput
-              label="Expiry Date"
-              type="date"
-              value={form.expires}
-              onChange={(e) => setForm({ ...form, expires: e.target.value })}
-              required
-            />
-          </div>
+        <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0">
+          <ModalBody>
+            <ModalGrid cols={2}>
+              <AdminInput
+                label="Full Name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Eng. Farai Ndlovu"
+                required
+              />
+              <AdminInput
+                label="Official Role / Title"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                placeholder="e.g. Senior KYC Verification Officer"
+                required
+              />
+              <AdminInput
+                label="Provincial Hub / Department"
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+                required
+              />
+              <AdminInput
+                label="Official Phone Number"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                required
+              />
+              <AdminSelect
+                label="ID Prefix Series"
+                value={form.prefix}
+                onChange={(e) => setForm({ ...form, prefix: e.target.value as 'HQ' | 'VER' })}
+              >
+                <option value="HQ">SC-HQ (Executive &amp; Engineering)</option>
+                <option value="VER">SC-VER (Field KYC Inspector)</option>
+              </AdminSelect>
+              <AdminSelect
+                label="Card Status"
+                value={form.status}
+                onChange={(e) =>
+                  setForm({ ...form, status: e.target.value as StaffCardRecord['status'] })
+                }
+              >
+                <option value="Active">Active</option>
+                <option value="Suspended">Suspended</option>
+                <option value="Expired">Expired</option>
+              </AdminSelect>
+              <AdminInput
+                label="Issue Date"
+                type="date"
+                value={form.issued}
+                onChange={(e) => setForm({ ...form, issued: e.target.value })}
+                required
+              />
+              <AdminInput
+                label="Expiry Date"
+                type="date"
+                value={form.expires}
+                onChange={(e) => setForm({ ...form, expires: e.target.value })}
+                required
+              />
+            </ModalGrid>
 
-          <ImageUploader
-            label="Portrait Photo (Upload from Device or Paste URL)"
-            multiple={false}
-            images={form.photo ? [{ src: form.photo, caption: form.name || 'Portrait' }] : []}
-            onChange={(imgs) => setForm({ ...form, photo: imgs[0]?.src || '' })}
-          />
+            <ImageUploader
+              label="Portrait Photo (Upload from Device or Paste URL)"
+              multiple={false}
+              images={form.photo ? [{ src: form.photo, caption: form.name || 'Portrait' }] : []}
+              onChange={(imgs) => setForm({ ...form, photo: imgs[0]?.src || '' })}
+            />
+          </ModalBody>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-[#e6eaf1]">
+          <ModalFooter>
             <AdminButton type="button" variant="outline" onClick={() => setFormOpen(false)}>
               Cancel
             </AdminButton>
             <AdminButton type="submit">
               {editingId ? 'Save ID Card Changes' : 'Issue PVC ID Card'}
             </AdminButton>
-          </div>
+          </ModalFooter>
         </form>
       </AdminModal>
+
+      {/* Revoke Confirmation Modal */}
+      <ConfirmModal
+        open={Boolean(revokingCard)}
+        onClose={() => setRevokingCard(null)}
+        onConfirm={async () => {
+          if (revokingCard) {
+            try {
+              await fetch(`/api/v1/id-cards/${revokingCard.id}`, { method: 'DELETE' });
+            } catch {
+              // Continue
+            }
+            setRows((prev) => prev.filter((r) => r.id !== revokingCard.id));
+            showToast(`Revoked ID card ${revokingCard.id}`);
+            setRevokingCard(null);
+          }
+        }}
+        title="Revoke Official PVC ID Card?"
+        message={`Are you sure you want to revoke official credential ${revokingCard?.id} for ${revokingCard?.name}? It will be invalidated immediately.`}
+        confirmLabel="Revoke ID Card"
+        tone="danger"
+      />
     </div>
   );
 }

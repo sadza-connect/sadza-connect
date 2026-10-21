@@ -6,9 +6,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { SpotlightCard } from '@/components/animations/SpotlightCard';
-import { StarfieldCanvas } from '@/components/animations/StarfieldCanvas';
-import { RegistrationOrbitalNetwork } from '@/components/animations/RegistrationOrbitalNetwork';
 import {
   BuildingIcon,
   UserIcon,
@@ -24,6 +21,8 @@ import {
 } from '@/components/ui/Icons';
 import { Store, User, Sparkles, CheckCircle2 } from 'lucide-react';
 import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
+import { ActionLoader } from '@/components/ui/ActionLoader';
+import { useAuth } from '@/context/AuthContext';
 import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
@@ -57,7 +56,6 @@ function SignupFormContent() {
       : null;
 
   const [fullName, setFullName] = useState('');
-  const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [province, setProvince] = useState(PROVINCES[0]);
@@ -65,15 +63,24 @@ function SignupFormContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { triggerCelebration } = useCelebration();
+  const { login } = useAuth();
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [isNavigatingToNextStage, setIsNavigatingToNextStage] = useState(false);
 
-  const handleOtpVerified = () => {
+  const handleOtpVerified = (sessionData?: any) => {
     setIsNavigatingToNextStage(true);
     setShowOtpModal(false);
+
+    if (sessionData?.accessToken && sessionData?.user) {
+      login({
+        user: sessionData.user,
+        accessToken: sessionData.accessToken,
+        refreshToken: sessionData.refreshToken,
+      });
+    }
 
     if (selectedType === 'business') {
       triggerCelebration({
@@ -84,7 +91,6 @@ function SignupFormContent() {
       });
 
       const params = new URLSearchParams({
-        name: businessName,
         owner: fullName,
         email: email,
         phone: phoneNumber,
@@ -148,7 +154,6 @@ function SignupFormContent() {
     };
 
     if (selectedType === 'business') {
-      payload.businessName = businessName.trim();
       payload.businessStructure = 'sole_proprietorship';
     } else if (province) {
       payload.province = province;
@@ -172,10 +177,6 @@ function SignupFormContent() {
 
     if (!fullName.trim()) {
       setErrorMessage('Please enter your full name.');
-      return;
-    }
-    if (selectedType === 'business' && !businessName.trim()) {
-      setErrorMessage('Please enter your business or trading name.');
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -225,118 +226,40 @@ function SignupFormContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-50/70 dark:bg-[#07090e]/80 text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row transition-colors duration-300 overflow-x-clip">
-      {/* Interactive Celestial Starfield Background */}
-      <StarfieldCanvas className="z-0 opacity-70 dark:opacity-85" />
+    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between transition-colors duration-300">
+      {/* Top navigation */}
+      <header className="w-full max-w-5xl mx-auto p-4 sm:p-6 flex flex-wrap items-center justify-between gap-2 sm:gap-4 z-10">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors py-1.5"
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span>Back to directory</span>
+        </Link>
 
-      {/* LEFT ENGAGING PANEL (Desktop 46%) */}
-      <div className="relative hidden lg:flex lg:w-5/12 flex-col justify-between overflow-hidden bg-slate-900/95 dark:bg-[#0b0f19]/95 p-12 text-white border-r border-slate-800 z-10 backdrop-blur-sm">
-        {/* Subtle background ambient lights */}
-        <div className="pointer-events-none absolute -top-40 -left-40 h-[450px] w-[450px] rounded-full bg-emerald-900/20 blur-[120px]" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-[350px] w-[350px] rounded-full bg-slate-800/40 blur-[100px]" />
-
-        {/* Brand header */}
-        <div className="relative z-10">
-          <div className="p-3 bg-white dark:bg-slate-900 rounded-xl inline-block shadow-sm">
-            <Logo size="md" priority />
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+            <span className="hidden xs:inline">Already registered? </span>
+            <Link href="/login" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+              Sign in
+            </Link>
           </div>
-
-          <div className="mt-10 space-y-3">
-            {selectedType === 'business' ? (
-              <>
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>National Enterprise Registration</span>
-                </div>
-                <h1 className="text-3xl font-bold tracking-tight text-white leading-tight">
-                  Join thousands of verified businesses on Sadza Connect.
-                </h1>
-                <p className="text-sm text-slate-300 leading-relaxed max-w-md">
-                  Create a verified company profile to reach buyers across Zimbabwe, showcase your products on the marketplace, and receive direct inquiries across all 10 provinces.
-                </p>
-              </>
-            ) : selectedType === 'personal' ? (
-              <>
-                <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3.5 py-1 text-xs font-semibold text-blue-300">
-                  <span className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-                  <span>Personal Account Registration</span>
-                </div>
-                <h1 className="text-3xl font-bold tracking-tight text-white leading-tight">
-                  Everyday shopping, jobs & utilities across Zimbabwe.
-                </h1>
-                <p className="text-sm text-slate-300 leading-relaxed max-w-md">
-                  Discover verified local businesses, buy prepaid electricity tokens (ZESA), shop marketplace deals, and apply for open job vacancies nationwide.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Zimbabwe Digital Commercial Grid</span>
-                </div>
-                <h1 className="text-3xl font-bold tracking-tight text-white leading-tight">
-                  Connect to Zimbabwe’s commercial ecosystem.
-                </h1>
-                <p className="text-sm text-slate-300 leading-relaxed max-w-md">
-                  Choose whether you are registering a company or creating a personal account to access verified trade, utilities, and services.
-                </p>
-              </>
-            )}
-          </div>
+          <ThemeToggle />
         </div>
+      </header>
 
-        {/* Dynamic Circular Network Visual Element */}
-        <div className="relative z-10 my-3">
-          <RegistrationOrbitalNetwork />
-        </div>
-
-        {/* Trust Footer */}
-        <div className="relative z-10 border-t border-slate-800/80 pt-4 flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>5,240+ businesses verified nationwide</span>
-          </div>
-          <span className="font-mono text-[11px] text-slate-400">CR14 & ZIMRA AUDITED</span>
-        </div>
-      </div>
-
-      {/* RIGHT AUTH FORM PANEL (Desktop 54%) */}
-      <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 lg:p-14 z-10">
-        {/* Top navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors py-1.5"
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            <span>Back to directory</span>
-          </Link>
-
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <ThemeToggle />
-            <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-              <span className="hidden xs:inline">Already registered? </span>
-              <Link href="/login" className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
-                Sign in
-              </Link>
-            </div>
-          </div>
-        </div>
-
+      {/* Main Centered Registration Content */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 z-10">
         {/* =========================================================================
             STATE 1: SELECTION SCREEN (When no user type is preselected)
             ========================================================================= */}
         {!selectedType ? (
-          <div className="mx-auto w-full max-w-xl py-4 sm:py-8">
-            <div className="lg:hidden mb-5 flex justify-center">
+          <div className="w-full max-w-xl my-auto">
+            <div className="mb-6 flex justify-center">
               <Logo size="md" />
             </div>
 
-            <SpotlightCard
-              spotlightColor="rgba(16, 185, 129, 0.12)"
-              borderColor="rgba(16, 185, 129, 0.3)"
-              className="!p-5 sm:!p-8 md:!p-10 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl sm:rounded-3xl"
-            >
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 md:p-10 shadow-xs">
               <div className="text-center">
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-3 py-1 text-[11px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -459,43 +382,49 @@ function SignupFormContent() {
                   Sign in here
                 </Link>
               </div>
-            </SpotlightCard>
+            </div>
           </div>
         ) : (
           /* =========================================================================
               STATE 2: TAILORED REGISTRATION FORM (Dedicated per User Type)
               ========================================================================= */
-          <div className="mx-auto w-full max-w-[480px] py-4 sm:py-6">
-            <div className="lg:hidden mb-5 flex justify-center">
+          <div className="w-full max-w-[480px] my-auto">
+            <div className="mb-6 flex justify-center">
               <Logo size="md" />
             </div>
 
-            <SpotlightCard
-              spotlightColor={
-                selectedType === 'business'
-                  ? 'rgba(16, 185, 129, 0.12)'
-                  : 'rgba(59, 130, 246, 0.12)'
-              }
-              borderColor={
-                selectedType === 'business'
-                  ? 'rgba(16, 185, 129, 0.3)'
-                  : 'rgba(59, 130, 246, 0.3)'
-              }
-              className="!p-5 sm:!p-8 shadow-lg dark:shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 backdrop-blur-md rounded-2xl"
-            >
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
               {/* Form Title & Context Badge */}
               <div className="mb-6">
-                <div className="mb-2">
+                <div className="flex items-center justify-between mb-2">
                   {selectedType === 'business' ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                      <BuildingIcon className="h-3.5 w-3.5" />
-                      <span>Business Registration</span>
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-3 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        <BuildingIcon className="h-3.5 w-3.5" />
+                        <span>Business Registration</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/signup?type=personal')}
+                        className="text-[11px] font-medium text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Switch to Personal
+                      </button>
+                    </>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 px-3 py-1 text-[11px] font-semibold text-blue-700 dark:text-blue-400">
-                      <UserIcon className="h-3.5 w-3.5" />
-                      <span>Regular User Registration</span>
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 px-3 py-1 text-[11px] font-semibold text-blue-700 dark:text-blue-400">
+                        <UserIcon className="h-3.5 w-3.5" />
+                        <span>Personal Account</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/signup?type=business')}
+                        className="text-[11px] font-medium text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        Switch to Business
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -518,52 +447,20 @@ function SignupFormContent() {
                     </div>
                   )}
 
-                  {/* Name & Business Name Fields */}
-                  {selectedType === 'business' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                          Full name
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Tendai Chikore"
-                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                          Business name
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={businessName}
-                          onChange={(e) => setBusinessName(e.target.value)}
-                          placeholder="Midlands Solar & Agro"
-                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                        Full name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Tendai Chikore"
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 dark:focus:ring-blue-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
-                      />
-                    </div>
-                  )}
+                  {/* Full Name Field */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
+                      {selectedType === 'business' ? 'Full name (Account Owner / Representative)' : 'Full name'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Tendai Chikore"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
+                    />
+                  </div>
 
                   {/* Business form fields simplified: Category, structure & docs moved to /onboarding/business */}
 
@@ -778,54 +675,61 @@ function SignupFormContent() {
               </div>
 
 
-            </SpotlightCard>
+            </div>
           </div>
         )}
+      </main>
 
-        {/* Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-6 border-t border-slate-200 dark:border-slate-800">
-          <div>© {new Date().getFullYear()} Sadza Connect. Africdominion Group (Pvt) Ltd.</div>
-          <div className="flex gap-4 mt-2 sm:mt-0">
-            <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
-            <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Terms of Service</Link>
-            <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Compliance</Link>
+      {/* Footer */}
+      <footer className="w-full max-w-5xl mx-auto p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 z-10">
+        <div>© {new Date().getFullYear()} Sadza Connect. National Commercial Network of Zimbabwe.</div>
+        <div className="flex gap-4 mt-2 sm:mt-0">
+          <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
+          <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Terms of Service</Link>
+          <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Compliance</Link>
+        </div>
+      </footer>
+
+      {/* Full-Screen Transition Loader to Stage 2 */}
+      {isNavigatingToNextStage && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-md text-white animate-in fade-in duration-300 p-6">
+          <div className="relative flex h-20 w-20 items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <Store className="h-9 w-9 text-emerald-400 animate-pulse" />
+          </div>
+          <h3 className="mt-6 text-xl font-bold tracking-tight text-white text-center">
+            {selectedType === 'business'
+              ? 'Loading Business Onboarding Studio...'
+              : 'Preparing Your Account Dashboard...'}
+          </h3>
+          <p className="mt-2 text-xs text-slate-300 max-w-sm text-center leading-relaxed">
+            Your email is verified. We are preparing Stage 2 (Storefront Setup &amp; Compliance Documents Vault).
+          </p>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-950/80 border border-emerald-700/60 px-4 py-1.5 text-xs text-emerald-300 font-semibold shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>Redirecting to next stage...</span>
           </div>
         </div>
+      )}
 
-        {/* Full-Screen Transition Loader to Stage 2 */}
-        {isNavigatingToNextStage && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-md text-white animate-in fade-in duration-300 p-6">
-            <div className="relative flex h-20 w-20 items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-              <Store className="h-9 w-9 text-emerald-400 animate-pulse" />
-            </div>
-            <h3 className="mt-6 text-xl font-bold tracking-tight text-white text-center">
-              {selectedType === 'business'
-                ? 'Loading Business Onboarding Studio...'
-                : 'Preparing Your Account Dashboard...'}
-            </h3>
-            <p className="mt-2 text-xs text-slate-300 max-w-sm text-center leading-relaxed">
-              Your email is verified. We are preparing Stage 2 (Storefront Setup &amp; Compliance Documents Vault).
-            </p>
-            <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-950/80 border border-emerald-700/60 px-4 py-1.5 text-xs text-emerald-300 font-semibold shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>Redirecting to next stage...</span>
-            </div>
-          </div>
-        )}
+      {/* Global Action Loader Feedback */}
+      <ActionLoader
+        isVisible={isLoading || isNavigatingToNextStage}
+        title={isNavigatingToNextStage ? "Preparing Workspace..." : "Registering Account..."}
+        subtitle="Processing your details and establishing your secure session..."
+      />
 
-        {/* 2-Step Email Verification Pop-up Modal (Confirmation Alert -> 6-Digit PIN) */}
-        <VerifyEmailModal
-          isOpen={showOtpModal}
-          onClose={() => setShowOtpModal(false)}
-          email={email}
-          accountType={selectedType || 'business'}
-          initialStep="confirm"
-          onConfirmSendCode={handleSendRegistrationCode}
-          onEditEmail={() => setShowOtpModal(false)}
-          onVerified={handleOtpVerified}
-        />
-      </div>
+      {/* 2-Step Email Verification Pop-up Modal (Confirmation Alert -> 6-Digit PIN) */}
+      <VerifyEmailModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        email={email}
+        accountType={selectedType || 'business'}
+        initialStep="confirm"
+        onConfirmSendCode={handleSendRegistrationCode}
+        onEditEmail={() => setShowOtpModal(false)}
+        onVerified={handleOtpVerified}
+      />
     </div>
   );
 }

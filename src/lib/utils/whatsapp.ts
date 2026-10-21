@@ -33,3 +33,18 @@ export function createJobInquiryLink(jobTitle: string, companyName: string, phon
   const text = `Hello ${companyName}, I saw your opening for "${jobTitle}" on Sadza Connect Jobs Board and would like to submit my application.`;
   return generateWhatsAppLink(phone, text);
 }
+
+export function createUtilityTokenShareLink(biller: string, token: string, units: string, phone: string): string {
+  const text = `Sadza Connect Official Token: ${biller} Recharge Voucher.\nToken: ${token}\nUnits: ${units} kWh\nPaid & verified.`;
+  return generateWhatsAppLink(phone, text);
+}
+
+export function createInvoiceReceiptShareLink(invoiceNumber: string, amount: number, businessName: string, phone: string): string {
+  const text = `Official Receipt from Sadza Connect Zimbabwe.\nInvoice: ${invoiceNumber}\nAmount: $${amount.toFixed(2)} USD\nClient: ${businessName}\nStatus: PAID & SETTLED.`;
+  return generateWhatsAppLink(phone, text);
+}
+
+export function createOrderWaybillShareLink(orderNumber: string, waybillRef: string, carrier: string, phone: string): string {
+  const text = `Sadza Connect Logistics Waybill.\nOrder: ${orderNumber}\nWaybill: ${waybillRef}\nCarrier: ${carrier}\nTrack parcel live at https://sadzaconnect.co.zw`;
+  return generateWhatsAppLink(phone, text);
+}

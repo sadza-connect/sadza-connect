@@ -76,25 +76,29 @@ export const resendVerificationSchema = z.object({
     .email('Invalid email address'),
 });
 
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email('Invalid email address'),
-});
+export const forgotPasswordSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().optional(),
+    identifier: z.string().trim().optional(),
+  })
+  .refine((data) => Boolean(data.email || data.identifier), {
+    message: 'Please provide your registered email address or phone number',
+    path: ['identifier'],
+  });
 
-export const verifyResetOtpSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email('Invalid email address'),
-  otp: z
-    .string()
-    .length(6, 'Reset code must be exactly 6 digits')
-    .regex(/^\d{6}$/, 'Reset code must be a 6-digit code'),
-});
+export const verifyResetOtpSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().optional(),
+    identifier: z.string().trim().optional(),
+    otp: z
+      .string()
+      .length(6, 'Reset code must be exactly 6 digits')
+      .regex(/^\d{6}$/, 'Reset code must be a 6-digit code'),
+  })
+  .refine((data) => Boolean(data.email || data.identifier), {
+    message: 'Please provide your registered email address or phone number',
+    path: ['identifier'],
+  });
 
 export const resetPasswordSchema = z.object({
   resetToken: z.string().min(1, 'Reset token is required'),

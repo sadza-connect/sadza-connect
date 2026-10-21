@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 
 dotenv.config();
+dotenv.config({ path: '.env.local' });
 
 /**
  * Strips accidental surrounding quotes and whitespace from environment variables

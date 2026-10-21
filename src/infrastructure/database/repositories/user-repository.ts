@@ -165,4 +165,99 @@ export class UserRepository {
         last_login_at: this.db.fn.now(),
       });
   }
+
+  async findUsers(options: {
+    search?: string;
+    role?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ users: Omit<UserRow, 'password_hash' | 'deleted_at'>[]; total: number }> {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.min(100, Math.max(1, options.limit || 50));
+    const offset = (page - 1) * limit;
+
+    let query = this.db<UserRow>('users').whereNull('deleted_at');
+
+    if (options.search) {
+      const term = `%${options.search.trim().toLowerCase()}%`;
+      query = query.where((builder) => {
+        builder
+          .whereRaw('LOWER(full_name) LIKE ?', [term])
+          .orWhereRaw('LOWER(email) LIKE ?', [term])
+          .orWhereRaw('phone_number LIKE ?', [term])
+          .orWhereRaw('LOWER(business_name) LIKE ?', [term]);
+      });
+    }
+
+    if (options.role && options.role !== 'all') {
+      query = query.where({ role: options.role.toLowerCase() });
+    }
+
+    if (options.status && options.status !== 'all') {
+      query = query.where({ status: options.status.toLowerCase() });
+    }
+
+    const [{ count }] = await query.clone().count<{ count: string | number }[]>('* as count');
+    const total = parseInt(count.toString(), 10);
+
+    const users = await query
+      .select(
+        'id',
+        'account_type',
+        'role',
+        'full_name',
+        'email',
+        'phone_number',
+        'province',
+        'business_name',
+        'sector',
+        'business_structure',
+        'status',
+        'is_verified',
+        'avatar_url',
+        'last_login_at',
+        'created_at',
+        'updated_at'
+      )
+      .orderBy('created_at', 'desc')
+      .offset(offset)
+      .limit(limit);
+
+    return { users, total };
+  }
+
+  async updateRole(id: string, role: string): Promise<UserRow | null> {
+    const [updated] = await this.db<UserRow>('users')
+      .where({ id })
+      .update({
+        role: role.toLowerCase(),
+        updated_at: new Date().toISOString(),
+      })
+      .returning('*');
+    return updated || null;
+  }
+
+  async updateStatus(id: string, status: string): Promise<UserRow | null> {
+    const [updated] = await this.db<UserRow>('users')
+      .where({ id })
+      .update({
+        status: status.toLowerCase(),
+        updated_at: new Date().toISOString(),
+      })
+      .returning('*');
+    return updated || null;
+  }
+
+  async softDelete(id: string): Promise<boolean> {
+    const count = await this.db('users')
+      .where({ id })
+      .update({
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    return count > 0;
+  }
 }
+
+export const userRepository = new UserRepository();

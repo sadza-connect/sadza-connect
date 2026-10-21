@@ -32,12 +32,12 @@ const PROVINCES = [
 ];
 
 const AUTOCOMPLETE_SUGGESTIONS = [
-  { title: "Gava's Traditional Restaurant", category: 'Dining', city: 'Harare' },
-  { title: 'Midlands Solar & Inverters (5kVA Lithium)', category: 'Solar', city: 'Gweru' },
+  { title: 'Solar Panels & Hybrid Inverters', category: 'Solar & Clean Energy', city: 'Nationwide' },
   { title: 'ZESA Prepaid Electricity Token (20-Digit)', category: 'Utilities', city: 'Nationwide' },
-  { title: 'Victoria Falls Safari Eco-Lodges', category: 'Tourism', city: 'Victoria Falls' },
-  { title: 'Batanai PPC Cement & Structural Steel', category: 'Hardware', city: 'Bulawayo' },
-  { title: 'Mazowe Citrus & Bulk Farming Inputs', category: 'Agriculture', city: 'Mazowe' },
+  { title: 'Commercial Agriculture & Farm Inputs', category: 'Agriculture', city: 'Nationwide' },
+  { title: 'Building Supplies, Timber & Cement', category: 'Hardware', city: 'Nationwide' },
+  { title: 'Hotels, Lodges & Safari Travel', category: 'Tourism', city: 'Nationwide' },
+  { title: 'Hardware, Tools & Equipment', category: 'Industrial', city: 'Nationwide' },
 ];
 
 export function Hero() {
