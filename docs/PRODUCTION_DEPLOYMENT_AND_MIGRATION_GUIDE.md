@@ -73,7 +73,7 @@ pg_dump \
   --if-exists \
   --no-owner \
   --no-privileges \
-  --dbname="postgresql://postgres.nvypiizbjsmevbfvzwey:rBYT466m4z9NN@aws-0-eu-west-1.pooler.supabase.com:5432/postgres" \
+  --dbname="<YOUR_SUPABASE_DATABASE_URL>" \
   --file="sadza_connect_backup.sql"
 ```
 
