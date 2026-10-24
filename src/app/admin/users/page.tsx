@@ -35,6 +35,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   AdminModal,
   ModalBody,
   ModalSection,
@@ -173,7 +174,7 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState<UserRecord['role']>('Customer');
 
   // Loading states
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
@@ -513,7 +514,9 @@ export default function AdminUsersPage() {
           <ResultCount shown={filtered.length} total={usersList.length} noun="user" />
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {isLoadingUsers ? (
+          <TableSkeleton columns={6} rows={6} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={Users}
             title="No users found"

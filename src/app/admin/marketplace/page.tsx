@@ -17,6 +17,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -50,6 +51,7 @@ export default function AdminMarketplacePage() {
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<MarketplaceProduct | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [form, setForm] = useState({
     title: '',
@@ -103,6 +105,10 @@ export default function AdminMarketplacePage() {
         }
       } catch {
         // Fallback businesses if needed
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
 
       if (isMounted) {
@@ -340,7 +346,9 @@ export default function AdminMarketplacePage() {
           <ResultCount shown={filtered.length} total={productsList.length} noun="products" />
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <TableSkeleton columns={5} rows={6} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={Package}
             title="No products match filters"
@@ -363,11 +371,17 @@ export default function AdminMarketplacePage() {
                   <tr key={row.slug} className="transition-colors hover:bg-[#f4f6f9]/60">
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={row.image}
-                          alt={row.title}
-                          className="h-10 w-10 shrink-0 rounded-xl object-cover border border-[#c8d2e0]"
-                        />
+                        {row.image ? (
+                          <img
+                            src={row.image}
+                            alt={row.title}
+                            className="h-10 w-10 shrink-0 rounded-xl object-cover border border-[#c8d2e0]"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center border border-[#c8d2e0] text-slate-400">
+                            <Package className="h-5 w-5" />
+                          </div>
+                        )}
                         <div>
                           <p className="font-bold text-[#0a1018] flex items-center gap-2">
                             {row.title}

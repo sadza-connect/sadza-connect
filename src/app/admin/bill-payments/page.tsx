@@ -36,6 +36,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -73,6 +74,7 @@ export default function AdminBillPaymentsPage() {
   const [activeTab, setActiveTab] = useState<'receipts' | 'utilities'>('receipts');
   const [rows, setRows] = useState<OfficialReceipt[]>(INITIAL_RECEIPTS);
   const [utilityLogs, setUtilityLogs] = useState<UtilityReceipt[]>([]);
+  const [isLoadingBills, setIsLoadingBills] = useState(true);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [toast, setToast] = useState<string | null>(null);
@@ -114,6 +116,10 @@ export default function AdminBillPaymentsPage() {
         }
       } catch {
         if (isMounted) setUtilityLogs([]);
+      } finally {
+        if (isMounted) {
+          setIsLoadingBills(false);
+        }
       }
     }
     loadAdminBills();
@@ -492,7 +498,9 @@ export default function AdminBillPaymentsPage() {
             />
           </Toolbar>
 
-          {filteredUtilityLogs.length === 0 ? (
+          {isLoadingBills ? (
+            <TableSkeleton columns={6} rows={6} />
+          ) : filteredUtilityLogs.length === 0 ? (
             <EmptyState
               icon={ReceiptIcon}
               title="No utility transactions recorded"

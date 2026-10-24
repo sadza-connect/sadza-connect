@@ -25,6 +25,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -52,6 +53,7 @@ export default function AdminAdvertsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingAdvert, setDeletingAdvert] = useState<PaidAdvertItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [form, setForm] = useState({
     businessName: '',
@@ -86,6 +88,8 @@ export default function AdminAdvertsPage() {
         if (isMounted) setAdverts([]);
       } catch {
         if (isMounted) setAdverts([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -360,7 +364,9 @@ export default function AdminAdvertsPage() {
           <ResultCount shown={filtered.length} total={adverts.length} noun="adverts" />
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <TableSkeleton columns={5} rows={6} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={Megaphone}
             title="No sponsored adverts found"

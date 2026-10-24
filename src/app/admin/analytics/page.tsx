@@ -51,7 +51,7 @@ const PROVINCE_TRAFFIC = [
 
 export default function AdminAnalyticsPage() {
   const [daysFilter, setDaysFilter] = useState<number>(30);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Live Database Entity Counts
   const [dbStats, setDbStats] = useState({
@@ -223,6 +223,7 @@ export default function AdminAnalyticsPage() {
           trend="up"
           hint={`Impression volume recorded in ${activeTimeframe.label}`}
           icon={Eye}
+          loading={loading}
         />
         <StatCard
           label="Verified Enterprises"
@@ -230,6 +231,7 @@ export default function AdminAnalyticsPage() {
           trend="up"
           hint="Active verified companies listed"
           icon={Building2}
+          loading={loading}
         />
         <StatCard
           label="Marketplace Products"
@@ -237,6 +239,7 @@ export default function AdminAnalyticsPage() {
           trend="up"
           hint="Catalogue inventory items published"
           icon={ShoppingBag}
+          loading={loading}
         />
         <StatCard
           label="Platform User Accounts"
@@ -244,6 +247,7 @@ export default function AdminAnalyticsPage() {
           trend="up"
           hint="Total registered users & administrators"
           icon={Users}
+          loading={loading}
         />
       </div>
 

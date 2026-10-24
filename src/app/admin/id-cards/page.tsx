@@ -33,6 +33,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   IconButton,
   ModalBody,
   ModalSection,
@@ -232,7 +233,7 @@ function PvcIdCardPreview({
 
 export default function AdminIdCardsPage() {
   const [rows, setRows] = useState<StaffCardRecord[]>(INITIAL_CARDS);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -439,7 +440,11 @@ export default function AdminIdCardsPage() {
           <ResultCount shown={filtered.length} total={rows.length} noun="ID cards" />
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="p-5">
+            <TableSkeleton columns={4} rows={4} />
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={IdCard}
             title="No ID cards match filters"

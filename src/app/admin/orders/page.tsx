@@ -31,6 +31,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -59,7 +60,7 @@ const INITIAL_ORDERS: AdminOrderItem[] = [];
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrderItem[]>(INITIAL_ORDERS);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [toast, setToast] = useState<string | null>(null);
@@ -296,7 +297,9 @@ export default function AdminOrdersPage() {
           <ResultCount shown={filtered.length} total={orders.length} noun="orders" />
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <TableSkeleton columns={7} rows={6} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={ShoppingBag}
             title="No orders match filters"

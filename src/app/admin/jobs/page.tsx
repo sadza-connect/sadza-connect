@@ -31,6 +31,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -52,6 +53,7 @@ export default function AdminJobsPage() {
   const [activeTab, setActiveTab] = useState<'positions' | 'applications'>('positions');
   const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [applications, setApplications] = useState<JobApplicationRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [availableBusinesses, setAvailableBusinesses] = useState<
     Array<{ id: string; name: string; slug: string }>
   >([]);
@@ -82,42 +84,48 @@ export default function AdminJobsPage() {
   useEffect(() => {
     let isMounted = true;
     async function loadAdminCareersData() {
-      // 1. Load jobs
       try {
-        const jRes = await fetch('/api/v1/jobs?limit=100', { credentials: 'include' });
-        const jJson = await jRes.json();
-        if (isMounted && jJson.success && Array.isArray(jJson.data?.jobs)) {
-          setJobs(jJson.data.jobs.map(mapDbJobToOpening));
+        // 1. Load jobs
+        try {
+          const jRes = await fetch('/api/v1/jobs?limit=100', { credentials: 'include' });
+          const jJson = await jRes.json();
+          if (isMounted && jJson.success && Array.isArray(jJson.data?.jobs)) {
+            setJobs(jJson.data.jobs.map(mapDbJobToOpening));
+          }
+        } catch (err) {
+          console.warn('Failed to load jobs from database:', err);
         }
-      } catch (err) {
-        console.warn('Failed to load jobs from database:', err);
-      }
 
-      // 2. Load applications
-      try {
-        const aRes = await fetch('/api/v1/jobs/applications?limit=100', { credentials: 'include' });
-        const aJson = await aRes.json();
-        if (isMounted && aJson.success && Array.isArray(aJson.data?.applications)) {
-          setApplications(aJson.data.applications.map(mapDbApplicationToRecord));
+        // 2. Load applications
+        try {
+          const aRes = await fetch('/api/v1/jobs/applications?limit=100', { credentials: 'include' });
+          const aJson = await aRes.json();
+          if (isMounted && aJson.success && Array.isArray(aJson.data?.applications)) {
+            setApplications(aJson.data.applications.map(mapDbApplicationToRecord));
+          }
+        } catch (err) {
+          console.warn('Failed to load job applications from database:', err);
         }
-      } catch (err) {
-        console.warn('Failed to load job applications from database:', err);
-      }
 
-      // 3. Load businesses for hiring enterprise dropdown
-      try {
-        const bRes = await fetch('/api/v1/businesses?limit=100', { credentials: 'include' });
-        const bJson = await bRes.json();
-        if (isMounted && bJson.success && Array.isArray(bJson.data?.businesses)) {
-          setAvailableBusinesses(
-            bJson.data.businesses.map((b: any) => ({
-              id: b.id,
-              name: b.name,
-              slug: b.slug,
-            }))
-          );
+        // 3. Load businesses for hiring enterprise dropdown
+        try {
+          const bRes = await fetch('/api/v1/businesses?limit=100', { credentials: 'include' });
+          const bJson = await bRes.json();
+          if (isMounted && bJson.success && Array.isArray(bJson.data?.businesses)) {
+            setAvailableBusinesses(
+              bJson.data.businesses.map((b: any) => ({
+                id: b.id,
+                name: b.name,
+                slug: b.slug,
+              }))
+            );
+          }
+        } catch {}
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
-      } catch {}
+      }
     }
 
     loadAdminCareersData();
@@ -471,7 +479,9 @@ export default function AdminJobsPage() {
             <ResultCount shown={filteredJobs.length} total={jobs.length} noun="vacancies" />
           </Toolbar>
 
-          {filteredJobs.length === 0 ? (
+          {isLoading ? (
+            <TableSkeleton columns={5} rows={6} />
+          ) : filteredJobs.length === 0 ? (
             <EmptyState
               icon={Briefcase}
               title="No vacancies match filters"
@@ -540,7 +550,16 @@ export default function AdminJobsPage() {
             />
           </Toolbar>
 
-          <div className="overflow-x-auto">
+          {isLoading ? (
+            <TableSkeleton columns={5} rows={6} />
+          ) : filteredApps.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No candidate applications match filters"
+              description="Candidate applications submitted via the job portal will appear here."
+            />
+          ) : (
+            <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e6eaf1] bg-[#f4f6f9]/80 text-xs font-semibold uppercase tracking-wider text-[#6b81a5]">
@@ -593,6 +612,7 @@ export default function AdminJobsPage() {
               </tbody>
             </table>
           </div>
+          )}
         </Panel>
       )}
 

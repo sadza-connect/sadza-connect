@@ -78,6 +78,7 @@ export default function AdminOverviewPage() {
   const [jobsCount, setJobsCount] = useState(0);
   const [usersCount, setUsersCount] = useState(0);
   const [revenueUsd, setRevenueUsd] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -138,6 +139,10 @@ export default function AdminOverviewPage() {
           setAdvertsCount(0);
           setJobsCount(0);
           setUsersCount(0);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
       }
 
@@ -273,6 +278,7 @@ export default function AdminOverviewPage() {
           trend="up"
           hint={`${businesses.filter((b) => b.subscriptionStatus === 'Paid Subscriber').length} Paid ($${settings.monthlySubscriptionPriceUsd}/mo) · ${businesses.filter((b) => b.subscriptionStatus === 'Month 1 Grace Period').length} in 30d Grace`}
           icon={Building2}
+          loading={isLoading}
         />
         <StatCard
           label="Recognised Revenue (USD)"
@@ -282,6 +288,7 @@ export default function AdminOverviewPage() {
           trend="up"
           hint="Subscriptions, $20/mo Adverts & ZESA Settlements"
           icon={Banknote}
+          loading={isLoading}
         />
         <StatCard
           label="Catalogue & Sponsored Deals"
@@ -290,6 +297,7 @@ export default function AdminOverviewPage() {
           trend="up"
           hint={`${productsCount} Marketplace Products · ${advertsCount} Active Adverts`}
           icon={ShoppingBag}
+          loading={isLoading}
         />
         <StatCard
           label="Registered Users & Talent"
@@ -298,6 +306,7 @@ export default function AdminOverviewPage() {
           trend="up"
           hint={`${usersCount} Accounts · ${jobsCount} Open Vacancies`}
           icon={Users}
+          loading={isLoading}
         />
       </div>
 

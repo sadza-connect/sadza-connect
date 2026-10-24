@@ -29,6 +29,7 @@ import {
   Toolbar,
   ResultCount,
   EmptyState,
+  TableSkeleton,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -80,7 +81,7 @@ export default function AdminBusinessesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [trackFilter, setTrackFilter] = useState('all');
   const [toast, setToast] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -482,7 +483,9 @@ export default function AdminBusinessesPage() {
           <ResultCount shown={filtered.length} total={businesses.length} noun="businesses" />
         </Toolbar>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <TableSkeleton columns={6} rows={6} />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={Building2}
             title="No businesses match filters"

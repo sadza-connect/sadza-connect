@@ -261,6 +261,7 @@ export interface StatCardProps {
   trend?: 'up' | 'down';
   hint?: string;
   icon?: LucideIcon;
+  loading?: boolean;
 }
 
 export function StatCard({
@@ -272,7 +273,21 @@ export function StatCard({
   trend = 'up',
   hint,
   icon: Icon,
+  loading = false,
 }: StatCardProps) {
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-[#c8d2e0]/75 bg-white p-5 animate-pulse shadow-xs">
+        <div className="flex items-center justify-between">
+          <div className="h-3 w-28 bg-[#e6eaf1] rounded" />
+          <div className="h-9 w-9 rounded-xl bg-[#e6eaf1]" />
+        </div>
+        <div className="mt-4 h-7 w-24 bg-[#e6eaf1] rounded" />
+        <div className="mt-3 h-3 w-40 bg-[#f4f6f9] rounded" />
+      </div>
+    );
+  }
+
   const positive = trend === 'up';
   const TrendIcon = positive ? TrendingUp : TrendingDown;
   return (
@@ -458,6 +473,48 @@ export function EmptyState({
       <h3 className="mt-3 text-sm font-bold text-[#0a1018]">{title}</h3>
       <p className="mt-1 max-w-sm text-xs text-[#6b81a5]">{description}</p>
       {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+export function TableSkeleton({
+  columns = 6,
+  rows = 5,
+  className,
+}: {
+  columns?: number;
+  rows?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn('overflow-x-auto animate-pulse', className)}>
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-[#e6eaf1] bg-[#f4f6f9]/80">
+            {Array.from({ length: columns }).map((_, i) => (
+              <th key={i} className="px-5 py-3">
+                <div className="h-3.5 w-20 rounded bg-slate-200/80" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#e6eaf1]">
+          {Array.from({ length: rows }).map((_, r) => (
+            <tr key={r}>
+              {Array.from({ length: columns }).map((_, c) => (
+                <td key={c} className="px-5 py-4">
+                  <div
+                    className={cn(
+                      'h-4 rounded bg-slate-200/70',
+                      c === 0 ? 'w-36' : c === columns - 1 ? 'w-16 ml-auto' : 'w-24'
+                    )}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
