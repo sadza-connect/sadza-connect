@@ -249,6 +249,16 @@ export class UserRepository {
     return updated || null;
   }
 
+  async updatePasswordHash(id: string, passwordHash: string): Promise<boolean> {
+    const count = await this.db('users')
+      .where({ id })
+      .update({
+        password_hash: passwordHash,
+        updated_at: new Date().toISOString(),
+      });
+    return count > 0;
+  }
+
   async softDelete(id: string): Promise<boolean> {
     const count = await this.db('users')
       .where({ id })

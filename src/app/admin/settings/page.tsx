@@ -260,6 +260,9 @@ export default function AdminSettingsPage() {
       .catch(() => {});
   }, []);
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [isRotatingPassword, setIsRotatingPassword] = useState(false);
+
   async function handleSave(sectionLabel: string) {
     const usdToZig = parseFloat(pricing.zigExchangeRate) || 26.5;
     const listingUsd = parseFloat(pricing.corporateListingUsd || pricing.standardListingUsd) || 15;
@@ -302,25 +305,28 @@ export default function AdminSettingsPage() {
       notifications,
     };
 
-    // 1. Instantly dispatch update to all components across the browser
-    savePlatformSettings(updatedPlatformSettings);
-
-    // 2. Persist to PostgreSQL database
     try {
-      await fetch('/api/v1/settings', {
+      setIsSaving(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+
+      const res = await fetch('/api/v1/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({
           usd_to_zig_rate: usdToZig,
           monthly_subscription_price_usd: listingUsd,
           sponsored_advert_price_usd: advertUsd,
           free_grace_period_days: graceDays,
-          support_whatsapp: contact.whatsapp,
-          support_phone: contact.phone,
-          support_email: contact.email,
+          support_whatsapp: contact.whatsapp || undefined,
+          support_phone: contact.phone || undefined,
+          support_email: contact.email && contact.email.includes('@') ? contact.email.trim() : undefined,
           hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
           harare_address: `${contact.line1}, ${contact.city}`,
-          operating_hours: contact.hours,
+          operating_hours: contact.hours || undefined,
           extra_config: {
             profile,
             shipping,
@@ -337,37 +343,95 @@ export default function AdminSettingsPage() {
           },
         }),
       });
-    } catch (err) {
-      console.error('Failed to sync settings with server:', err);
-    }
 
-    toast({
-      title: `${sectionLabel} Saved`,
-      description: 'Your configuration updates are now live across Sadza Connect.',
-      variant: 'success',
-    });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || json.message || 'Failed to persist settings to server');
+      }
+
+      // 1. Dispatch update to all components across the browser
+      savePlatformSettings(updatedPlatformSettings);
+
+      toast({
+        title: `${sectionLabel} Saved`,
+        description: 'Your configuration updates are now live across Sadza Connect.',
+        variant: 'success',
+      });
+    } catch (err: any) {
+      console.error('Failed to sync settings with server:', err);
+      toast({
+        title: `Failed to Save ${sectionLabel}`,
+        description: err.message || 'Could not persist settings to server. Check your admin privileges.',
+        variant: 'error',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function handlePasswordUpdate(e: React.FormEvent) {
+  async function handlePasswordUpdate(e: React.FormEvent) {
     e.preventDefault();
-    if (security.next !== security.confirm) {
-      toast({ title: 'Passwords do not match', variant: 'error' });
-      return;
-    }
-    if (security.next.length < 8) {
+    if (!security.current) {
       toast({
-        title: 'Password too short',
-        description: 'Use at least 8 characters.',
+        title: 'Current Password Required',
+        description: 'Please enter your current administrator password.',
         variant: 'error',
       });
       return;
     }
-    toast({
-      title: 'Executive Password Updated',
-      description: 'Your administrator credentials have been rotated.',
-      variant: 'success',
-    });
-    setSecurity({ current: '', next: '', confirm: '' });
+    if (security.next !== security.confirm) {
+      toast({
+        title: 'Passwords Do Not Match',
+        description: 'New password and confirmation must match.',
+        variant: 'error',
+      });
+      return;
+    }
+    if (security.next.length < 8) {
+      toast({
+        title: 'Password Too Short',
+        description: 'New password must be at least 8 characters long.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    try {
+      setIsRotatingPassword(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const res = await fetch('/api/v1/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          currentPassword: security.current,
+          newPassword: security.next,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || json.message || 'Failed to rotate administrator credentials');
+      }
+
+      toast({
+        title: 'Executive Password Updated',
+        description: 'Your administrator credentials have been rotated successfully in the database.',
+        variant: 'success',
+      });
+      setSecurity({ current: '', next: '', confirm: '' });
+    } catch (err: any) {
+      toast({
+        title: 'Password Rotation Failed',
+        description: err.message || 'Failed to update credentials. Please check your current password.',
+        variant: 'error',
+      });
+    } finally {
+      setIsRotatingPassword(false);
+    }
   }
 
   return (
@@ -984,7 +1048,9 @@ export default function AdminSettingsPage() {
                     />
                   </div>
                   <div className="flex justify-end pt-2">
-                    <AdminButton type="submit">Update Password</AdminButton>
+                    <AdminButton type="submit" loading={isRotatingPassword} disabled={isRotatingPassword}>
+                      Update Password
+                    </AdminButton>
                   </div>
                 </form>
               </Panel>
