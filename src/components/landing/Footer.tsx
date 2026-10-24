@@ -17,6 +17,23 @@ export function Footer() {
     const sync = () => setSettings(getPlatformSettings());
     sync();
     window.addEventListener('sadza-platform-updated', sync);
+
+    fetch('/api/v1/cms')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          const cms = json.data;
+          setSettings((prev) => ({
+            ...prev,
+            supportEmail: cms.contact?.supportEmail || prev.supportEmail,
+            supportPhone: cms.contact?.supportPhone || prev.supportPhone,
+            supportWhatsApp: cms.contact?.supportWhatsApp || prev.supportWhatsApp,
+            hqAddress: cms.contact?.hqAddress || prev.hqAddress,
+          }));
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener('sadza-platform-updated', sync);
   }, []);
 

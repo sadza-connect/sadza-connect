@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Search,
@@ -18,6 +18,11 @@ import { Button } from '@/components/ui/Button';
 import { SpotlightCard } from '@/components/animations/SpotlightCard';
 import { ShinyText } from '@/components/animations/ShinyText';
 import { OrbitalRing } from '@/components/animations/OrbitalRing';
+import {
+  getPlatformSettings,
+  DEFAULT_PLATFORM_SETTINGS,
+  PlatformSettings,
+} from '@/data/platformStore';
 
 const PROVINCES = [
   { value: 'All', label: 'All Zimbabwe (10 Provinces)' },
@@ -41,9 +46,33 @@ const AUTOCOMPLETE_SUGGESTIONS = [
 ];
 
 export function Hero() {
+  const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('All');
   const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setSettings(getPlatformSettings());
+    sync();
+    window.addEventListener('sadza-platform-updated', sync);
+
+    fetch('/api/v1/cms')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          const cms = json.data;
+          setSettings((prev) => ({
+            ...prev,
+            heroHeadline: cms.home?.hero?.headline || prev.heroHeadline,
+            heroSubtitle: cms.home?.hero?.subtitle || prev.heroSubtitle,
+            heroCtaLabel: cms.home?.hero?.ctaLabel || prev.heroCtaLabel,
+          }));
+        }
+      })
+      .catch(() => {});
+
+    return () => window.removeEventListener('sadza-platform-updated', sync);
+  }, []);
 
   const popularSearches = [
     '5kVA Solar Packages',
@@ -78,12 +107,13 @@ export function Hero() {
 
         {/* Hero Headline */}
         <h1 className="font-display mt-6 text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-white max-w-4xl mx-auto leading-[1.12]">
-          Connecting Zimbabwean Businesses, Customers & Everyday Trade
+          {settings.heroHeadline || 'Connecting Zimbabwean Businesses, Customers & Everyday Trade'}
         </h1>
 
         {/* Subtitle */}
         <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
-          Discover verified local suppliers, shop marketplace items, find job vacancies, and recharge utility tokens across Harare, Bulawayo, Mutare, Gweru, and all 10 provinces.
+          {settings.heroSubtitle ||
+            'Discover verified local suppliers, shop marketplace items, find job vacancies, and recharge utility tokens across Harare, Bulawayo, Mutare, Gweru, and all 10 provinces.'}
         </p>
 
         {/* Unified Search Console wrapped with React Bits SpotlightCard */}

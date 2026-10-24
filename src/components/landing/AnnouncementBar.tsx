@@ -39,6 +39,24 @@ export function AnnouncementBar() {
     const sync = () => setSettings(getPlatformSettings());
     sync();
     window.addEventListener('sadza-platform-updated', sync);
+
+    fetch('/api/v1/cms')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          const cms = json.data;
+          setSettings((prev) => ({
+            ...prev,
+            announcementText: cms.home?.announcement?.text || prev.announcementText,
+            announcementEnabled: cms.home?.announcement?.enabled ?? prev.announcementEnabled,
+            announcementLink: cms.home?.announcement?.link || prev.announcementLink,
+            usdToZigRate: cms.raw?.usd_to_zig_rate || prev.usdToZigRate,
+            freeGracePeriodDays: cms.raw?.free_grace_period_days || prev.freeGracePeriodDays,
+          }));
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener('sadza-platform-updated', sync);
   }, []);
 
@@ -111,7 +129,7 @@ export function AnnouncementBar() {
     return () => clearInterval(timer);
   }, [isPaused, nextSlide]);
 
-  if (dismissed) return null;
+  if (dismissed || settings.announcementEnabled === false) return null;
 
   const current = activities[currentIndex] || activities[0];
   const Icon = current.icon;

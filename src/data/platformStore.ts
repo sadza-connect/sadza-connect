@@ -27,6 +27,11 @@ export interface PlatformSettings {
   aboutHeadline: string;
   aboutMission: string;
   aboutVision: string;
+  heroHeadline?: string;
+  heroSubtitle?: string;
+  heroCtaLabel?: string;
+  announcementEnabled?: boolean;
+  announcementLink?: string;
   vatPct?: number;
   zesaServiceFeePct?: number;
   ecocashMerchantCode?: string;
@@ -42,6 +47,12 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   tagline: 'Connecting People, Businesses & Opportunities Across Zimbabwe',
   announcementText:
     'New Business Registrations Receive a 30-Day Free Grace Period • Active Monthly Listing $10/mo • Direct WhatsApp Trade',
+  announcementEnabled: true,
+  announcementLink: '/auth/register?role=business',
+  heroHeadline: 'Connecting Zimbabwean Businesses, Customers & Everyday Trade',
+  heroSubtitle:
+    'Discover verified local suppliers, shop marketplace items, find job vacancies, and recharge utility tokens across Harare, Bulawayo, Mutare, Gweru, and all 10 provinces.',
+  heroCtaLabel: 'Explore Verified Directory',
   usdToZigRate: 26.5,
   monthlySubscriptionPriceUsd: 15,
   soloMonthlyPriceUsd: 5,

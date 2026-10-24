@@ -118,7 +118,57 @@ export default function AdminSiteContentPage() {
   ]);
 
   useEffect(() => {
-    setSettings(getPlatformSettings());
+    let isMounted = true;
+    async function loadCms() {
+      try {
+        const res = await fetch('/api/v1/cms');
+        const json = await res.json();
+        if (isMounted && json.success && json.data) {
+          const cms = json.data;
+          if (cms.home) {
+            if (Array.isArray(cms.home.slides) && cms.home.slides.length > 0) {
+              setHomeSlides(cms.home.slides);
+            }
+            if (Array.isArray(cms.home.whyReasons) && cms.home.whyReasons.length > 0) {
+              setWhyReasons(cms.home.whyReasons);
+            }
+            if (Array.isArray(cms.home.processSteps) && cms.home.processSteps.length > 0) {
+              setProcessSteps(cms.home.processSteps);
+            }
+          }
+          if (cms.about) {
+            if (cms.about.mission) setAboutMission(cms.about.mission);
+            if (cms.about.vision) setAboutVision(cms.about.vision);
+            if (Array.isArray(cms.about.coreValues) && cms.about.coreValues.length > 0) {
+              setCoreValues(cms.about.coreValues);
+            }
+          }
+          const currentStore = getPlatformSettings();
+          setSettings({
+            ...currentStore,
+            aboutHeadline: cms.about?.headline || currentStore.aboutHeadline,
+            aboutMission: cms.about?.mission || currentStore.aboutMission,
+            aboutVision: cms.about?.vision || currentStore.aboutVision,
+            heroHeadline: cms.home?.hero?.headline || currentStore.heroHeadline,
+            heroSubtitle: cms.home?.hero?.subtitle || currentStore.heroSubtitle,
+            heroCtaLabel: cms.home?.hero?.ctaLabel || currentStore.heroCtaLabel,
+            announcementText: cms.home?.announcement?.text || currentStore.announcementText,
+            announcementEnabled: cms.home?.announcement?.enabled ?? currentStore.announcementEnabled,
+            announcementLink: cms.home?.announcement?.link || currentStore.announcementLink,
+            supportEmail: cms.contact?.supportEmail || currentStore.supportEmail,
+            supportPhone: cms.contact?.supportPhone || currentStore.supportPhone,
+            supportWhatsApp: cms.contact?.supportWhatsApp || currentStore.supportWhatsApp,
+            hqAddress: cms.contact?.hqAddress || currentStore.hqAddress,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load CMS from API:', err);
+      }
+    }
+    loadCms();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -126,13 +176,54 @@ export default function AdminSiteContentPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    savePlatformSettings(settings);
-    setTimeout(() => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const payload = {
+        hero_headline: settings.heroHeadline,
+        hero_subtitle: settings.heroSubtitle,
+        home_slides: homeSlides,
+        why_reasons: whyReasons,
+        process_steps: processSteps,
+        about_headline: settings.aboutHeadline,
+        about_mission: aboutMission || settings.aboutMission,
+        about_vision: aboutVision || settings.aboutVision,
+        core_values: coreValues,
+        support_email: settings.supportEmail,
+        support_phone: settings.supportPhone,
+        support_whatsapp: settings.supportWhatsApp,
+        hq_address: settings.hqAddress,
+        extra_config: {
+          announcement_text: settings.announcementText,
+          announcement_enabled: settings.announcementEnabled,
+          announcement_link: settings.announcementLink,
+          hero_cta_label: settings.heroCtaLabel,
+        },
+      };
+
+      const res = await fetch('/api/v1/cms', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Failed to save CMS content');
+      }
+
+      savePlatformSettings(settings);
+      showToast(`${activeTab.toUpperCase()} content saved & synced live to PostgreSQL database!`);
+    } catch (err: any) {
+      showToast(err.message || 'Error saving CMS content');
+    } finally {
       setSaving(false);
-      showToast(`${activeTab.toUpperCase()} page content saved and synced live across the site!`);
-    }, 300);
+    }
   };
 
   return (

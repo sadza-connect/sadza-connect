@@ -12,6 +12,15 @@ export interface PlatformSettingsRow {
   hq_address: string;
   harare_address: string;
   operating_hours: string;
+  hero_headline?: string;
+  hero_subtitle?: string;
+  home_slides?: any[];
+  why_reasons?: any[];
+  process_steps?: any[];
+  about_headline?: string;
+  about_mission?: string | null;
+  about_vision?: string | null;
+  core_values?: any[];
   extra_config?: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -28,6 +37,15 @@ export interface UpdatePlatformSettingsDTO {
   hq_address?: string;
   harare_address?: string;
   operating_hours?: string;
+  hero_headline?: string;
+  hero_subtitle?: string;
+  home_slides?: any[];
+  why_reasons?: any[];
+  process_steps?: any[];
+  about_headline?: string;
+  about_mission?: string | null;
+  about_vision?: string | null;
+  core_values?: any[];
   extra_config?: Record<string, any>;
 }
 
@@ -63,12 +81,34 @@ export class SettingsRepository {
       }
     }
 
+    const parseJsonArray = (val: any) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
     return {
       ...row,
       usd_to_zig_rate: parseFloat(row.usd_to_zig_rate?.toString() || '26.5'),
       monthly_subscription_price_usd: parseFloat(row.monthly_subscription_price_usd?.toString() || '10.0'),
       sponsored_advert_price_usd: parseFloat(row.sponsored_advert_price_usd?.toString() || '20.0'),
       free_grace_period_days: parseInt(row.free_grace_period_days?.toString() || '30', 10),
+      hero_headline: row.hero_headline || 'Connecting Zimbabwean Businesses, Customers & Everyday Trade',
+      hero_subtitle: row.hero_subtitle || 'Discover verified local suppliers, shop marketplace items, find job vacancies, and recharge utility tokens across Harare, Bulawayo, Mutare, Gweru, and all 10 provinces.',
+      home_slides: parseJsonArray(row.home_slides),
+      why_reasons: parseJsonArray(row.why_reasons),
+      process_steps: parseJsonArray(row.process_steps),
+      about_headline: row.about_headline || 'Zimbabwe’s Unified Digital Commercial Infrastructure',
+      about_mission: row.about_mission || 'Eliminating counterfeit supply risk and fragmented directories by providing a single, transparent, CR14-verified commercial network with predictable $10/month business subscriptions.',
+      about_vision: row.about_vision || 'To be Zimbabwe’s most trusted digital commercial infrastructure, connecting every verified enterprise, supplier, and household across all 10 provinces and the global Diaspora.',
+      core_values: parseJsonArray(row.core_values),
       extra_config: row.extra_config || {},
     };
   }
@@ -101,6 +141,16 @@ export class SettingsRepository {
     if (data.harare_address !== undefined) updatePayload.harare_address = data.harare_address;
     if (data.operating_hours !== undefined) updatePayload.operating_hours = data.operating_hours;
 
+    if (data.hero_headline !== undefined) updatePayload.hero_headline = data.hero_headline;
+    if (data.hero_subtitle !== undefined) updatePayload.hero_subtitle = data.hero_subtitle;
+    if (data.home_slides !== undefined) updatePayload.home_slides = JSON.stringify(data.home_slides);
+    if (data.why_reasons !== undefined) updatePayload.why_reasons = JSON.stringify(data.why_reasons);
+    if (data.process_steps !== undefined) updatePayload.process_steps = JSON.stringify(data.process_steps);
+    if (data.about_headline !== undefined) updatePayload.about_headline = data.about_headline;
+    if (data.about_mission !== undefined) updatePayload.about_mission = data.about_mission;
+    if (data.about_vision !== undefined) updatePayload.about_vision = data.about_vision;
+    if (data.core_values !== undefined) updatePayload.core_values = JSON.stringify(data.core_values);
+
     const [updated] = await db('platform_settings')
       .where('id', current.id)
       .update(updatePayload)
@@ -114,12 +164,34 @@ export class SettingsRepository {
       }
     }
 
+    const parseJsonArray = (val: any) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
     return {
       ...updated,
       usd_to_zig_rate: parseFloat(updated.usd_to_zig_rate?.toString() || '26.5'),
       monthly_subscription_price_usd: parseFloat(updated.monthly_subscription_price_usd?.toString() || '10.0'),
       sponsored_advert_price_usd: parseFloat(updated.sponsored_advert_price_usd?.toString() || '20.0'),
       free_grace_period_days: parseInt(updated.free_grace_period_days?.toString() || '30', 10),
+      hero_headline: updated.hero_headline || 'Connecting Zimbabwean Businesses, Customers & Everyday Trade',
+      hero_subtitle: updated.hero_subtitle || 'Discover verified local suppliers, shop marketplace items, find job vacancies, and recharge utility tokens across Harare, Bulawayo, Mutare, Gweru, and all 10 provinces.',
+      home_slides: parseJsonArray(updated.home_slides),
+      why_reasons: parseJsonArray(updated.why_reasons),
+      process_steps: parseJsonArray(updated.process_steps),
+      about_headline: updated.about_headline || 'Zimbabwe’s Unified Digital Commercial Infrastructure',
+      about_mission: updated.about_mission || 'Eliminating counterfeit supply risk and fragmented directories by providing a single, transparent, CR14-verified commercial network with predictable $10/month business subscriptions.',
+      about_vision: updated.about_vision || 'To be Zimbabwe’s most trusted digital commercial infrastructure, connecting every verified enterprise, supplier, and household across all 10 provinces and the global Diaspora.',
+      core_values: parseJsonArray(updated.core_values),
       extra_config: updated.extra_config || {},
     };
   }
