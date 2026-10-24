@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import '../infrastructure/database/dns-cache.js';
 import { env } from './env.js';
 
 const commonConfig: Knex.Config = {
@@ -15,9 +16,9 @@ const commonConfig: Knex.Config = {
     loadExtensions: ['.ts', '.js'],
   },
   pool: {
-    min: 0,
+    min: 2,
     max: 10,
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: 60_000,
     acquireTimeoutMillis: 30_000,
   },
   acquireConnectionTimeout: 30_000,

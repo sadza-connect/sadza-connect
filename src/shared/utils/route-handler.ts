@@ -91,15 +91,39 @@ export function errorResponse(
     'Unhandled internal error in API Route Handler',
   );
 
+  let clientMessage = 'An unexpected server error occurred. Please try again.';
+  if (errorObj.message) {
+    const raw = errorObj.message.toLowerCase();
+    if (
+      raw.includes('eai_again') ||
+      raw.includes('getaddrinfo') ||
+      raw.includes('etimedout') ||
+      raw.includes('econnrefused') ||
+      raw.includes('enotfound')
+    ) {
+      clientMessage =
+        'Unable to establish secure connection. Please check your internet connection and try again.';
+    } else if (
+      raw.includes('supabase') ||
+      raw.includes('postgres') ||
+      raw.includes('knex') ||
+      raw.includes('relation') ||
+      raw.includes('column') ||
+      raw.includes('database')
+    ) {
+      clientMessage =
+        'Service is temporarily unavailable. Please try again in a few moments.';
+    } else if (env.NODE_ENV === 'development') {
+      clientMessage = errorObj.message;
+    }
+  }
+
   return NextResponse.json(
     {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message:
-          env.NODE_ENV === 'development'
-            ? errorObj.message
-            : 'Internal server error',
+        message: clientMessage,
       },
       meta: {
         requestId,

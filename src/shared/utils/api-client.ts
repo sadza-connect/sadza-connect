@@ -95,11 +95,21 @@ async function executeSingleFetch<T = any>(
     }
 
     if (!res.ok) {
-      if (parsedBody?.error?.message) {
-        return { ok: false, status: res.status, error: parsedBody.error.message };
-      }
-      if (parsedBody?.message) {
-        return { ok: false, status: res.status, error: parsedBody.message };
+      const rawMsg = parsedBody?.error?.message || parsedBody?.message;
+      if (rawMsg) {
+        let msg = String(rawMsg);
+        const lower = msg.toLowerCase();
+        if (
+          lower.includes('getaddrinfo') ||
+          lower.includes('eai_again') ||
+          lower.includes('supabase') ||
+          lower.includes('postgres') ||
+          lower.includes('knex') ||
+          lower.includes('pooler')
+        ) {
+          msg = 'Unable to establish secure connection. Please check your internet connection and try again.';
+        }
+        return { ok: false, status: res.status, error: msg };
       }
 
       if (res.status === 404) {

@@ -1,3 +1,4 @@
+import './dns-cache.js';
 import knex, { type Knex } from 'knex';
 import config from '../../config/database.js';
 import { logger } from '../../shared/logging/logger.js';
