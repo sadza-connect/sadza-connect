@@ -12,6 +12,8 @@ This document compiles pending tasks, architectural specifications, and enhancem
 | **#2** | Complete Scrubbing of Internal Technical Jargon & Infrastructure Leaks (PostgreSQL, Supabase, etc.) | **High** | UI Polish, Brand trust, User registration/login spinners, Admin UI | Backlog / Ready for Implementation |
 | **#3** | Admin Table Skeleton Loaders & Eliminating False Empty-State Flashes Across All Sidebar Pages | **High** | Admin UX, Loading skeletons, Route transitions, In-memory cache | Backlog / Ready for Implementation |
 | **#4** | Purging Mock Fallbacks, Fabricated Reviews, and Hardcoded Demo Assets Across Platform | **High** | Data integrity, Real brand placeholders, Clean admin modals | Backlog / Ready for Implementation |
+| **#5** | Full Multi-Page CMS (Homepage, About Us & Contact Us) & Live Database Persistence Sync | **High** | Public CMS, Database persistence, Dynamic hero/slides/values/contact | Backlog / Ready for Implementation |
+| **#6** | Admin Security Hardening: Password-Protected Suspend/Delete Actions & Threat State Badges | **Critical** | Admin Auth, Re-auth modal, Suspended red badges, User delete button | Backlog / Ready for Implementation |
 
 ---
 
@@ -526,3 +528,191 @@ The following operational fallbacks are safe and essential for platform stabilit
 - [ ] **Phase 5: Global Audit & Production Build**
   - [ ] Verify that registering a business and creating a product produces 100% genuine data with zero unintended fallbacks.
   - [ ] Run `npx tsc --noEmit` and `npm run build` to verify clean compilation.
+
+---
+
+# GitHub Issue #5: Full Multi-Page CMS (Homepage, About Us & Contact Us) & Live Database Persistence Sync
+
+## 1. Feature Overview & Problem Statement
+In the Admin Console ([`/admin/content`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/app/admin/content/page.tsx)), the CMS allows Administrators to customize copy, headlines, value propositions, imagery, mission statements, and contact details across three core public pages:
+1. **Homepage (`/`)**
+2. **About Us Page (`/about`)**
+3. **Contact Us Page (`/contact`)**
+
+Currently, saving changes in this interface **fails to update the public site** for three reasons:
+1. **LocalStorage Isolation:** `handleSave()` executes `savePlatformSettings(settings)` which only commits to browser `localStorage`. It never dispatches an HTTP `PATCH` or `POST` to PostgreSQL.
+2. **Disconnected Component State:** Major content blocks (showcase banner slides, 4 Why Choose Us points, 4 How It Works steps, and 4 Core Operational Values) are held in temporary component `useState`. They are never passed to the persistence layer.
+3. **Hardcoded Public Pages:** Key public UI components ([`Hero.tsx`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/components/landing/Hero.tsx), [`CommercialPortalWorkspace.tsx`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/components/landing/CommercialPortalWorkspace.tsx), and [`about/page.tsx`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/app/about/page.tsx)) contain hardcoded text rather than reading from live database settings.
+
+---
+
+## 2. Multi-Page Scope & Content Specifications
+
+### A. Page 1: Homepage (`/`)
+The Administrator must have complete dynamic control over:
+* **Top Announcement Bar:** Announcement copy, active display toggle, and link target.
+* **Hero Section:** National Eyebrow, Main Headline (`hero_headline`), Subtitle/Tagline (`hero_subtitle`), and Primary Call-to-Action button label.
+* **Featured Commercial Showcase Banners (`home_slides`):** Array of banner cards (Image URL, Sector Tag, Alt/Caption, Destination URL).
+* **Why Choose Us Value Propositions (`why_reasons`):** 4 customizable value pillars (Title, Body description).
+* **How It Works Workflow Steps (`process_steps`):** 4 numbered onboarding and trading steps (Step Number, Title, Body).
+
+### B. Page 2: About Us (`/about`)
+The Administrator must have complete dynamic control over:
+* **Corporate Overview Eyebrow & Main Headline (`about_headline`):** Displayed prominently on the corporate header.
+* **Commercial Mission Statement (`about_mission`):** Detailed mission copy.
+* **National Mandate & Vision Statement (`about_vision`):** Detailed vision copy.
+* **Core Operational Values (`core_values`):** 4 operational pillars (Pillar Title, Body description).
+
+### C. Page 3: Contact Us (`/contact`) & Global Footer
+The Administrator must have complete dynamic control over:
+* **Official Support Email (`support_email`):** Updates the contact form destination, header badges, and footer.
+* **Primary Telephone Line (`support_phone`):** Click-to-call links across the website.
+* **Official WhatsApp Desk Number (`support_whatsapp`):** Generates live click-to-WhatsApp support links nationwide and for the Diaspora.
+* **Headquarters Physical Depot Address (`hq_address`):** Physical location copy displayed on the map card and footer.
+
+---
+
+## 3. Database Schema & API Specifications
+
+### A. Database Migration: `platform_settings` / `cms_content` Table
+Add JSONB and text columns to `platform_settings`:
+```sql
+ALTER TABLE platform_settings
+  ADD COLUMN IF NOT EXISTS hero_headline VARCHAR(255) DEFAULT 'Connecting Zimbabwean Businesses, Customers & Everyday Trade',
+  ADD COLUMN IF NOT EXISTS hero_subtitle TEXT DEFAULT 'Discover verified local suppliers, shop marketplace items, find job vacancies, and recharge utility tokens across Harare, Bulawayo, Mutare, Gweru, and all 10 provinces.',
+  ADD COLUMN IF NOT EXISTS home_slides JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS why_reasons JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS process_steps JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS about_headline VARCHAR(255) DEFAULT 'Zimbabwe’s Unified Digital Commercial Infrastructure',
+  ADD COLUMN IF NOT EXISTS about_mission TEXT,
+  ADD COLUMN IF NOT EXISTS about_vision TEXT,
+  ADD COLUMN IF NOT EXISTS core_values JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS support_email VARCHAR(255) DEFAULT 'support@sadzaconnect.co.zw',
+  ADD COLUMN IF NOT EXISTS support_phone VARCHAR(50) DEFAULT '+263 77 210 1101',
+  ADD COLUMN IF NOT EXISTS support_whatsapp VARCHAR(50) DEFAULT '263772101101',
+  ADD COLUMN IF NOT EXISTS hq_address TEXT DEFAULT '14 Samora Machel Avenue, Harare CBD, Zimbabwe';
+```
+
+### B. Backend API Endpoints
+1. **`GET /api/v1/cms` (Public, Cached):**
+   Returns full structured CMS content for all 3 pages (`home`, `about`, `contact`). Public pages fetch this on mount/SSR with ISR revalidation.
+2. **`PATCH /api/v1/cms` (Admin Authenticated):**
+   Accepts updated CMS fields, validates payload with Zod, and commits directly to PostgreSQL. Emits a cache purge so public visitors immediately see updated headlines and copy.
+
+---
+
+## 4. Implementation Checklist for Issue #5
+
+- [ ] **Phase 1: Database Migration & Schema Extension**
+  - [ ] Add CMS columns (`hero_headline`, `hero_subtitle`, `home_slides`, `why_reasons`, `process_steps`, `core_values`) to PostgreSQL schema.
+  - [ ] Update `settings-repository.ts` to read and write full multi-page CMS payloads.
+- [ ] **Phase 2: API Endpoints**
+  - [ ] Implement `GET /api/v1/cms` for public high-speed retrieval.
+  - [ ] Implement `PATCH /api/v1/cms` with admin JWT authorization.
+- [ ] **Phase 3: Admin CMS Interface (`src/app/admin/content/page.tsx`)**
+  - [ ] Wire `handleSave` to send an authenticated `PATCH /api/v1/cms` to the backend.
+  - [ ] Connect `homeSlides`, `whyReasons`, `processSteps`, `aboutVision`, `aboutMission`, and `coreValues` to the save payload.
+  - [ ] Pre-populate fields on page mount by fetching live database content.
+- [ ] **Phase 4: Public Frontend Binding**
+  - [ ] Update `Hero.tsx`: Bind `hero_headline` and `hero_subtitle` dynamically to database CMS.
+  - [ ] Update `AnnouncementBar.tsx`: Bind announcement text and badge dynamically.
+  - [ ] Update `src/app/about/page.tsx`: Bind `about_headline`, `about_mission`, `about_vision`, and `core_values` dynamically.
+  - [ ] Update `src/app/contact/page.tsx` & `Footer.tsx`: Bind support email, phone, WhatsApp link, and physical address dynamically.
+- [ ] **Phase 5: Verification & End-to-End Test**
+  - [ ] Edit homepage headline in Admin CMS -> verify change is visible on `/`.
+  - [ ] Edit mission statement in Admin CMS -> verify change is visible on `/about`.
+  - [ ] Edit support phone/address in Admin CMS -> verify change is visible on `/contact` and footer.
+
+---
+
+# GitHub Issue #6: Admin Security Hardening: Password-Protected Suspend/Delete Actions & Threat State Badges
+
+## 1. Feature Overview & Problem Statement
+Administrative operations on accounts and businesses require robust visual clarity and strict security safeguards. Currently, two major flaws exist in the Admin Console:
+1. **Misleading Visual Status on Suspended Accounts:**
+   When an Administrator suspends a user in [`/admin/users`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/app/admin/users/page.tsx), the table continues to display an **emerald green checkmark** (`CheckCircle2 text-emerald-500`) with green text! Suspended accounts look identical to active accounts, creating confusion.
+2. **Zero Security Verification on Destructive Actions:**
+   - Suspending an account runs immediately on a single click without confirmation or password verification.
+   - Deleting a business in `/admin/businesses` only uses a simple yes/no modal with no password requirement.
+   - Promoting a user to Super Administrator executes with zero re-authentication.
+   - There is **no Delete User button** in the Admin UI at all, despite the backend supporting soft deletion.
+
+---
+
+## 2. Visual State Management (Status Badges)
+
+In [`src/app/admin/users/page.tsx`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/app/admin/users/page.tsx):
+* **Suspended Status Badge (Danger State):**
+  - Background: `bg-red-50 dark:bg-red-950/40`
+  - Text: `text-red-700 dark:text-red-400 font-bold`
+  - Border: `border border-red-200 dark:border-red-900/60`
+  - Icon: `<ShieldAlert className="h-3 w-3 text-red-600 dark:text-red-400" />`
+  - Label: `"Suspended"`
+* **Active Status Badge (Healthy State):**
+  - Background: `bg-emerald-50 dark:bg-emerald-950/40`
+  - Text: `text-emerald-700 dark:text-emerald-400 font-medium`
+  - Border: `border border-emerald-200 dark:border-emerald-900/60`
+  - Icon: `<CheckCircle2 className="h-3 w-3 text-emerald-500" />`
+  - Label: `"Active"`
+* **User Profile Detail Modal:**
+  - If an account is suspended, render a prominent red alert banner across the top:
+    > *"This account is currently SUSPENDED. The user cannot access storefront portals or upload listings."*
+
+---
+
+## 3. Destructive Action Security: Admin Password Re-Authentication
+
+### A. Protected Operations
+The following high-consequence operations must require **Admin Password Re-Authentication**:
+1. **Suspend User Account**
+2. **Reactivate Suspended User Account**
+3. **Delete User Account** *(new button to be added)*
+4. **Delete Registered Business**
+5. **Elevate Role to Super Administrator**
+
+### B. `<AdminPasswordConfirmationModal />` Component
+Create a reusable security modal in [`src/components/admin/AdminUI.tsx`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/components/admin/AdminUI.tsx):
+* **Props:** `open: boolean`, `title: string`, `description: string`, `actionType: 'danger' | 'warning'`, `confirmLabel: string`, `onConfirm: (password: string) => Promise<void>`, `onClose: () => void`.
+* **Behavior:**
+  - Displays a clear consequence warning (e.g., *"You are about to permanently delete enterprise [Company Name]. This will revoke storefront access and deactivate active products."*).
+  - Renders a secure password input (`type="password"`) with eye-toggle visibility.
+  - "Authorize & Proceed" button disabled until password has at least 6 characters.
+  - Displays an active spinner during verification.
+
+### C. Backend Password Verification Endpoint (`POST /api/v1/auth/verify-password`)
+* **Request:** `{ password: string }` with Admin Bearer JWT.
+* **Backend Logic:**
+  1. Retrieves caller user record from `users` table via `getAuthenticatedUser()`.
+  2. Compares submitted password with `caller.password_hash` using `bcrypt.compare()`.
+  3. Returns `200 { valid: true }` if correct.
+  4. Returns `401 { error: 'Invalid administrator credentials' }` if incorrect.
+* **Destructive Endpoints Guard:**
+  Alternatively, require `admin_password` inside the payload of `DELETE /api/v1/users/[id]`, `PATCH /api/v1/users/[id]`, and `DELETE /api/v1/businesses/[slug]` to ensure backend-level atomic authorization.
+
+### D. User Account Deletion Feature in UI
+* Add a **"Delete Account"** button in [`src/app/admin/users/page.tsx`](file:///home/levibliz/Desktop/LeviOnChain/Sadza_Conneect/src/app/admin/users/page.tsx) inside the User Details Modal.
+* Clicking opens `<AdminPasswordConfirmationModal />`.
+* Upon verified password input, executes `DELETE /api/v1/users/${user.id}`.
+* Automatically cascades: deactivates any businesses and products owned by that user.
+
+---
+
+## 4. Implementation Checklist for Issue #6
+
+- [ ] **Phase 1: Status Badge Color & Threat Styling**
+  - [ ] Update table status rendering in `src/app/admin/users/page.tsx`: Suspended -> Red badge with `<ShieldAlert />`; Active -> Green badge with `<CheckCircle2 />`.
+  - [ ] Add suspended threat alert banner inside the User Details Modal.
+- [ ] **Phase 2: Re-Authentication Modal Component**
+  - [ ] Build `<AdminPasswordConfirmationModal />` in `src/components/admin/AdminUI.tsx` with secure password input and consequence warnings.
+- [ ] **Phase 3: Backend Verification Endpoint**
+  - [ ] Implement `POST /api/v1/auth/verify-password` using bcrypt compare against active admin session.
+  - [ ] Add password validation guard to `DELETE /api/v1/users/[id]` and `DELETE /api/v1/businesses/[slug]`.
+- [ ] **Phase 4: User Deletion UI & Action Wiring**
+  - [ ] Add "Delete Account" button in `src/app/admin/users/page.tsx`.
+  - [ ] Wire Suspend, Reactivate, Delete User, and Promote Admin buttons to trigger `<AdminPasswordConfirmationModal />`.
+  - [ ] Wire Delete Business in `src/app/admin/businesses/page.tsx` to trigger `<AdminPasswordConfirmationModal />`.
+- [ ] **Phase 5: Data Cascade & Deactivation**
+  - [ ] Ensure deleting/suspending a user automatically hides their active listings from public search.
+- [ ] **Phase 6: QA & Security Testing**
+  - [ ] Test wrong password: verify action is strictly blocked and error toast is displayed.
+  - [ ] Test correct password: verify action succeeds and UI updates immediately.
