@@ -2051,7 +2051,7 @@ function BusinessOnboardingContent() {
         <ActionLoader
           isVisible={isSubmitting}
           title="Registering Your Business..."
-          subtitle="Creating storefront directory listing and provisioning KYC profile in PostgreSQL..."
+          subtitle="Creating storefront directory listing and provisioning verified KYC compliance profile..."
         />
       </main>
     </div>

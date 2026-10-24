@@ -122,7 +122,7 @@ export async function DELETE(
       if (user.role === 'admin') {
         return jsonResponse(
           {
-            message: 'Advert is not in database or already deleted.',
+            message: 'Advert was not found or has already been deleted.',
           },
           requestId,
           200

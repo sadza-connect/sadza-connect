@@ -331,7 +331,7 @@ export default function AdminUsersPage() {
 
       toast({
         title: newRole === 'Admin' ? 'Administrator Created' : 'User Account Created',
-        description: `${newName} has been provisioned as ${newRole} in PostgreSQL database.`,
+        description: `${newName} has been successfully provisioned as ${newRole}.`,
         variant: 'success',
       });
 
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
 
       toast({
         title: 'Role Updated',
-        description: `Account role updated to ${newDbRole.toUpperCase()} in database.`,
+        description: `Account role successfully updated to ${newDbRole.toUpperCase()}.`,
         variant: 'success',
       });
 
@@ -448,7 +448,7 @@ export default function AdminUsersPage() {
             variant="outline"
             onClick={() => fetchUsersFromDb()}
             disabled={isLoadingUsers}
-            title="Reload users from PostgreSQL"
+            title="Reload users list"
           >
             <RefreshCw className={`h-4 w-4 ${isLoadingUsers ? 'animate-spin' : ''}`} />
             Refresh

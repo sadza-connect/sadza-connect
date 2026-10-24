@@ -175,21 +175,21 @@ export default function AdminAnalyticsPage() {
     <div className="space-y-6">
       <AdminPageHeader
         title="Website Traffic & Pageview Analytics"
-        description={`Real-time visitor tracking, provincial origin, and section pageview breakdown from PostgreSQL telemetry for ${activeTimeframe.label}.`}
+        description={`Real-time visitor tracking, provincial origin, and section pageview breakdown from live platform telemetry for ${activeTimeframe.label}.`}
       >
         <div className="flex flex-wrap items-center gap-3">
           <AdminButton
             variant="outline"
             onClick={loadLiveStats}
             disabled={loading}
-            title="Refresh database analytics"
+            title="Refresh platform analytics"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Sync Telemetry
           </AdminButton>
 
           <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" /> PostgreSQL Telemetry
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Live Platform Telemetry
           </span>
 
           <span className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-[#c8d2e0] bg-white px-3 py-2 text-xs font-semibold text-[#1f2a3d] shadow-2xs">
@@ -217,7 +217,7 @@ export default function AdminAnalyticsPage() {
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total Database Pageviews"
+          label="Total Platform Pageviews"
           value={totalViews.toLocaleString()}
           delta={12}
           trend="up"
@@ -225,17 +225,17 @@ export default function AdminAnalyticsPage() {
           icon={Eye}
         />
         <StatCard
-          label="Database Verified Enterprises"
+          label="Verified Enterprises"
           value={dbStats.businesses}
           trend="up"
-          hint="Active listed companies in PostgreSQL"
+          hint="Active verified companies listed"
           icon={Building2}
         />
         <StatCard
           label="Marketplace Products"
           value={dbStats.products}
           trend="up"
-          hint="Catalogue inventory items in PostgreSQL"
+          hint="Catalogue inventory items published"
           icon={ShoppingBag}
         />
         <StatCard
@@ -252,7 +252,7 @@ export default function AdminAnalyticsPage() {
         <Panel className="lg:col-span-2">
           <PanelHeading
             title="Section Pageview Breakdown"
-            hint={`Distribution calculated from PostgreSQL active records (${activeTimeframe.label})`}
+            hint={`Distribution calculated from active platform records (${activeTimeframe.label})`}
           />
 
           <div className="mt-6 space-y-5">

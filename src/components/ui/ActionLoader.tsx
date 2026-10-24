@@ -63,7 +63,7 @@ export function ActionLoader({
         {/* Safe Transaction Notice */}
         <div className="relative mt-4 flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-400">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Encrypted PostgreSQL Data Link</span>
+          <span>256-Bit Encrypted Secure Connection</span>
         </div>
       </div>
     </div>
