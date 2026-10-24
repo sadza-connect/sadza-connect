@@ -11,6 +11,10 @@ import {
   ChevronDown,
   X,
   Loader2,
+  ShieldAlert,
+  Eye,
+  EyeOff,
+  Lock,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
@@ -1005,6 +1009,138 @@ export function ConfirmModal({
           {confirmLabel}
         </AdminButton>
       </ModalFooter>
+    </AdminModal>
+  );
+}
+
+export interface AdminPasswordConfirmationModalProps {
+  open: boolean;
+  title: React.ReactNode;
+  description: React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  actionType?: 'danger' | 'warning';
+  onConfirm: (password: string) => Promise<void> | void;
+  onClose: () => void;
+}
+
+export function AdminPasswordConfirmationModal({
+  open,
+  title,
+  description,
+  confirmLabel = 'Authorize & Proceed',
+  cancelLabel = 'Cancel',
+  actionType = 'danger',
+  onConfirm,
+  onClose,
+}: AdminPasswordConfirmationModalProps) {
+  const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setPassword('');
+      setError(null);
+      setLoading(false);
+      setShowPassword(false);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password || password.length < 6) {
+      setError('Please enter your administrator password (at least 6 characters).');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      await onConfirm(password);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Password verification failed. Please check credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AdminModal
+      open={open}
+      onClose={() => {
+        if (!loading) onClose();
+      }}
+      size="sm"
+      title={title}
+      icon={actionType === 'danger' ? ShieldAlert : Lock}
+      tone={actionType === 'danger' ? 'danger' : 'default'}
+    >
+      <form onSubmit={handleSubmit}>
+        <ModalBody>
+          <div className="space-y-4">
+            <div className="text-sm leading-relaxed text-[#374966]">
+              {description}
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+              <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <strong>Administrator Verification:</strong> Re-enter your password to authorize this destructive operation.
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-[#0a1018]">
+                Administrator Password <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="Enter your admin password…"
+                  disabled={loading}
+                  autoFocus
+                  className="h-10 w-full rounded-xl border border-[#c8d2e0] bg-white px-3.5 pr-10 text-sm text-[#0a1018] outline-none transition-colors placeholder:text-[#6b81a5] focus:border-[#1e57eb] focus:ring-1 focus:ring-[#1e57eb]"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b81a5] hover:text-[#0a1018]"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {error && <p className="text-xs font-semibold text-red-600 mt-1">{error}</p>}
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <AdminButton
+            variant="outline"
+            type="button"
+            disabled={loading}
+            onClick={onClose}
+          >
+            {cancelLabel}
+          </AdminButton>
+          <AdminButton
+            variant={actionType === 'danger' ? 'danger' : 'primary'}
+            type="submit"
+            loading={loading}
+            disabled={loading || password.length < 6}
+          >
+            {confirmLabel}
+          </AdminButton>
+        </ModalFooter>
+      </form>
     </AdminModal>
   );
 }

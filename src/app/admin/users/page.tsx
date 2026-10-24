@@ -19,6 +19,7 @@ import {
   Key,
   RefreshCw,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -37,6 +38,7 @@ import {
   EmptyState,
   TableSkeleton,
   AdminModal,
+  AdminPasswordConfirmationModal,
   ModalBody,
   ModalSection,
   ModalGrid,
@@ -438,6 +440,130 @@ export default function AdminUsersPage() {
     }
   }
 
+  // Security Re-Authentication Modal State
+  const [securityModal, setSecurityModal] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel: string;
+    actionType: 'danger' | 'warning';
+    onConfirmAction: () => Promise<void>;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Authorize',
+    actionType: 'danger',
+    onConfirmAction: async () => {},
+  });
+
+  const requestSecurityAuth = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    actionType: 'danger' | 'warning',
+    action: () => Promise<void>
+  ) => {
+    setSecurityModal({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      actionType,
+      onConfirmAction: action,
+    });
+  };
+
+  async function handleVerifyAndExecute(password: string) {
+    const res = await fetch('/api/v1/auth/verify-password', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ password }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error?.message || json.message || 'Invalid administrator credentials');
+    }
+    await securityModal.onConfirmAction();
+  }
+
+  function promptSuspendUser(user: UserRecord) {
+    requestSecurityAuth(
+      `Suspend Account: ${user.name}`,
+      `You are about to suspend ${user.name} (${user.email}). The user will immediately be barred from logging in, managing listings, and accessing storefront services.`,
+      'Suspend Account',
+      'danger',
+      () => handleUpdateStatus(user.id, 'suspended')
+    );
+  }
+
+  function promptReactivateUser(user: UserRecord) {
+    requestSecurityAuth(
+      `Reactivate Account: ${user.name}`,
+      `You are about to restore full access for ${user.name} (${user.email}).`,
+      'Reactivate Account',
+      'warning',
+      () => handleUpdateStatus(user.id, 'active')
+    );
+  }
+
+  function promptPromoteAdmin(user: UserRecord) {
+    requestSecurityAuth(
+      `Elevate to Super Administrator: ${user.name}`,
+      `CRITICAL SECURITY ACTION: You are granting FULL Administrative privileges to ${user.name} (${user.email}). This user will have unrestricted access to manage platform content, billing, user accounts, and databases.`,
+      'Authorize Admin Role',
+      'danger',
+      () => handleUpdateRole(user.id, 'admin')
+    );
+  }
+
+  function promptDemoteAdmin(user: UserRecord) {
+    requestSecurityAuth(
+      `Demote Administrator: ${user.name}`,
+      `You are removing administrator privileges from ${user.name} (${user.email}).`,
+      'Demote Role',
+      'warning',
+      () => handleUpdateRole(user.id, 'merchant')
+    );
+  }
+
+  function promptDeleteUser(user: UserRecord) {
+    requestSecurityAuth(
+      `Permanently Delete User Account: ${user.name}`,
+      `PERMANENT DELETION: You are about to delete ${user.name} (${user.email}). This account will be removed, and all associated businesses and listings will be deactivated. This action cannot be undone.`,
+      'Delete Account Permanently',
+      'danger',
+      async () => {
+        try {
+          setActionLoadingId(user.id);
+          const res = await fetch(`/api/v1/users/${user.id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            throw new Error(json.error?.message || json.message || 'Failed to delete user account');
+          }
+          toast({
+            title: 'Account Deleted',
+            description: `User account for ${user.name} has been deleted.`,
+            variant: 'success',
+          });
+          setSelectedUser(null);
+          await fetchUsersFromDb();
+        } catch (err: any) {
+          toast({
+            title: 'Account Deletion Failed',
+            description: err.message || 'Could not delete user account.',
+            variant: 'error',
+          });
+        } finally {
+          setActionLoadingId(null);
+        }
+      }
+    );
+  }
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -565,10 +691,17 @@ export default function AdminUsersPage() {
                         >
                           {user.role}
                         </AdminBadge>
-                        <span className="text-[0.68rem] text-emerald-700 font-medium flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                          {user.status}
-                        </span>
+                        {user.status === 'Suspended' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.68rem] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            <ShieldAlert className="h-3 w-3 text-rose-600" />
+                            Suspended
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[0.68rem] text-emerald-700 font-medium">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                            Active
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
@@ -622,6 +755,16 @@ export default function AdminUsersPage() {
         {selectedUser && (
           <div className="flex flex-col flex-1 min-h-0">
             <ModalBody>
+              {selectedUser.status === 'Suspended' && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-900 flex items-start gap-2.5">
+                  <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">This account is currently SUSPENDED.</p>
+                    <p className="mt-0.5 text-rose-700">The user cannot access storefront portals, manage inventories, or upload listings.</p>
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs uppercase tracking-wider text-slate-400 font-semibold">
@@ -656,7 +799,7 @@ export default function AdminUsersPage() {
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[0.7rem] uppercase tracking-wider text-slate-500 font-bold">
-                    Access & Role Controls
+                    Access & Role Controls (Password Protected)
                   </span>
                   {actionLoadingId === selectedUser.id && (
                     <span className="text-xs text-[#1e57eb] flex items-center gap-1 font-medium">
@@ -669,8 +812,8 @@ export default function AdminUsersPage() {
                     <button
                       type="button"
                       disabled={actionLoadingId === selectedUser.id}
-                      onClick={() => handleUpdateRole(selectedUser.id, 'admin')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e57eb] bg-[#1e57eb] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1947c2] transition disabled:opacity-50"
+                      onClick={() => promptPromoteAdmin(selectedUser)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#1e57eb] bg-[#1e57eb] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1947c2] transition disabled:opacity-50 cursor-pointer"
                     >
                       <ShieldCheck className="h-3.5 w-3.5" />
                       Promote to Admin
@@ -679,8 +822,8 @@ export default function AdminUsersPage() {
                     <button
                       type="button"
                       disabled={actionLoadingId === selectedUser.id}
-                      onClick={() => handleUpdateRole(selectedUser.id, 'merchant')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition disabled:opacity-50"
+                      onClick={() => promptDemoteAdmin(selectedUser)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition disabled:opacity-50 cursor-pointer"
                     >
                       <ShieldX className="h-3.5 w-3.5" />
                       Demote to Merchant
@@ -691,8 +834,8 @@ export default function AdminUsersPage() {
                     <button
                       type="button"
                       disabled={actionLoadingId === selectedUser.id}
-                      onClick={() => handleUpdateStatus(selectedUser.id, 'suspended')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition disabled:opacity-50"
+                      onClick={() => promptSuspendUser(selectedUser)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition disabled:opacity-50 cursor-pointer"
                     >
                       <ShieldAlert className="h-3.5 w-3.5" />
                       Suspend Account
@@ -701,13 +844,23 @@ export default function AdminUsersPage() {
                     <button
                       type="button"
                       disabled={actionLoadingId === selectedUser.id}
-                      onClick={() => handleUpdateStatus(selectedUser.id, 'active')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50"
+                      onClick={() => promptReactivateUser(selectedUser)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50 cursor-pointer"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Reactivate Account
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    disabled={actionLoadingId === selectedUser.id}
+                    onClick={() => promptDeleteUser(selectedUser)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition disabled:opacity-50 cursor-pointer ml-auto"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Account
+                  </button>
                 </div>
               </div>
             </ModalBody>
@@ -946,6 +1099,17 @@ export default function AdminUsersPage() {
           </ModalFooter>
         </form>
       </AdminModal>
+
+      {/* Security Re-Authentication Confirmation Modal */}
+      <AdminPasswordConfirmationModal
+        open={securityModal.open}
+        onClose={() => setSecurityModal((prev) => ({ ...prev, open: false }))}
+        title={securityModal.title}
+        description={securityModal.description}
+        confirmLabel={securityModal.confirmLabel}
+        actionType={securityModal.actionType}
+        onConfirm={handleVerifyAndExecute}
+      />
     </div>
   );
 }

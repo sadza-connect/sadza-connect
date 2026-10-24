@@ -36,6 +36,7 @@ import {
   ModalFooter,
   ModalToggle,
   ConfirmModal,
+  AdminPasswordConfirmationModal,
 } from '@/components/admin/AdminUI';
 import { ImageUploader, GalleryItem } from '@/components/admin/ImageUploader';
 import {
@@ -808,33 +809,49 @@ export default function AdminBusinessesPage() {
         </form>
       </AdminModal>
 
-      <ConfirmModal
+      <AdminPasswordConfirmationModal
         open={Boolean(deletingBiz)}
         onClose={() => setDeletingBiz(null)}
-        icon={Trash2}
-        title="Delete this business?"
-        message={
+        title={deletingBiz ? `Delete Enterprise: ${deletingBiz.name}` : 'Delete Business'}
+        description={
           <>
             <strong className="text-[#0a1018]">{deletingBiz?.name}</strong> will be removed from the
-            directory. This can’t be undone.
+            directory along with its storefront listings and enquiry links. This action cannot be undone.
           </>
         }
-        confirmLabel="Delete business"
-        onConfirm={async () => {
-          if (deletingBiz) {
-            try {
-              await fetch(`/api/v1/businesses/${encodeURIComponent(deletingBiz.slug)}`, {
-                method: 'DELETE',
-              });
-            } catch (err) {
-              console.error('Failed to delete business from database:', err);
-            }
-            const next = businesses.filter((b) => b.id !== deletingBiz.id);
-            saveStoredBusinesses(next);
-            setBusinesses(next);
-            showToast(`Removed ${deletingBiz.name}`);
-            setDeletingBiz(null);
+        confirmLabel="Authorize & Delete"
+        actionType="danger"
+        onConfirm={async (password: string) => {
+          if (!deletingBiz) return;
+          const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+          const vRes = await fetch('/api/v1/auth/verify-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: 'include',
+            body: JSON.stringify({ password }),
+          });
+          const vJson = await vRes.json();
+          if (!vRes.ok) {
+            throw new Error(vJson.error?.message || vJson.message || 'Invalid administrator credentials');
           }
+
+          try {
+            await fetch(`/api/v1/businesses/${encodeURIComponent(deletingBiz.slug)}`, {
+              method: 'DELETE',
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              credentials: 'include',
+            });
+          } catch (err) {
+            console.error('Failed to delete business from database:', err);
+          }
+          const next = businesses.filter((b) => b.id !== deletingBiz.id);
+          saveStoredBusinesses(next);
+          setBusinesses(next);
+          showToast(`Removed ${deletingBiz.name}`);
+          setDeletingBiz(null);
         }}
       />
     </div>
