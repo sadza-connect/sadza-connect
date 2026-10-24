@@ -27,11 +27,9 @@ export function mapDbAdvertToPaidAdvert(ad: any): PaidAdvertItem {
     promoPriceUSD: promoUsd,
     priceZiG: priceZig,
     validUntil: ad.valid_until || 'Valid this month',
-    whatsapp: ad.whatsapp ? String(ad.whatsapp).replace(/\D/g, '') : '263772111222',
-    phone: ad.phone ? String(ad.phone) : '+263 77 211 1222',
-    image:
-      ad.image ||
-      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+    whatsapp: ad.whatsapp ? String(ad.whatsapp).replace(/\D/g, '') : '',
+    phone: ad.phone ? String(ad.phone) : '',
+    image: ad.image || '',
     featuredOnHome: Boolean(ad.featured_on_home),
     postedAt: ad.created_at ? new Date(ad.created_at).toLocaleDateString('en-GB') : 'Recently Listed',
   };

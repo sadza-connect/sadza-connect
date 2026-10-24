@@ -112,9 +112,7 @@ export async function POST(req: NextRequest) {
       national_id: body.national_id?.trim() || null,
       status: body.status || 'Active',
       qr_code_payload: verificationUrl,
-      photo_url:
-        body.photo_url ||
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      photo_url: body.photo_url?.trim() || null,
     });
 
     return jsonResponse(

@@ -310,15 +310,24 @@ export default function BusinessesDirectoryPage() {
                   >
                     <div>
                       {/* Image Header */}
-                      <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <Image
-                          src={biz.image}
-                          alt={biz.name}
-                          fill
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
+                      <div className="relative h-44 w-full bg-slate-900 overflow-hidden flex items-center justify-center">
+                        {biz.image ? (
+                          <>
+                            <Image
+                              src={biz.image}
+                              alt={biz.name}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                            <Building2 className="w-12 h-12 text-slate-600 mb-1" />
+                            <span className="text-xs font-semibold text-slate-300 line-clamp-1">{biz.name}</span>
+                          </div>
+                        )}
 
                         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                           <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-900/85 text-white backdrop-blur-xs">
@@ -356,7 +365,7 @@ export default function BusinessesDirectoryPage() {
                           </span>
                           <span className="flex items-center gap-1 font-semibold bg-slate-900/75 px-2.5 py-0.5 rounded-md">
                             <Star className="w-3.5 h-3.5 text-amber-400 fill-current" />
-                            {biz.rating} ({biz.reviewCount})
+                            {biz.reviewCount > 0 ? `${biz.rating} (${biz.reviewCount})` : 'New'}
                           </span>
                         </div>
                       </div>

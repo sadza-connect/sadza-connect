@@ -251,13 +251,22 @@ export default function MarketplacePage() {
                 >
                   <div>
                     <div className="relative h-48 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <Image
-                        src={prod.image}
-                        alt={prod.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 25vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      {prod.image ? (
+                        <Image
+                          src={prod.image}
+                          alt={prod.title}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 25vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                          <ShoppingBag className="h-10 w-10 stroke-[1.5] text-slate-300 dark:text-slate-600" />
+                          <span className="mt-2 text-xs font-semibold text-slate-400 dark:text-slate-500">
+                            No Photo Provided
+                          </span>
+                        </div>
+                      )}
                       <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                         <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-900/85 text-white">
                           {prod.movementBadge}

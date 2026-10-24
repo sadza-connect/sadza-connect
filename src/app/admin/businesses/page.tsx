@@ -95,12 +95,12 @@ export default function AdminBusinessesPage() {
     whatsapp: '26377',
     email: '',
     description: '',
-    services: 'Commercial Supply, Nationwide Delivery, Technical Support',
+    services: '',
     openingHours: 'Mon - Sat: 08:00 - 17:00',
     subscriptionStatus: 'Month 1 Grace Period' as BusinessListing['subscriptionStatus'],
     graceDaysRemaining: '30',
     customMonthlyPriceUsd: '',
-    cr14Verified: true,
+    cr14Verified: false,
     featured: false,
     images: [] as GalleryItem[],
   });
@@ -172,19 +172,14 @@ export default function AdminBusinessesPage() {
       whatsapp: '26377',
       email: '',
       description: '',
-      services: 'Commercial Supply, Nationwide Delivery, Technical Support',
+      services: '',
       openingHours: 'Mon - Sat: 08:00 - 17:00',
       subscriptionStatus: 'Month 1 Grace Period',
       graceDaysRemaining: '30',
       customMonthlyPriceUsd: '',
-      cr14Verified: true,
+      cr14Verified: false,
       featured: false,
-      images: [
-        {
-          src: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
-          caption: 'Enterprise Cover Photo',
-        },
-      ],
+      images: [],
     });
     setFormOpen(true);
   }
@@ -198,7 +193,7 @@ export default function AdminBusinessesPage() {
       address: b.address,
       phone: b.phone,
       whatsapp: b.whatsapp,
-      email: b.email || `info@${b.slug}.co.zw`,
+      email: b.email || '',
       description: b.description,
       services: (b.services || []).join(', '),
       openingHours: b.openingHours || 'Mon - Sat: 08:00 - 17:00',
@@ -219,9 +214,7 @@ export default function AdminBusinessesPage() {
     e.preventDefault();
     const catObj =
       BUSINESS_CATEGORIES.find((c) => c.name === form.categoryName) || BUSINESS_CATEGORIES[0];
-    const coverImg =
-      form.images[0]?.src ||
-      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+    const coverImg = form.images[0]?.src || '';
     const parsedServices = form.services
       .split(',')
       .map((s) => s.trim())

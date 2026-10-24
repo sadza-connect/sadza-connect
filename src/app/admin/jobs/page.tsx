@@ -70,14 +70,13 @@ export default function AdminJobsPage() {
   const [form, setForm] = useState({
     title: '',
     selectedBusinessId: '',
-    company: 'SunPower Solar & Inverters Zimbabwe',
+    company: '',
     province: 'Harare',
     type: 'Full-time' as JobOpening['type'],
-    salaryUsd: '$500 – $750 USD / month',
+    salaryUsd: '',
     description: '',
-    requirements:
-      'National Diploma in Electrical Engineering\nMinimum 3 years commercial solar experience\nClean Class 4 Driver License',
-    whatsapp: '263772101101',
+    requirements: '',
+    whatsapp: '',
   });
 
   useEffect(() => {
@@ -166,14 +165,13 @@ export default function AdminJobsPage() {
     setForm({
       title: '',
       selectedBusinessId: firstBiz ? firstBiz.id : '',
-      company: firstBiz ? firstBiz.name : 'SunPower Solar & Inverters Zimbabwe',
+      company: firstBiz ? firstBiz.name : '',
       province: 'Harare',
       type: 'Full-time',
-      salaryUsd: '$500 – $750 USD / month',
+      salaryUsd: '',
       description: '',
-      requirements:
-        'National Diploma or Trade Certificate\n3+ years practical field experience\nClean Class 4 Driver License',
-      whatsapp: '263772101101',
+      requirements: '',
+      whatsapp: '',
     });
     setPosModalOpen(true);
   }

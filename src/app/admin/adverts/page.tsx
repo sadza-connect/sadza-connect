@@ -54,19 +54,19 @@ export default function AdminAdvertsPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    businessName: 'SunPower Solar & Inverters Zimbabwe',
+    businessName: '',
     category: BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy',
     province: 'Harare',
     offerType: 'Special Package' as PaidAdvertItem['offerType'],
     headline: '',
     offerText: '',
-    promoBadge: 'SAVE 15% THIS MONTH',
-    originalPriceUsd: '1450',
-    promoPriceUsd: '1250',
-    validUntil: 'Valid 30 Days',
-    whatsapp: '263772101101',
-    phone: '+263 77 210 1101',
-    pinnedToHome: true,
+    promoBadge: '',
+    originalPriceUsd: '',
+    promoPriceUsd: '',
+    validUntil: '',
+    whatsapp: '',
+    phone: '',
+    pinnedToHome: false,
     images: [] as GalleryItem[],
   });
 
@@ -119,25 +119,20 @@ export default function AdminAdvertsPage() {
   function openCreate() {
     setEditingId(null);
     setForm({
-      businessName: 'SunPower Solar & Inverters Zimbabwe',
+      businessName: '',
       category: BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy',
       province: 'Harare',
       offerType: 'Special Package',
       headline: '',
       offerText: '',
-      promoBadge: 'SPONSORED DEAL • SAVE 20%',
-      originalPriceUsd: '950',
-      promoPriceUsd: '790',
-      validUntil: 'Valid 30 Days',
-      whatsapp: '263772101101',
-      phone: '+263 77 210 1101',
-      pinnedToHome: true,
-      images: [
-        {
-          src: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
-          caption: 'Advert Banner',
-        },
-      ],
+      promoBadge: '',
+      originalPriceUsd: '',
+      promoPriceUsd: '',
+      validUntil: '',
+      whatsapp: '',
+      phone: '',
+      pinnedToHome: false,
+      images: [],
     });
     setFormOpen(true);
   }
@@ -165,9 +160,7 @@ export default function AdminAdvertsPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const imgSrc =
-      form.images[0]?.src ||
-      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+    const imgSrc = form.images[0]?.src || '';
 
     const origUsd = Number(form.originalPriceUsd) || undefined;
     const promoUsd = Number(form.promoPriceUsd) || undefined;
@@ -390,11 +383,17 @@ export default function AdminAdvertsPage() {
                   <tr key={ad.id} className="transition-colors hover:bg-[#f4f6f9]/60">
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={ad.image}
-                          alt={ad.headline}
-                          className="h-11 w-14 shrink-0 rounded-xl object-cover border border-[#c8d2e0]"
-                        />
+                        {ad.image ? (
+                          <img
+                            src={ad.image}
+                            alt={ad.headline}
+                            className="h-11 w-14 shrink-0 rounded-xl object-cover border border-[#c8d2e0]"
+                          />
+                        ) : (
+                          <div className="h-11 w-14 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center border border-[#c8d2e0] text-slate-400">
+                            <Megaphone className="h-5 w-5 text-amber-500" />
+                          </div>
+                        )}
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-[#1e57eb]">
                             {ad.promoBadge}

@@ -106,13 +106,22 @@ export default function ProductDetailPage() {
             {/* Left Col: Product Image & Full Specs */}
             <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
               <div className="relative h-64 sm:h-96 w-full bg-slate-100 dark:bg-slate-800">
-                <Image
-                  src={product.image}
-                  alt={product.title}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 66vw"
-                  className="object-cover"
-                />
+                {product.image ? (
+                  <Image
+                    src={product.image}
+                    alt={product.title}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 66vw"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                    <Package className="h-16 w-16 stroke-[1.5] text-slate-300 dark:text-slate-600" />
+                    <span className="mt-2 text-sm font-semibold text-slate-400 dark:text-slate-500">
+                      No Photo Provided by Seller
+                    </span>
+                  </div>
+                )}
                 <div className="absolute top-4 left-4 flex flex-wrap gap-2">
                   <span className="px-3 py-1 rounded-md text-xs font-semibold bg-slate-900/85 text-white">
                     {product.category}

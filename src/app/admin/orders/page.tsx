@@ -79,7 +79,7 @@ export default function AdminOrdersPage() {
     phone: '+263 77 ',
     province: 'Harare',
     address: '',
-    supplierName: 'SunPower Solar & Inverters Zimbabwe',
+    supplierName: '',
     items: '',
     amountUsd: '',
     status: 'Processing' as AdminOrderItem['status'],

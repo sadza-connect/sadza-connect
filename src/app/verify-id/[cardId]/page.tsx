@@ -10,6 +10,7 @@ import {
   QrCode,
   ArrowLeft,
   Lock,
+  User,
 } from 'lucide-react';
 import { idCardRepository } from '@/infrastructure/database/repositories/id-card-repository';
 import { Navbar } from '@/components/landing/Navbar';
@@ -90,14 +91,17 @@ export default async function VerifyIdPage({
 
               {/* Member Profile Dossier */}
               <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800">
-                <img
-                  src={
-                    card.photo_url ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
-                  }
-                  alt={card.member_name}
-                  className="w-24 h-24 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm shrink-0"
-                />
+                {card.photo_url ? (
+                  <img
+                    src={card.photo_url}
+                    alt={card.member_name}
+                    className="w-24 h-24 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm shrink-0"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-2xl bg-slate-200 dark:bg-slate-800 border-2 border-emerald-500 shadow-sm shrink-0 flex items-center justify-center text-slate-400">
+                    <User className="w-12 h-12" />
+                  </div>
+                )}
                 <div className="text-center sm:text-left min-w-0">
                   <h2 className="text-xl font-bold text-slate-950 dark:text-white truncate">
                     {card.member_name}

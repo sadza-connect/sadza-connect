@@ -179,7 +179,7 @@ export default function BusinessDashboardPage() {
   const [payMethod, setPayMethod] = useState<
     'EcoCash USD' | 'InnBucks' | 'Visa / Mastercard' | 'Bank Transfer'
   >('EcoCash USD');
-  const [payPhone, setPayPhone] = useState('+263 77 333 3444');
+  const [payPhone, setPayPhone] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<BusinessSubscriptionInvoice | null>(null);
 
   // Product Form Modal
@@ -188,12 +188,10 @@ export default function BusinessDashboardPage() {
   const [prodCategory, setProdCategory] = useState<string>(
     BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy'
   );
-  const [prodPriceUsd, setProdPriceUsd] = useState('120');
-  const [prodUnit, setProdUnit] = useState('Per Unit / Kit');
-  const [prodStockNote, setProdStockNote] = useState('In Stock • Immediate Dispatch');
-  const [prodImages, setProdImages] = useState<UploadedMediaItem[]>([
-    { src: PRESET_PRODUCT_IMAGES[0], caption: 'Primary Product Photo' },
-  ]);
+  const [prodPriceUsd, setProdPriceUsd] = useState('');
+  const [prodUnit, setProdUnit] = useState('Per Unit');
+  const [prodStockNote, setProdStockNote] = useState('');
+  const [prodImages, setProdImages] = useState<UploadedMediaItem[]>([]);
   const [prodDesc, setProdDesc] = useState('');
 
   // Advert Form Modal
@@ -202,14 +200,12 @@ export default function BusinessDashboardPage() {
   const [adOfferType, setAdOfferType] = useState<
     'Bulk / Wholesale' | 'Price Discount' | 'Free Delivery' | 'Special Package'
   >('Special Package');
-  const [adPromoBadge, setAdPromoBadge] = useState('SAVE 15% THIS MONTH');
-  const [adOrigUsd, setAdOrigUsd] = useState('250');
-  const [adPromoUsd, setAdPromoUsd] = useState('210');
-  const [adValidUntil, setAdValidUntil] = useState('Valid 30 days');
+  const [adPromoBadge, setAdPromoBadge] = useState('');
+  const [adOrigUsd, setAdOrigUsd] = useState('');
+  const [adPromoUsd, setAdPromoUsd] = useState('');
+  const [adValidUntil, setAdValidUntil] = useState('');
   const [adOfferText, setAdOfferText] = useState('');
-  const [adImages, setAdImages] = useState<UploadedMediaItem[]>([
-    { src: PRESET_PRODUCT_IMAGES[0], caption: 'Sponsored Banner Creative' },
-  ]);
+  const [adImages, setAdImages] = useState<UploadedMediaItem[]>([]);
 
   // Job Form Modal
   const [showJobModal, setShowJobModal] = useState(false);
@@ -217,11 +213,9 @@ export default function BusinessDashboardPage() {
   const [jobType, setJobType] = useState<'Full-time' | 'Part-time' | 'Contract' | 'Apprenticeship'>(
     'Full-time'
   );
-  const [jobSalary, setJobSalary] = useState('$450 – $650 USD / month');
+  const [jobSalary, setJobSalary] = useState('');
   const [jobSummary, setJobSummary] = useState('');
-  const [jobReqs, setJobReqs] = useState(
-    'National Diploma or 3+ years trade experience, Clean Class 4 Driver License'
-  );
+  const [jobReqs, setJobReqs] = useState('');
 
   // Profile Editable State
   const [editDescription, setEditDescription] = useState('');
@@ -563,7 +557,7 @@ export default function BusinessDashboardPage() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const usd = Math.max(1, Number(prodPriceUsd) || 10);
-    const chosenImage = prodImages[0]?.src || PRESET_PRODUCT_IMAGES[0];
+    const chosenImage = prodImages[0]?.src || '';
 
     try {
       const res = await fetch('/api/v1/products', {
@@ -575,7 +569,7 @@ export default function BusinessDashboardPage() {
           name: prodTitle.trim(),
           category: prodCategory,
           price_usd: usd,
-          images: [chosenImage],
+          images: chosenImage ? [chosenImage] : [],
           stock_quantity: 10,
           condition: 'Brand New',
           description:
@@ -670,7 +664,7 @@ export default function BusinessDashboardPage() {
     const promoUsd = Math.max(1, Number(adPromoUsd) || 50);
     const origUsd = Math.max(promoUsd, Number(adOrigUsd) || promoUsd);
     const zig = Math.round(promoUsd * settings.usdToZigRate);
-    const chosenImage = adImages[0]?.src || PRESET_PRODUCT_IMAGES[0];
+    const chosenImage = adImages[0]?.src || '';
 
     let createdAdObj: PaidAdvertItem | null = null;
     try {

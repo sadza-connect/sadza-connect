@@ -31,11 +31,7 @@ export function mapDbJobToOpening(job: any): JobOpening {
     category: job.category || 'General Commercial',
     whatsapp: job.whatsapp || undefined,
     description: job.description || '',
-    requirements: reqs.length > 0 ? reqs : [
-      'Minimum 2 years experience in relevant commercial field',
-      'Clean track record and professional references',
-      'Valid National ID or Zimbabwean Work Authorization',
-    ],
+    requirements: reqs,
   };
 }
 
@@ -54,7 +50,7 @@ export function mapDbApplicationToRecord(app: any): JobApplicationRecord {
     applicantEmail: app.applicant_email,
     applicantPhone: app.applicant_phone,
     experienceSummary: app.experience_summary || 'No written summary provided.',
-    cvFileName: app.cv_file_name || 'Curriculum_Vitae.pdf',
+    cvFileName: app.cv_file_name || (app.cv_url ? 'Curriculum_Vitae.pdf' : 'No CV Uploaded'),
     appliedDate: dateStr,
     status: (app.status as any) || 'Submitted',
   };

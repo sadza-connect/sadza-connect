@@ -239,14 +239,21 @@ export default function BusinessProfilePage() {
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs mb-8">
             <div className="grid grid-cols-1 lg:grid-cols-12">
               {/* Banner Photo */}
-              <div className="relative h-56 sm:h-64 lg:h-auto lg:col-span-4 bg-slate-100 dark:bg-slate-800">
-                <Image
-                  src={business.image}
-                  alt={business.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 33vw"
-                  className="object-cover"
-                />
+              <div className="relative h-56 sm:h-64 lg:h-auto lg:col-span-4 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                {business.image ? (
+                  <Image
+                    src={business.image}
+                    alt={business.name}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 33vw"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                    <Building2 className="w-16 h-16 text-slate-400 dark:text-slate-600 mb-2" />
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Verified Enterprise Storefront</span>
+                  </div>
+                )}
               </div>
 
               {/* Business Summary & Direct Contact */}
@@ -283,7 +290,7 @@ export default function BusinessProfilePage() {
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                     <span className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
                       <Star className="w-4 h-4 text-amber-500 fill-current" />
-                      {business.rating} ({business.reviewCount} reviews)
+                      {business.reviewCount > 0 ? `${business.rating} (${business.reviewCount} reviews)` : 'No reviews yet'}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -492,14 +499,20 @@ export default function BusinessProfilePage() {
                           className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col justify-between bg-slate-50/40 dark:bg-slate-950/40"
                         >
                           <div>
-                            <div className="relative h-40 w-full bg-slate-100">
-                              <Image
-                                src={prod.image}
-                                alt={prod.title}
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                className="object-cover"
-                              />
+                            <div className="relative h-40 w-full bg-slate-100 dark:bg-slate-800">
+                              {prod.image ? (
+                                <Image
+                                  src={prod.image}
+                                  alt={prod.title}
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, 50vw"
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-slate-400">
+                                  <ShoppingBag className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                                </div>
+                              )}
                             </div>
                             <div className="p-4">
                               <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">

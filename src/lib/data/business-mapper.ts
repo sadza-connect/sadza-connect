@@ -8,11 +8,7 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       ? b.operating_hours
       : 'Mon - Sat: 08:00 - 17:00';
 
-  const defaultImage =
-    b.logo_url ||
-    b.cover_url ||
-    b.image ||
-    'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=800&q=80';
+  const defaultImage = b.logo_url || b.cover_url || b.image || '';
 
   let galleryItems: string[] = [];
   try {
@@ -60,14 +56,14 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       b.subscription_status === 'Paid Subscriber'
         ? undefined
         : Math.max(0, 30 - Math.floor((Date.now() - (b.created_at ? new Date(b.created_at).getTime() : Date.now())) / (1000 * 60 * 60 * 24))),
-    rating: typeof b.rating_avg === 'number' ? b.rating_avg : parseFloat(b.rating_avg || '4.5'),
-    reviewCount: b.reviews_count || 12,
+    rating: typeof b.rating_avg === 'number' ? b.rating_avg : (b.rating_avg ? parseFloat(b.rating_avg) : 0),
+    reviewCount: Number(b.reviews_count || 0),
     province: b.province,
     city: b.city || 'Harare',
     address: b.address || 'Central Business District',
-    phone: b.phone || '+263 77 000 0000',
-    whatsapp: b.whatsapp || b.phone || '+263770000000',
-    email: b.email || `contact@${b.slug}.co.zw`,
+    phone: b.phone || '',
+    whatsapp: b.whatsapp || b.phone || '',
+    email: b.email || '',
     openingHours: operatingHoursStr,
     verifiedTier: isVerified ? 'tier2_corporate' : 'unverified',
     verificationStatus: isVerified ? 'Verified' : 'Pending',
@@ -86,15 +82,6 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       b.province,
       isVerified ? 'CR14 Verified' : 'Pending Verification',
     ].filter(Boolean) as string[],
-    reviews: [
-      {
-        id: `rev-${b.id}-1`,
-        author: 'Verified Buyer',
-        role: 'Commercial Client',
-        rating: 5,
-        date: 'Recent',
-        comment: 'Fast communication on WhatsApp and genuine products supplied in good time.',
-      },
-    ],
+    reviews: Array.isArray(b.reviews) ? b.reviews : [],
   };
 }

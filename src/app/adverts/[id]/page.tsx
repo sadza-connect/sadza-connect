@@ -212,15 +212,24 @@ export default function AdvertDetailPage() {
             {/* Left Column (8 cols) */}
             <div className="lg:col-span-8 space-y-6">
               {/* Product / Offer Hero Image Card */}
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 shadow-sm aspect-video sm:aspect-[21/9]">
-                <Image
-                  src={advert.image}
-                  alt={advert.headline}
-                  fill
-                  priority
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 shadow-sm aspect-video sm:aspect-[21/9] flex items-center justify-center">
+                {advert.image ? (
+                  <>
+                    <Image
+                      src={advert.image}
+                      alt={advert.headline}
+                      fill
+                      priority
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                    <Megaphone className="h-16 w-16 text-amber-400/80 mb-2" />
+                    <span className="text-sm font-semibold text-slate-300">{advert.businessName}</span>
+                  </div>
+                )}
 
                 {/* Floating Promo Badge Ribbon */}
                 {advert.promoBadge && (

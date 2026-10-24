@@ -54,17 +54,17 @@ export default function AdminMarketplacePage() {
   const [form, setForm] = useState({
     title: '',
     selectedBusinessId: '',
-    sellerName: 'SunPower Solar & Inverters Zimbabwe',
+    sellerName: '',
     category: BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy',
     province: 'Harare',
-    priceUsd: '450',
-    unit: 'Per Complete Unit',
-    stockNote: 'In Stock • Immediate Dispatch',
+    priceUsd: '',
+    unit: 'Per Unit',
+    stockNote: '',
     description: '',
-    specs: 'Capacity: Commercial Grade\nWarranty: 24 Months Manufacturer Warranty',
-    highlights: 'Verified Supplier Stock\nNationwide Waybill Delivery',
+    specs: '',
+    highlights: '',
     image: [] as GalleryItem[],
-    featured: true,
+    featured: false,
   });
 
   useEffect(() => {
@@ -151,22 +151,17 @@ export default function AdminMarketplacePage() {
     setForm({
       title: '',
       selectedBusinessId: defaultBiz?.id || '',
-      sellerName: defaultBiz?.name || 'SunPower Solar & Inverters Zimbabwe',
+      sellerName: defaultBiz?.name || '',
       category: categories[0] || 'Solar & Clean Energy',
       province: defaultBiz?.province || 'Harare',
-      priceUsd: '480',
-      unit: 'Per Complete Unit',
-      stockNote: 'In Stock • Immediate Dispatch',
+      priceUsd: '',
+      unit: 'Per Unit',
+      stockNote: '',
       description: '',
-      specs: 'Grade: Industrial Heavy-Duty\nWarranty: 2 Years Official',
-      highlights: 'CR14 Verified Supplier\nHarare & Bulawayo Depot Pickup',
-      image: [
-        {
-          src: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
-          caption: 'Product Photo',
-        },
-      ],
-      featured: true,
+      specs: '',
+      highlights: '',
+      image: [],
+      featured: false,
     });
     setFormOpen(true);
   }
@@ -198,9 +193,7 @@ export default function AdminMarketplacePage() {
       ...form.specs.split('\n').map((s) => s.trim()),
     ].filter(Boolean);
 
-    const imgSrc =
-      form.image[0]?.src ||
-      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+    const imgSrc = form.image[0]?.src || '';
     const usd = Math.max(1, Number(form.priceUsd) || 0);
 
     if (editingSlug) {

@@ -261,10 +261,9 @@ function CheckoutContent() {
             offer_text: `Commercial partner promotion with direct nationwide delivery and WhatsApp support.`,
             promo_badge: 'FEATURED PROMO',
             promo_price_usd: activePlan.monthlyUsd,
-            valid_until: `Valid until ${endDate}`,
-            whatsapp: phoneNumber.replace(/\D/g, '') || '263773333444',
+            whatsapp: phoneNumber.replace(/\D/g, '') || '',
             phone: phoneNumber,
-            image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+            image: '',
             featured_on_home: true,
           }),
         });

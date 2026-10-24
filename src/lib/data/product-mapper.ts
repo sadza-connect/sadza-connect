@@ -12,10 +12,7 @@ export function mapDbProductToMarketplaceProduct(p: any): MarketplaceProduct {
     images = [];
   }
 
-  const defaultImage =
-    images[0] ||
-    p.image ||
-    'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+  const defaultImage = images[0] || p.image || '';
 
   const usdPrice = typeof p.price_usd === 'number' ? p.price_usd : parseFloat(p.price_usd || '0');
   const isVerified = Boolean(p.seller_verified ?? p.is_verified ?? false);
@@ -38,7 +35,7 @@ export function mapDbProductToMarketplaceProduct(p: any): MarketplaceProduct {
     sellerName: p.business_name || p.seller_name || 'Verified Supplier',
     sellerType: p.business_type || 'Registered Company (Pvt Ltd)',
     sellerPlan: p.is_verified ? 'Paid Subscriber' : 'Month 1 Free Grace',
-    sellerPhone: p.business_phone || p.business_whatsapp || '+263770000000',
+    sellerPhone: p.business_phone || p.business_whatsapp || '',
     sellerVerified: isVerified,
     image: defaultImage,
     description: p.description || '',

@@ -32,10 +32,8 @@ export function mapDbIdCardToStaffRecord(card: any): StaffCardRecord {
     role: card.member_role,
     department: card.business_name || 'Sadza Connect Commercial Registry',
     bloodGroup: card.national_id ? `ID: ${card.national_id}` : 'O+ (Standard)',
-    phone: '+263 77 210 1101',
-    photo:
-      card.photo_url ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    phone: card.phone || card.member_phone || '',
+    photo: card.photo_url || '',
     status: (card.status as 'Active' | 'Suspended' | 'Expired') || 'Active',
     issued: issueDateStr,
     expires: expiryDateStr,

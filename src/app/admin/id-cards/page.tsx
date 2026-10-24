@@ -16,6 +16,7 @@ import {
   Phone,
   CheckCircle2,
   QrCode,
+  User,
 } from 'lucide-react';
 import { mapDbIdCardToStaffRecord } from '@/lib/data/id-card-mapper';
 import {
@@ -93,8 +94,12 @@ function PvcIdCardPreview({
 
         {/* Portrait Photo */}
         <div className="mt-4 flex justify-center">
-          <div className="h-24 w-24 rounded-2xl border-2 border-white shadow-lg overflow-hidden bg-[#1f2a3d]">
-            <img src={person.photo} alt={person.name} className="h-full w-full object-cover" />
+          <div className="h-24 w-24 rounded-2xl border-2 border-white shadow-lg overflow-hidden bg-[#1f2a3d] flex items-center justify-center">
+            {person.photo ? (
+              <img src={person.photo} alt={person.name} className="h-full w-full object-cover" />
+            ) : (
+              <User className="h-12 w-12 text-slate-300" />
+            )}
           </div>
         </div>
       </div>
@@ -243,8 +248,7 @@ export default function AdminIdCardsPage() {
     department: 'Harare & Mashonaland KYC',
     bloodGroup: 'O+',
     phone: '+263 77 ',
-    photo:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+    photo: '',
     status: 'Active' as StaffCardRecord['status'],
     issued: '2026-10-10',
     expires: '2028-10-10',
@@ -302,8 +306,7 @@ export default function AdminIdCardsPage() {
       department: 'Harare & Mashonaland KYC',
       bloodGroup: 'O+',
       phone: '+263 77 ',
-      photo:
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
+      photo: '',
       status: 'Active',
       issued: '2026-10-10',
       expires: '2028-10-10',

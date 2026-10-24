@@ -403,15 +403,24 @@ export default function AdvertsDirectoryPage() {
                 >
                   <div>
                     {/* Banner Image */}
-                    <div className="relative h-52 w-full bg-slate-100 dark:bg-slate-800">
-                      <Image
-                        src={ad.image}
-                        alt={ad.headline}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+                    <div className="relative h-52 w-full bg-slate-900 overflow-hidden flex items-center justify-center">
+                      {ad.image ? (
+                        <>
+                          <Image
+                            src={ad.image}
+                            alt={ad.headline}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400">
+                          <Megaphone className="h-12 w-12 text-amber-400/80 mb-2" />
+                          <span className="text-xs font-semibold text-slate-300 line-clamp-1">{ad.businessName}</span>
+                        </div>
+                      )}
 
                       <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
                         <span className="rounded-lg bg-amber-400 text-slate-950 px-2.5 py-1 text-xs font-extrabold uppercase shadow-sm">

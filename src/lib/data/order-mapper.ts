@@ -40,11 +40,11 @@ export function mapDbOrderToAdminOrderItem(order: any): AdminOrderItem {
   return {
     id: String(order.id),
     orderNumber: order.order_number,
-    client: order.customer_name,
-    email: 'client@example.co.zw',
-    phone: order.customer_phone,
-    province: 'Harare',
-    address: order.customer_address || 'Harare Commercial Center, Zimbabwe',
+    client: order.customer_name || 'Customer',
+    email: order.customer_email || order.email || 'N/A',
+    phone: order.customer_phone || '',
+    province: order.customer_province || order.province || 'Nationwide',
+    address: order.customer_address || order.address || 'Direct Dispatch',
     supplierName: order.business_name || 'Verified Zimbabwean Supplier',
     items: itemsStr,
     amountUsd: Number(order.total_usd) || 0,
@@ -52,6 +52,6 @@ export function mapDbOrderToAdminOrderItem(order: any): AdminOrderItem {
     waybillRef: order.waybill_number || `WB-ZIM-${String(order.id).slice(0, 6)}`,
     date: dateStr,
     notes: order.carrier ? `Dispatched via ${order.carrier}.` : 'Pending courier assignment.',
-    carrier: order.carrier || 'Swift Transit',
+    carrier: order.carrier || undefined,
   };
 }
