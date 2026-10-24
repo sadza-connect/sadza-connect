@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Inbox,
   Search as SearchIcon,
@@ -45,6 +45,8 @@ const PRIORITIES: ContactMessage['priority'][] = ['Low', 'Normal', 'High'];
 
 export default function AdminMessagesPage() {
   const [rows, setRows] = useState<ContactMessage[]>(INITIAL_MESSAGES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSendingReply, setIsSendingReply] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -55,6 +57,56 @@ export default function AdminMessagesPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMessages() {
+      setIsLoading(true);
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+        const res = await fetch('/api/v1/messages?limit=100', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
+        });
+        const json = await res.json();
+        if (isMounted && json.success && Array.isArray(json.data?.messages)) {
+          const mapped: ContactMessage[] = json.data.messages.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            company: undefined,
+            email: m.email,
+            phone: m.phone || 'N/A',
+            service: m.topic,
+            budget: undefined,
+            priority: (m.priority === 'High' || m.priority === 'Low') ? m.priority : 'Normal',
+            status: (m.status === 'In Progress' || m.status === 'Resolved') ? m.status : 'New',
+            receivedAt: m.created_at
+              ? new Date(m.created_at).toLocaleString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : 'Recently',
+            message: m.message,
+          }));
+          setRows(mapped);
+        } else if (isMounted) {
+          setRows([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch messages:', err);
+        if (isMounted) setRows([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+    loadMessages();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -76,26 +128,76 @@ export default function AdminMessagesPage() {
   function selectMessage(id: string) {
     setSelectedId(id);
     setReply('');
-    setRows((prev) =>
-      prev.map((m) => (m.id === id && m.status === 'New' ? { ...m, status: 'In Progress' } : m))
-    );
+    const target = rows.find((m) => m.id === id);
+    if (target && target.status === 'New') {
+      setStatusFor(id, 'In Progress');
+    }
   }
 
-  function setStatusFor(id: string, next: ContactMessage['status']) {
+  async function setStatusFor(id: string, next: ContactMessage['status']) {
     setRows((prev) => prev.map((m) => (m.id === id ? { ...m, status: next } : m)));
     showToast(`Enquiry marked as ${next}`);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      await fetch(`/api/v1/messages/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: next }),
+      });
+    } catch (err) {
+      console.error('Failed to update message status:', err);
+    }
   }
 
-  function setPriorityFor(id: string, next: ContactMessage['priority']) {
+  async function setPriorityFor(id: string, next: ContactMessage['priority']) {
     setRows((prev) => prev.map((m) => (m.id === id ? { ...m, priority: next } : m)));
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      await fetch(`/api/v1/messages/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ priority: next }),
+      });
+    } catch (err) {
+      console.error('Failed to update message priority:', err);
+    }
   }
 
-  function sendReply(e: React.FormEvent) {
+  async function sendReply(e: React.FormEvent) {
     e.preventDefault();
-    if (!selected || !reply.trim()) return;
-    showToast(`Reply dispatched to ${selected.name} (${selected.email})`);
-    setReply('');
-    setStatusFor(selected.id, 'Resolved');
+    if (!selected || !reply.trim() || isSendingReply) return;
+    setIsSendingReply(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const res = await fetch(`/api/v1/messages/${selected.id}/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ reply: reply.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || 'Failed to dispatch reply');
+      }
+      showToast(`Reply dispatched to ${selected.name} (${selected.email})`);
+      setReply('');
+      setRows((prev) => prev.map((m) => (m.id === selected.id ? { ...m, status: 'Resolved' } : m)));
+    } catch (err: any) {
+      showToast(err.message || 'Error dispatching reply');
+    } finally {
+      setIsSendingReply(false);
+    }
   }
 
   return (
@@ -140,7 +242,20 @@ export default function AdminMessagesPage() {
             </FilterSelect>
           </div>
 
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="divide-y divide-[#e6eaf1]">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="p-4 space-y-2 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 w-28 bg-[#e6eaf1] rounded" />
+                    <div className="h-3 w-14 bg-[#e6eaf1] rounded" />
+                  </div>
+                  <div className="h-3 w-40 bg-[#e6eaf1] rounded" />
+                  <div className="h-3 w-full bg-[#e6eaf1] rounded" />
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={Inbox}
@@ -307,8 +422,8 @@ export default function AdminMessagesPage() {
                     <p className="text-xs text-[#6b81a5]">
                       Replies are dispatched with Sadza Connect HQ headers.
                     </p>
-                    <AdminButton type="submit" size="sm" disabled={!reply.trim()}>
-                      <Send className="h-4 w-4" /> Send Reply
+                    <AdminButton type="submit" size="sm" disabled={!reply.trim() || isSendingReply}>
+                      <Send className="h-4 w-4" /> {isSendingReply ? 'Sending...' : 'Send Reply'}
                     </AdminButton>
                   </div>
                 </form>

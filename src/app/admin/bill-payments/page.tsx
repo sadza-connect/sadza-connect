@@ -75,6 +75,8 @@ export default function AdminBillPaymentsPage() {
   const [rows, setRows] = useState<OfficialReceipt[]>(INITIAL_RECEIPTS);
   const [utilityLogs, setUtilityLogs] = useState<UtilityReceipt[]>([]);
   const [isLoadingBills, setIsLoadingBills] = useState(true);
+  const [isLoadingReceipts, setIsLoadingReceipts] = useState(true);
+  const [isSavingReceipt, setIsSavingReceipt] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [toast, setToast] = useState<string | null>(null);
@@ -105,7 +107,52 @@ export default function AdminBillPaymentsPage() {
 
   useEffect(() => {
     let isMounted = true;
-    async function loadAdminBills() {
+    async function loadAdminData() {
+      // 1. Fetch Invoices from database
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+        const res = await fetch('/api/v1/invoices?limit=100', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
+        });
+        const json = await res.json();
+        if (isMounted && json.success && Array.isArray(json.data?.invoices)) {
+          const mapped: OfficialReceipt[] = json.data.invoices.map((inv: any) => {
+            const amount = Number(inv.amount_usd) || 0;
+            const vat = Math.round(amount * 0.15 * 100) / 100;
+            const subtotal = Math.round((amount - vat) * 100) / 100;
+            return {
+              id: inv.invoice_number || inv.id,
+              client: inv.business_name,
+              clientEmail: '',
+              clientPhone: '',
+              clientAddress: 'Harare, Zimbabwe',
+              project: `${inv.plan_type} (${inv.period_covered || 'Current Period'})`,
+              date: inv.created_at ? new Date(inv.created_at).toISOString().slice(0, 10) : '2026-10-10',
+              status: (inv.status === 'Paid' || inv.status === 'Void' || inv.status === 'Partial') ? inv.status : 'Paid',
+              issuedBy: 'Sadza Connect Accounts HQ',
+              vatRate: 15,
+              subtotal,
+              vat,
+              amount,
+              items: [
+                {
+                  description: `${inv.plan_type} [${inv.payment_method || 'Official Settlement'}]`,
+                  qty: 1,
+                  unit: amount,
+                },
+              ],
+            };
+          });
+          setRows(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to load invoices:', err);
+      } finally {
+        if (isMounted) setIsLoadingReceipts(false);
+      }
+
+      // 2. Fetch Utility Bills
       try {
         const res = await fetch('/api/v1/bills?limit=100', { credentials: 'include' });
         const json = await res.json();
@@ -122,8 +169,8 @@ export default function AdminBillPaymentsPage() {
         }
       }
     }
-    loadAdminBills();
-    const sync = () => loadAdminBills();
+    loadAdminData();
+    const sync = () => loadAdminData();
     window.addEventListener('sadza-platform-updated', sync);
     return () => {
       isMounted = false;
@@ -243,7 +290,7 @@ export default function AdminBillPaymentsPage() {
     setFormOpen(true);
   }
 
-  function handleSaveReceipt(e: React.FormEvent) {
+  async function handleSaveReceipt(e: React.FormEvent) {
     e.preventDefault();
     const parsedItems = form.items
       .filter((i) => i.description.trim())
@@ -257,54 +304,86 @@ export default function AdminBillPaymentsPage() {
     const vat = Math.round((subtotal * vatRate) / 100);
     const amount = subtotal + vat;
 
-    if (editingId) {
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === editingId
-            ? {
-                ...r,
-                client: form.client,
-                clientEmail: form.clientEmail,
-                clientPhone: form.clientPhone,
-                clientAddress: form.clientAddress,
-                project: form.project,
-                date: form.date,
-                status: form.status,
-                issuedBy: form.issuedBy,
-                vatRate,
-                subtotal,
-                vat,
-                amount,
-                items: parsedItems,
-              }
-            : r
-        )
-      );
-      showToast(`Updated official receipt ${editingId}`);
-    } else {
-      const id = `REC-SC-2026-0${rows.length + 143}`;
-      setRows((prev) => [
-        {
-          id,
-          client: form.client,
-          clientEmail: form.clientEmail,
-          clientPhone: form.clientPhone,
-          clientAddress: form.clientAddress,
-          project: form.project,
-          date: form.date,
-          status: form.status,
-          issuedBy: form.issuedBy,
-          vatRate,
-          subtotal,
-          vat,
-          amount,
-          items: parsedItems,
+    setIsSavingReceipt(true);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const res = await fetch('/api/v1/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        ...prev,
-      ]);
-      showToast(`Issued official receipt ${id}`);
+        credentials: 'include',
+        body: JSON.stringify({
+          business_name: form.client,
+          plan_type: form.project,
+          amount_usd: amount > 0 ? amount : 10,
+          payment_method: 'Manual / Admin Issued',
+          status: form.status,
+          period_covered: `${form.date} – Billing Cycle`,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Failed to persist commercial invoice');
+      }
+
+      const createdInvoice = json.data?.invoice;
+      const id = createdInvoice?.invoice_number || `REC-SC-2026-0${rows.length + 143}`;
+
+      if (editingId) {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === editingId
+              ? {
+                  ...r,
+                  client: form.client,
+                  clientEmail: form.clientEmail,
+                  clientPhone: form.clientPhone,
+                  clientAddress: form.clientAddress,
+                  project: form.project,
+                  date: form.date,
+                  status: form.status,
+                  issuedBy: form.issuedBy,
+                  vatRate,
+                  subtotal,
+                  vat,
+                  amount,
+                  items: parsedItems,
+                }
+              : r
+          )
+        );
+        showToast(`Updated official receipt ${editingId}`);
+      } else {
+        setRows((prev) => [
+          {
+            id,
+            client: form.client,
+            clientEmail: form.clientEmail,
+            clientPhone: form.clientPhone,
+            clientAddress: form.clientAddress,
+            project: form.project,
+            date: form.date,
+            status: form.status,
+            issuedBy: form.issuedBy,
+            vatRate,
+            subtotal,
+            vat,
+            amount,
+            items: parsedItems,
+          },
+          ...prev,
+        ]);
+        showToast(`Issued & stored official receipt ${id}`);
+      }
+      setFormOpen(false);
+    } catch (err: any) {
+      showToast(err.message || 'Error persisting receipt');
+    } finally {
+      setIsSavingReceipt(false);
     }
-    setFormOpen(false);
   }
 
   return (
@@ -398,7 +477,9 @@ export default function AdminBillPaymentsPage() {
             <ResultCount shown={filtered.length} total={rows.length} noun="receipts" />
           </Toolbar>
 
-          {filtered.length === 0 ? (
+          {isLoadingReceipts ? (
+            <TableSkeleton columns={7} rows={5} />
+          ) : filtered.length === 0 ? (
             <EmptyState
               icon={ReceiptIcon}
               title="No receipts found"
@@ -894,8 +975,8 @@ export default function AdminBillPaymentsPage() {
             <AdminButton type="button" variant="outline" onClick={() => setFormOpen(false)}>
               Cancel
             </AdminButton>
-            <AdminButton type="submit">
-              {editingId ? 'Save Receipt Changes' : 'Issue Official Receipt'}
+            <AdminButton type="submit" disabled={isSavingReceipt}>
+              {isSavingReceipt ? 'Persisting Receipt...' : editingId ? 'Save Receipt Changes' : 'Issue Official Receipt'}
             </AdminButton>
           </ModalFooter>
         </form>

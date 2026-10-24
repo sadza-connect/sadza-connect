@@ -185,6 +185,44 @@ export class EmailService {
       text,
     });
   }
+
+  async sendContactReplyEmail(
+    to: string,
+    reply: {
+      recipientName: string;
+      topic?: string;
+      replyMessage: string;
+    }
+  ): Promise<void> {
+    logger.info({ to, recipientName: reply.recipientName }, '[SUPPORT] Dispatched contact response email');
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0a1018 0%, #1e57eb 100%); padding: 28px 24px; text-align: center; color: #ffffff;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">SADZA CONNECT SUPPORT DESK</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; color: #93c5fd;">Official Commercial Customer Communication</p>
+        </div>
+        <div style="padding: 28px 24px;">
+          <p style="font-size: 14px; color: #0f172a; margin-top: 0;">Dear <strong>${reply.recipientName}</strong>,</p>
+          ${reply.topic ? `<p style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">Re: ${reply.topic}</p>` : ''}
+          <div style="background: #f8fafc; border-left: 4px solid #1e57eb; padding: 16px 20px; margin: 18px 0; border-radius: 4px; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-line;">
+            ${reply.replyMessage}
+          </div>
+          <p style="font-size: 13px; color: #475569; line-height: 1.5;">If you have any further questions or require additional assistance, please reply directly to this email or contact our support team on WhatsApp at +263 77 210 1101.</p>
+          <div style="border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 16px; font-size: 12px; color: #64748b;">
+            <p style="margin: 0; font-weight: 600; color: #0f172a;">Sadza Connect Zimbabwe Support HQ</p>
+            <p style="margin: 4px 0 0 0;">14 Samora Machel Avenue, Harare CBD, Zimbabwe</p>
+          </div>
+        </div>
+      </div>
+    `;
+    const text = `Dear ${reply.recipientName},\n\nRegarding your inquiry${reply.topic ? ` (${reply.topic})` : ''}:\n\n${reply.replyMessage}\n\nBest regards,\nSadza Connect Zimbabwe Support HQ`;
+    await this.sendEmail({
+      to,
+      subject: `Sadza Connect Support: Response regarding ${reply.topic || 'your inquiry'}`,
+      html,
+      text,
+    });
+  }
 }
 
 export const emailService = new EmailService();
