@@ -36,6 +36,9 @@ export interface BusinessRow {
   custom_monthly_price_usd?: number | string | null;
   subscription_status?: string;
   subscription_expires_at?: string | null;
+  product_limit?: number;
+  catalog_tier?: string;
+  custom_product_limit?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +88,9 @@ export interface CreateBusinessDTO {
   custom_monthly_price_usd?: number | null;
   subscription_status?: string;
   subscription_expires_at?: string | Date | null;
+  product_limit?: number;
+  catalog_tier?: string;
+  custom_product_limit?: number | null;
 }
 
 export interface UpdateBusinessDTO {
@@ -103,6 +109,9 @@ export interface UpdateBusinessDTO {
   custom_monthly_price_usd?: number | null;
   subscription_status?: string;
   subscription_expires_at?: string | Date | null;
+  product_limit?: number;
+  catalog_tier?: string;
+  custom_product_limit?: number | null;
   phone?: string | null;
   email?: string | null;
   whatsapp?: string | null;
@@ -328,6 +337,9 @@ export class BusinessRepository {
         registration_number: data.registration_number || null,
         custom_monthly_price_usd:
           data.custom_monthly_price_usd !== undefined ? data.custom_monthly_price_usd : null,
+        product_limit: data.product_limit ?? 25,
+        catalog_tier: data.catalog_tier || 'starter',
+        custom_product_limit: data.custom_product_limit !== undefined ? data.custom_product_limit : null,
         subscription_status: data.subscription_status || 'Month 1 Grace Period',
         subscription_expires_at: data.subscription_expires_at || db.raw("NOW() + INTERVAL '30 days'"),
         phone: data.phone || null,
@@ -373,6 +385,9 @@ export class BusinessRepository {
     if (data.registration_number !== undefined) patch.registration_number = data.registration_number;
     if (data.custom_monthly_price_usd !== undefined)
       patch.custom_monthly_price_usd = data.custom_monthly_price_usd;
+    if (data.product_limit !== undefined) patch.product_limit = data.product_limit;
+    if (data.catalog_tier !== undefined) patch.catalog_tier = data.catalog_tier;
+    if (data.custom_product_limit !== undefined) patch.custom_product_limit = data.custom_product_limit;
     if (data.subscription_status !== undefined) patch.subscription_status = data.subscription_status;
     if (data.subscription_expires_at !== undefined) patch.subscription_expires_at = data.subscription_expires_at;
     if (data.phone !== undefined) patch.phone = data.phone;

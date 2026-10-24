@@ -238,6 +238,9 @@ export interface BusinessListing {
   teamScale?: string;
   subscriptionStatus: 'Paid Subscriber' | 'Month 1 Grace Period' | 'Expired';
   customMonthlyPriceUsd?: number | null;
+  productLimit?: number;
+  catalogTier?: string;
+  customProductLimit?: number | null;
   graceDaysRemaining?: number;
   rating: number;
   reviewCount: number;

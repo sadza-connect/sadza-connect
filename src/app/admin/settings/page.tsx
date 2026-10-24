@@ -140,6 +140,15 @@ export default function AdminSettingsPage() {
     vatPct: '15',
     ecocashMerchantCode: '774920',
     innbucksMerchantCode: 'SC-ZW-881',
+    tierStarterName: 'Starter Storefront',
+    tierStarterLimit: '25',
+    tierStarterPriceUsd: '15.00',
+    tierGrowthName: 'Growth Storefront',
+    tierGrowthLimit: '100',
+    tierGrowthPriceUsd: '25.00',
+    tierEnterpriseName: 'Enterprise Wholesaler',
+    tierEnterpriseLimit: '300',
+    tierEnterprisePriceUsd: '50.00',
   });
 
   // Shipping & Logistics
@@ -242,6 +251,15 @@ export default function AdminSettingsPage() {
             zesaServiceFeePct: extra.zesaServiceFeePct?.toString() || prev.zesaServiceFeePct,
             ecocashMerchantCode: extra.ecocashMerchantCode || prev.ecocashMerchantCode,
             innbucksMerchantCode: extra.innbucksMerchantCode || prev.innbucksMerchantCode,
+            tierStarterName: s.tier_starter_name || prev.tierStarterName,
+            tierStarterLimit: s.tier_starter_limit?.toString() || prev.tierStarterLimit,
+            tierStarterPriceUsd: s.tier_starter_price_usd?.toString() || prev.tierStarterPriceUsd,
+            tierGrowthName: s.tier_growth_name || prev.tierGrowthName,
+            tierGrowthLimit: s.tier_growth_limit?.toString() || prev.tierGrowthLimit,
+            tierGrowthPriceUsd: s.tier_growth_price_usd?.toString() || prev.tierGrowthPriceUsd,
+            tierEnterpriseName: s.tier_enterprise_name || prev.tierEnterpriseName,
+            tierEnterpriseLimit: s.tier_enterprise_limit?.toString() || prev.tierEnterpriseLimit,
+            tierEnterprisePriceUsd: s.tier_enterprise_price_usd?.toString() || prev.tierEnterprisePriceUsd,
           }));
           setContact((prev) => ({
             ...prev,
@@ -281,6 +299,15 @@ export default function AdminSettingsPage() {
       soloMonthlyPriceUsd: soloUsd,
       coopMonthlyPriceUsd: coopUsd,
       corporateMonthlyPriceUsd: corporateUsd,
+      tierStarterName: pricing.tierStarterName,
+      tierStarterLimit: parseInt(pricing.tierStarterLimit, 10) || 25,
+      tierStarterPriceUsd: parseFloat(pricing.tierStarterPriceUsd) || 15.0,
+      tierGrowthName: pricing.tierGrowthName,
+      tierGrowthLimit: parseInt(pricing.tierGrowthLimit, 10) || 100,
+      tierGrowthPriceUsd: parseFloat(pricing.tierGrowthPriceUsd) || 25.0,
+      tierEnterpriseName: pricing.tierEnterpriseName,
+      tierEnterpriseLimit: parseInt(pricing.tierEnterpriseLimit, 10) || 300,
+      tierEnterprisePriceUsd: parseFloat(pricing.tierEnterprisePriceUsd) || 50.0,
       sponsoredAdvertPriceUsd: advertUsd,
       freeGracePeriodDays: graceDays,
       supportWhatsApp: contact.whatsapp,
@@ -327,6 +354,15 @@ export default function AdminSettingsPage() {
           hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
           harare_address: `${contact.line1}, ${contact.city}`,
           operating_hours: contact.hours || undefined,
+          tier_starter_name: pricing.tierStarterName,
+          tier_starter_limit: parseInt(pricing.tierStarterLimit, 10) || 25,
+          tier_starter_price_usd: parseFloat(pricing.tierStarterPriceUsd) || 15.0,
+          tier_growth_name: pricing.tierGrowthName,
+          tier_growth_limit: parseInt(pricing.tierGrowthLimit, 10) || 100,
+          tier_growth_price_usd: parseFloat(pricing.tierGrowthPriceUsd) || 25.0,
+          tier_enterprise_name: pricing.tierEnterpriseName,
+          tier_enterprise_limit: parseInt(pricing.tierEnterpriseLimit, 10) || 300,
+          tier_enterprise_price_usd: parseFloat(pricing.tierEnterprisePriceUsd) || 50.0,
           extra_config: {
             profile,
             shipping,
@@ -645,6 +681,91 @@ export default function AdminSettingsPage() {
                       value={pricing.coopListingUsd}
                       onChange={(e) => setPricing((p) => ({ ...p, coopListingUsd: e.target.value }))}
                     />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                      📦
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-800">
+                      Storefront Catalog Quotas &amp; Tier Pricing (Anti-Spam &amp; Self-Service Expansion)
+                    </h4>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Define maximum marketplace product listings allowed per subscription tier and their monthly USD rates. Newly registered businesses start on the Starter tier (free during grace period).
+                  </p>
+
+                  <div className="mt-4 space-y-3">
+                    {/* Starter Storefront */}
+                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3">
+                      <AdminInput
+                        label="Starter Tier Name"
+                        value={pricing.tierStarterName}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierStarterName: e.target.value }))}
+                      />
+                      <AdminInput
+                        label="Product Quota Limit"
+                        type="number"
+                        min={1}
+                        value={pricing.tierStarterLimit}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierStarterLimit: e.target.value }))}
+                      />
+                      <AdminInput
+                        label="Monthly Subscription ($ USD/mo)"
+                        type="number"
+                        step="0.01"
+                        value={pricing.tierStarterPriceUsd}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierStarterPriceUsd: e.target.value }))}
+                      />
+                    </div>
+
+                    {/* Growth Storefront */}
+                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3">
+                      <AdminInput
+                        label="Growth Tier Name"
+                        value={pricing.tierGrowthName}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierGrowthName: e.target.value }))}
+                      />
+                      <AdminInput
+                        label="Product Quota Limit"
+                        type="number"
+                        min={1}
+                        value={pricing.tierGrowthLimit}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierGrowthLimit: e.target.value }))}
+                      />
+                      <AdminInput
+                        label="Monthly Subscription ($ USD/mo)"
+                        type="number"
+                        step="0.01"
+                        value={pricing.tierGrowthPriceUsd}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierGrowthPriceUsd: e.target.value }))}
+                      />
+                    </div>
+
+                    {/* Enterprise Wholesaler */}
+                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3">
+                      <AdminInput
+                        label="Enterprise Tier Name"
+                        value={pricing.tierEnterpriseName}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierEnterpriseName: e.target.value }))}
+                      />
+                      <AdminInput
+                        label="Product Quota Limit"
+                        type="number"
+                        min={1}
+                        value={pricing.tierEnterpriseLimit}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierEnterpriseLimit: e.target.value }))}
+                      />
+                      <AdminInput
+                        label="Monthly Subscription ($ USD/mo)"
+                        type="number"
+                        step="0.01"
+                        value={pricing.tierEnterprisePriceUsd}
+                        onChange={(e) => setPricing((p) => ({ ...p, tierEnterprisePriceUsd: e.target.value }))}
+                      />
+                    </div>
                   </div>
                 </div>
 

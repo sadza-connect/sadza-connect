@@ -43,6 +43,15 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       b.custom_monthly_price_usd !== undefined && b.custom_monthly_price_usd !== null
         ? parseFloat(b.custom_monthly_price_usd)
         : (b.customMonthlyPriceUsd ?? null),
+    productLimit:
+      b.product_limit !== undefined && b.product_limit !== null
+        ? Number(b.product_limit)
+        : 25,
+    catalogTier: b.catalog_tier || 'starter',
+    customProductLimit:
+      b.custom_product_limit !== undefined && b.custom_product_limit !== null
+        ? Number(b.custom_product_limit)
+        : null,
     teamScale: '1 – 10 People',
     subscriptionStatus:
       b.subscription_status === 'Paid Subscriber'

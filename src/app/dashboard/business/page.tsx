@@ -92,14 +92,6 @@ type DashboardTab =
   | 'profile'
   | 'billing';
 
-const PRESET_PRODUCT_IMAGES = [
-  'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80',
-];
-
 const EMPTY_FALLBACK_BUSINESS: BusinessListing = {
   id: '',
   name: 'Your Business',
@@ -153,6 +145,18 @@ export default function BusinessDashboardPage() {
       setShowGateModal(true);
       return;
     }
+    const effectiveLimit =
+      currentBusiness?.customProductLimit ??
+      currentBusiness?.productLimit ??
+      settings.tierStarterLimit ?? 25;
+
+    if (myProducts.length >= effectiveLimit) {
+      showToast(
+        `Catalog quota of ${effectiveLimit} items reached for ${currentBusiness?.name || 'your business'}. Please upgrade your storefront tier.`
+      );
+      setShowTierModal(true);
+      return;
+    }
     setShowProductModal(true);
   };
 
@@ -181,6 +185,15 @@ export default function BusinessDashboardPage() {
   >('EcoCash USD');
   const [payPhone, setPayPhone] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<BusinessSubscriptionInvoice | null>(null);
+
+  // Storefront Tier Expansion Modal
+  const [showTierModal, setShowTierModal] = useState(false);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<'starter' | 'growth' | 'enterprise'>('growth');
+  const [tierPayMethod, setTierPayMethod] = useState<
+    'EcoCash USD' | 'InnBucks' | 'Visa / Mastercard' | 'Bank Transfer'
+  >('EcoCash USD');
+  const [tierPayPhone, setTierPayPhone] = useState('');
+  const [isUpgradingTier, setIsUpgradingTier] = useState(false);
 
   // Product Form Modal
   const [showProductModal, setShowProductModal] = useState(false);
@@ -554,8 +567,65 @@ export default function BusinessDashboardPage() {
     );
   };
 
+  const handleUpgradeTier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentBusiness) return;
+
+    try {
+      setIsUpgradingTier(true);
+      const res = await fetch(`/api/v1/businesses/${encodeURIComponent(currentBusiness.slug)}/tier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          tier: selectedUpgradeTier,
+          payment_method: tierPayMethod,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || json.message || 'Failed to upgrade tier');
+      }
+
+      const updatedBusiness = mapDbBusinessToListing(json.data.business);
+      const nextBusinesses = businesses.map((b) => (b.id === currentBusiness.id ? updatedBusiness : b));
+      setBusinesses(nextBusinesses);
+      saveStoredBusinesses(nextBusinesses);
+
+      if (json.data.invoice) {
+        const mappedInvoice = mapDbInvoiceToSubscriptionInvoice(json.data.invoice);
+        const nextInvoices = [mappedInvoice, ...invoices];
+        setInvoices(nextInvoices);
+        saveStoredInvoices(nextInvoices);
+      }
+
+      setShowTierModal(false);
+      showToast(json.data?.message || 'Storefront tier successfully upgraded!');
+    } catch (err: any) {
+      console.error('Failed to upgrade tier:', err);
+      showToast(err.message || 'Failed to complete tier expansion');
+    } finally {
+      setIsUpgradingTier(false);
+    }
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    const effectiveLimit =
+      currentBusiness.customProductLimit ??
+      currentBusiness.productLimit ??
+      settings.tierStarterLimit ?? 25;
+
+    if (myProducts.length >= effectiveLimit) {
+      showToast(
+        `Catalog quota reached (${effectiveLimit} products allowed). Please expand your storefront tier to list additional items.`
+      );
+      setShowProductModal(false);
+      setShowTierModal(true);
+      return;
+    }
+
     const usd = Math.max(1, Number(prodPriceUsd) || 10);
     const chosenImage = prodImages[0]?.src || '';
 
@@ -578,6 +648,15 @@ export default function BusinessDashboardPage() {
         }),
       });
       const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error?.message || json.message || 'Failed to publish product.');
+        if (json.error?.message?.toLowerCase().includes('quota') || json.error?.message?.toLowerCase().includes('tier')) {
+          setShowProductModal(false);
+          setShowTierModal(true);
+        }
+        return;
+      }
+
       if (json.success && json.data?.product) {
         const mapped = mapDbProductToMarketplaceProduct({
           ...json.data.product,
@@ -591,8 +670,10 @@ export default function BusinessDashboardPage() {
         });
         setProducts((prev) => [mapped, ...prev]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to publish product to database:', err);
+      showToast(err.message || 'Network error publishing product');
+      return;
     }
 
     const slug = `${prodTitle
@@ -1775,17 +1856,94 @@ export default function BusinessDashboardPage() {
                 title="Marketplace Products Catalogue"
                 hint="Products uploaded here appear on the national Marketplace and your Business Storefront with dual USD/ZiG pricing."
                 action={
-                  <AdminButton onClick={handleOpenProductModal}>
-                    <Plus className="h-4 w-4" /> Upload New Product
-                  </AdminButton>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AdminButton variant="outline" onClick={() => setShowTierModal(true)}>
+                      <TrendingUp className="h-4 w-4 text-emerald-600" /> Expand Catalog Quota
+                    </AdminButton>
+                    <AdminButton onClick={handleOpenProductModal}>
+                      <Plus className="h-4 w-4" /> Upload New Product
+                    </AdminButton>
+                  </div>
                 }
               />
+
+              {/* Dynamic Catalog Quota Meter */}
+              {(() => {
+                const effectiveQuota =
+                  currentBusiness.customProductLimit ??
+                  currentBusiness.productLimit ??
+                  settings.tierStarterLimit ?? 25;
+                const used = myProducts.length;
+                const pct = Math.min(100, Math.round((used / effectiveQuota) * 100));
+                const isNearLimit = pct >= 80 && pct < 100;
+                const isAtLimit = pct >= 100;
+
+                return (
+                  <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400">
+                          <Package className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                              Catalog Usage: {used} of {effectiveQuota} Products Listed
+                            </h4>
+                            <span className="inline-block rounded-md bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300 capitalize">
+                              {currentBusiness.catalogTier || 'starter'} Tier
+                            </span>
+                            {currentBusiness.customProductLimit && (
+                              <span className="inline-block rounded-md bg-purple-100 dark:bg-purple-950/70 px-2 py-0.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                                Custom Override
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {isAtLimit
+                              ? 'Your catalog is at maximum capacity. Upgrade your storefront tier to list additional products.'
+                              : isNearLimit
+                              ? 'Approaching catalog capacity. Expand your tier for higher commercial throughput.'
+                              : `${effectiveQuota - used} listing slots available on your current plan.`}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTierModal(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition cursor-pointer"
+                      >
+                        <TrendingUp className="h-3.5 w-3.5" /> Upgrade Tier
+                      </button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          isAtLimit
+                            ? 'bg-red-500'
+                            : isNearLimit
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-600'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
               {myProducts.length === 0 ? (
                 <div className="mt-6">
                   <EmptyState
                     icon={Package}
                     title="No products listed yet"
-                    description="Your active subscription includes unlimited product listings."
+                    description={`Your ${currentBusiness.catalogTier || 'starter'} storefront tier includes up to ${
+                      currentBusiness.customProductLimit ??
+                      currentBusiness.productLimit ??
+                      settings.tierStarterLimit ?? 25
+                    } active product listings.`}
                     action={
                       <AdminButton onClick={handleOpenProductModal}>
                         <Plus className="h-4 w-4" /> Upload First Product
@@ -2551,6 +2709,186 @@ export default function BusinessDashboardPage() {
             </AdminButton>
             <AdminButton type="submit">
               <CheckCircle2 className="h-4 w-4" /> Confirm &amp; Activate Plan
+            </AdminButton>
+          </ModalFooter>
+        </form>
+      </AdminModal>
+
+      {/* MODAL: STOREFRONT TIER & CATALOG EXPANSION MODAL */}
+      <AdminModal
+        open={showTierModal}
+        onClose={() => setShowTierModal(false)}
+        size="lg"
+        title="Expand Storefront Catalog Quota"
+        description="Scale your commercial inventory capacity on Sadza Connect. Select an upgraded tier to immediately expand your catalog quota."
+      >
+        <form onSubmit={handleUpgradeTier} className="flex flex-col flex-1 min-h-0">
+          <ModalBody>
+            <div className="space-y-4">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Choose Storefront Tier
+              </label>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {/* Starter */}
+                <div
+                  onClick={() => setSelectedUpgradeTier('starter')}
+                  className={`relative cursor-pointer rounded-xl border p-4 transition-all ${
+                    selectedUpgradeTier === 'starter'
+                      ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {settings.tierStarterName ?? 'Starter Storefront'}
+                    </span>
+                    {(currentBusiness.catalogTier || 'starter') === 'starter' && (
+                      <span className="rounded bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xl font-extrabold text-emerald-700 dark:text-emerald-400">
+                    ${settings.tierStarterPriceUsd ?? 15}
+                    <span className="text-xs font-normal text-slate-500"> /mo</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                    Up to <strong className="text-slate-900 dark:text-white">{settings.tierStarterLimit ?? 25}</strong> products
+                  </p>
+                </div>
+
+                {/* Growth */}
+                <div
+                  onClick={() => setSelectedUpgradeTier('growth')}
+                  className={`relative cursor-pointer rounded-xl border p-4 transition-all ${
+                    selectedUpgradeTier === 'growth'
+                      ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {settings.tierGrowthName ?? 'Growth Storefront'}
+                    </span>
+                    {currentBusiness.catalogTier === 'growth' && (
+                      <span className="rounded bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xl font-extrabold text-emerald-700 dark:text-emerald-400">
+                    ${settings.tierGrowthPriceUsd ?? 25}
+                    <span className="text-xs font-normal text-slate-500"> /mo</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                    Up to <strong className="text-slate-900 dark:text-white">{settings.tierGrowthLimit ?? 100}</strong> products
+                  </p>
+                  <div className="mt-2 inline-block rounded bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+                    Most Popular
+                  </div>
+                </div>
+
+                {/* Enterprise */}
+                <div
+                  onClick={() => setSelectedUpgradeTier('enterprise')}
+                  className={`relative cursor-pointer rounded-xl border p-4 transition-all ${
+                    selectedUpgradeTier === 'enterprise'
+                      ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 ring-2 ring-emerald-600/30'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      {settings.tierEnterpriseName ?? 'Enterprise Wholesaler'}
+                    </span>
+                    {currentBusiness.catalogTier === 'enterprise' && (
+                      <span className="rounded bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xl font-extrabold text-emerald-700 dark:text-emerald-400">
+                    ${settings.tierEnterprisePriceUsd ?? 50}
+                    <span className="text-xs font-normal text-slate-500"> /mo</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                    Up to <strong className="text-slate-900 dark:text-white">{settings.tierEnterpriseLimit ?? 300}</strong> products
+                  </p>
+                </div>
+              </div>
+
+              <AdminSelect
+                label="Select Zimbabwean Payment Channel"
+                value={tierPayMethod}
+                onChange={(e) =>
+                  setTierPayMethod(
+                    e.target.value as
+                      | 'EcoCash USD'
+                      | 'InnBucks'
+                      | 'Visa / Mastercard'
+                      | 'Bank Transfer'
+                  )
+                }
+              >
+                <option value="EcoCash USD">EcoCash USD / ZiG Instant Push</option>
+                <option value="InnBucks">InnBucks Corporate Authorization</option>
+                <option value="Visa / Mastercard">Visa / Mastercard Online Settlement</option>
+                <option value="Bank Transfer">ZimSwitch Direct RTGS / Bank Transfer</option>
+              </AdminSelect>
+
+              <AdminInput
+                label="Mobile Phone / Wallet Reference Number"
+                required
+                value={tierPayPhone}
+                onChange={(e) => setTierPayPhone(e.target.value)}
+                placeholder="+263 77..."
+              />
+
+              {(() => {
+                const tierPrice =
+                  selectedUpgradeTier === 'enterprise'
+                    ? Number(settings.tierEnterprisePriceUsd ?? 50)
+                    : selectedUpgradeTier === 'growth'
+                    ? Number(settings.tierGrowthPriceUsd ?? 25)
+                    : Number(settings.tierStarterPriceUsd ?? 15);
+                const tierQuota =
+                  selectedUpgradeTier === 'enterprise'
+                    ? settings.tierEnterpriseLimit ?? 300
+                    : selectedUpgradeTier === 'growth'
+                    ? settings.tierGrowthLimit ?? 100
+                    : settings.tierStarterLimit ?? 25;
+                const zigPrice = Math.round(tierPrice * (settings.usdToZigRate || 26.5));
+
+                return (
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-4 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-semibold text-slate-600 dark:text-slate-400">
+                        Monthly Subscription ({tierQuota} Product Slots):
+                      </span>
+                      <p className="text-[11px] text-slate-500">Immediate automated quota activation</p>
+                    </div>
+                    <span className="font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                      ${tierPrice.toFixed(2)} USD ({zigPrice.toLocaleString()} ZiG)
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          </ModalBody>
+
+          <ModalFooter>
+            <AdminButton type="button" variant="outline" onClick={() => setShowTierModal(false)}>
+              Cancel
+            </AdminButton>
+            <AdminButton type="submit" disabled={isUpgradingTier}>
+              {isUpgradingTier ? (
+                <>Processing...</>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" /> Confirm &amp; Expand Catalog Quota
+                </>
+              )}
             </AdminButton>
           </ModalFooter>
         </form>

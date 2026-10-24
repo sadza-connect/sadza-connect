@@ -27,6 +27,32 @@ export default function PricingPage() {
     setSettings(getPlatformSettings());
     const sync = () => setSettings(getPlatformSettings());
     window.addEventListener('sadza-platform-updated', sync);
+
+    fetch('/api/v1/settings')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.settings) {
+          const s = json.data.settings;
+          setSettings((prev) => ({
+            ...prev,
+            usdToZigRate: Number(s.usd_to_zig_rate) || prev.usdToZigRate,
+            monthlySubscriptionPriceUsd: Number(s.monthly_subscription_price_usd) || prev.monthlySubscriptionPriceUsd,
+            sponsoredAdvertPriceUsd: Number(s.sponsored_advert_price_usd) || prev.sponsoredAdvertPriceUsd,
+            freeGracePeriodDays: Number(s.free_grace_period_days) || prev.freeGracePeriodDays,
+            tierStarterName: s.tier_starter_name || prev.tierStarterName,
+            tierStarterLimit: Number(s.tier_starter_limit) || prev.tierStarterLimit,
+            tierStarterPriceUsd: Number(s.tier_starter_price_usd) || prev.tierStarterPriceUsd,
+            tierGrowthName: s.tier_growth_name || prev.tierGrowthName,
+            tierGrowthLimit: Number(s.tier_growth_limit) || prev.tierGrowthLimit,
+            tierGrowthPriceUsd: Number(s.tier_growth_price_usd) || prev.tierGrowthPriceUsd,
+            tierEnterpriseName: s.tier_enterprise_name || prev.tierEnterpriseName,
+            tierEnterpriseLimit: Number(s.tier_enterprise_limit) || prev.tierEnterpriseLimit,
+            tierEnterprisePriceUsd: Number(s.tier_enterprise_price_usd) || prev.tierEnterprisePriceUsd,
+          }));
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener('sadza-platform-updated', sync);
   }, []);
 
@@ -41,7 +67,7 @@ export default function PricingPage() {
       highlighted: false,
       features: [
         'Full public listing in the National Business Directory',
-        'Upload and showcase products in the Marketplace',
+        `Upload up to ${settings.tierStarterLimit ?? 25} products in the Marketplace`,
         'Direct WhatsApp click-to-chat & telephone lead buttons',
         'Post job vacancies on the Jobs Portal',
         'Submit verification documents (National ID or CR14/ZIMRA)',
@@ -53,14 +79,14 @@ export default function PricingPage() {
     {
       badge: 'Standard Active Membership',
       name: 'Monthly Business Subscription',
-      price: `$${settings.monthlySubscriptionPriceUsd}`,
+      price: `$${settings.tierStarterPriceUsd ?? settings.monthlySubscriptionPriceUsd}`,
       period: '/ month (after Month 1)',
       subtitle:
         'Simple flat monthly rate after your 30-day grace period to keep your business profile and products live.',
       highlighted: true,
       features: [
         'Continuous public visibility in the Business Directory',
-        'Unlimited product uploads on the Marketplace feed',
+        `Up to ${settings.tierStarterLimit ?? 25} product listings on Starter (expandable to ${settings.tierEnterpriseLimit ?? 300}+)`,
         'Zero commission on your sales — buyers pay you directly',
         'Active Verified Badge (Sole Proprietor, SME, Co-op, or Corporate)',
         'Post open job vacancies & receive applicant CVs',
@@ -188,6 +214,123 @@ export default function PricingPage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Storefront Catalog Tiers & Capacity Quotas */}
+          <div className="mt-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
+            <div className="max-w-2xl mb-6">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                Self-Service Capacity Expansion
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                Storefront Catalog Quotas &amp; Tier Pricing
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5">
+                Every newly registered business starts with {settings.tierStarterLimit ?? 25} product slots completely free during the {settings.freeGracePeriodDays}-day grace period. Expand your capacity anytime directly from your dashboard with automated instant activation.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase tracking-wider text-slate-400 font-semibold bg-slate-50/50 dark:bg-slate-800/40">
+                    <th className="px-4 py-3">Storefront Tier</th>
+                    <th className="px-4 py-3">Catalog Quota</th>
+                    <th className="px-4 py-3">Monthly Rate (USD)</th>
+                    <th className="px-4 py-3">Reference (ZiG)</th>
+                    <th className="px-4 py-3">Ideal For</th>
+                    <th className="px-4 py-3 text-right">Expansion Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
+                  {/* Starter Tier */}
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      {settings.tierStarterName ?? 'Starter Storefront'}
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-emerald-700 dark:text-emerald-400">
+                      {settings.tierStarterLimit ?? 25} Products
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      ${settings.tierStarterPriceUsd ?? 15} / mo
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">
+                      {Math.round((settings.tierStarterPriceUsd ?? 15) * (settings.usdToZigRate || 26.5)).toLocaleString()} ZiG
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                      Boutiques, cafes, artisans, solo traders &amp; local service shops
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                        Default Baseline
+                      </span>
+                    </td>
+                  </tr>
+
+                  {/* Growth Tier */}
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 bg-emerald-50/20 dark:bg-emerald-950/10">
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      <div className="flex items-center gap-2">
+                        <span>{settings.tierGrowthName ?? 'Growth Storefront'}</span>
+                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white">
+                          Popular
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-emerald-700 dark:text-emerald-400">
+                      {settings.tierGrowthLimit ?? 100} Products
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      ${settings.tierGrowthPriceUsd ?? 25} / mo
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">
+                      {Math.round((settings.tierGrowthPriceUsd ?? 25) * (settings.usdToZigRate || 26.5)).toLocaleString()} ZiG
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                      Supermarkets, clothing distributors, consumer electronics retailers
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <Link
+                        href="/dashboard/business?tab=products"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        Expand in Dashboard →
+                      </Link>
+                    </td>
+                  </tr>
+
+                  {/* Enterprise Tier */}
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      {settings.tierEnterpriseName ?? 'Enterprise Wholesaler'}
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold text-emerald-700 dark:text-emerald-400">
+                      {settings.tierEnterpriseLimit ?? 300} Products
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-white">
+                      ${settings.tierEnterprisePriceUsd ?? 50} / mo
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-500">
+                      {Math.round((settings.tierEnterprisePriceUsd ?? 50) * (settings.usdToZigRate || 26.5)).toLocaleString()} ZiG
+                    </td>
+                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                      Hardware depots, agricultural suppliers, auto parts wholesalers
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <Link
+                        href="/dashboard/business?tab=products"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        Expand in Dashboard →
+                      </Link>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-3">
+              Need custom catalog quotas above {settings.tierEnterpriseLimit ?? 300} items? Contact our corporate team for dedicated enterprise contracts.
+            </p>
           </div>
 
           {/* How the Subscription & Grace Period Lifecycle Works */}

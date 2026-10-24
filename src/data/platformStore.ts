@@ -37,6 +37,15 @@ export interface PlatformSettings {
   ecocashMerchantCode?: string;
   innbucksMerchantCode?: string;
   homepageSlotsCap?: number;
+  tierStarterName?: string;
+  tierStarterLimit?: number;
+  tierStarterPriceUsd?: number;
+  tierGrowthName?: string;
+  tierGrowthLimit?: number;
+  tierGrowthPriceUsd?: number;
+  tierEnterpriseName?: string;
+  tierEnterpriseLimit?: number;
+  tierEnterprisePriceUsd?: number;
   shipping?: any;
   verification?: any;
   notifications?: any;
@@ -58,6 +67,15 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   soloMonthlyPriceUsd: 5,
   coopMonthlyPriceUsd: 10,
   corporateMonthlyPriceUsd: 15,
+  tierStarterName: 'Starter Storefront',
+  tierStarterLimit: 25,
+  tierStarterPriceUsd: 15.0,
+  tierGrowthName: 'Growth Storefront',
+  tierGrowthLimit: 100,
+  tierGrowthPriceUsd: 25.0,
+  tierEnterpriseName: 'Enterprise Wholesaler',
+  tierEnterpriseLimit: 300,
+  tierEnterprisePriceUsd: 50.0,
   sponsoredAdvertPriceUsd: 20,
   freeGracePeriodDays: 30,
   supportWhatsApp: '263771000000',

@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { productRepository } from '@/infrastructure/database/repositories/product-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { settingsRepository } from '@/infrastructure/database/repositories/settings-repository';
+import { getDb } from '@/infrastructure/database/connection';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -112,6 +114,24 @@ export async function POST(req: NextRequest) {
 
     if (!isAdmin && !isOwner) {
       throw new AuthorizationError('You can only add products to your own registered business');
+    }
+
+    // Dynamic Catalog Quota Enforcement
+    const settings = await settingsRepository.getSettings();
+    const effectiveLimit =
+      business.custom_product_limit ??
+      business.product_limit ??
+      settings.tier_starter_limit ?? 25;
+
+    const db = getDb();
+    const [{ count }] = await db('products')
+      .where({ business_id: targetBusinessId, is_active: true })
+      .count('id as count');
+
+    if (Number(count) >= effectiveLimit) {
+      throw new ValidationError(
+        `Catalog quota reached (${effectiveLimit} products allowed for your storefront tier). Please upgrade your storefront tier in your dashboard to list additional products.`
+      );
     }
 
     const product = await productRepository.create({

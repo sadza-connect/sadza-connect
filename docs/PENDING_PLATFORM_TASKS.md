@@ -107,13 +107,13 @@ Exposing backend infrastructure terminology like **PostgreSQL**, **Supabase**, *
 ---
 
 ## 3. Implementation Checklist for Issue #1
-- [ ] Replace `"Encrypted PostgreSQL Data Link"` in `src/components/ui/ActionLoader.tsx`.
-- [ ] Replace `"provisioning KYC profile in PostgreSQL..."` in `src/app/onboarding/business/page.tsx`.
-- [ ] Clean toast and tooltip messages in `src/app/admin/users/page.tsx`.
-- [ ] Clean telemetry badges and card hints in `src/app/admin/analytics/page.tsx`.
-- [ ] Sanitize advert deletion message in `src/app/api/v1/adverts/[id]/route.ts`.
-- [ ] Run `git grep -i -E "postgresql|supabase" src/` to verify zero residual user-facing strings.
-- [ ] Run `npm run build` to verify clean compilation.
+- [x] Replace `"Encrypted PostgreSQL Data Link"` in `src/components/ui/ActionLoader.tsx`.
+- [x] Replace `"provisioning KYC profile in PostgreSQL..."` in `src/app/onboarding/business/page.tsx`.
+- [x] Clean toast and tooltip messages in `src/app/admin/users/page.tsx`.
+- [x] Clean telemetry badges and card hints in `src/app/admin/analytics/page.tsx`.
+- [x] Sanitize advert deletion message in `src/app/api/v1/adverts/[id]/route.ts`.
+- [x] Run `git grep -i -E "postgresql|supabase" src/` to verify zero residual user-facing strings.
+- [x] Run `npm run build` to verify clean compilation.
 
 ---
 
@@ -199,15 +199,15 @@ During initial UI prototyping, dozens of hardcoded dummy fallbacks, fake reviews
 ---
 
 ## 4. Implementation Checklist for Issue #2
-- [ ] Remove `PRESET_PRODUCT_IMAGES` pre-population in `src/app/dashboard/business/page.tsx`.
-- [ ] Remove Unsplash solar panel fallback in `src/lib/data/product-mapper.ts` and `src/app/admin/marketplace/page.tsx`.
-- [ ] Implement neutral SVG / category branded placeholder for products without photos.
-- [ ] Remove injected fake reviews and fabricated 4.5/12 rating defaults from `src/lib/data/business-mapper.ts`.
-- [ ] Implement clean zero-review state (*"No reviews yet"*) in business storefront and marketplace cards.
-- [ ] Remove Unsplash warehouse photo and dummy phone numbers from `src/lib/data/advert-mapper.ts`.
-- [ ] Clear pre-filled demo data in `src/app/admin/adverts/page.tsx`, `orders/page.tsx`, and `jobs/page.tsx`.
-- [ ] Remove Unsplash model photo from `src/lib/data/id-card-mapper.ts`.
-- [ ] Run `npm run build` to verify clean compilation.
+- [x] Remove `PRESET_PRODUCT_IMAGES` pre-population in `src/app/dashboard/business/page.tsx`.
+- [x] Remove Unsplash solar panel fallback in `src/lib/data/product-mapper.ts` and `src/app/admin/marketplace/page.tsx`.
+- [x] Implement neutral SVG / category branded placeholder for products without photos.
+- [x] Remove injected fake reviews and fabricated 4.5/12 rating defaults from `src/lib/data/business-mapper.ts`.
+- [x] Implement clean zero-review state (*"No reviews yet"*) in business storefront and marketplace cards.
+- [x] Remove Unsplash warehouse photo and dummy phone numbers from `src/lib/data/advert-mapper.ts`.
+- [x] Clear pre-filled demo data in `src/app/admin/adverts/page.tsx`, `orders/page.tsx`, and `jobs/page.tsx`.
+- [x] Remove Unsplash model photo from `src/lib/data/id-card-mapper.ts`.
+- [x] Run `npm run build` to verify clean compilation.
 
 ---
 
@@ -313,16 +313,16 @@ And wrap the table view in the 3-state condition:
 ---
 
 ## 4. Implementation Checklist for Issue #3
-- [ ] Add `<TableSkeleton />` to `src/components/admin/AdminUI.tsx`.
-- [ ] Update `src/app/admin/users/page.tsx`: Set `isLoadingUsers(true)` by default; render `<TableSkeleton />`.
-- [ ] Update `src/app/admin/businesses/page.tsx`: Wire `isLoading` state to `<TableSkeleton />`.
-- [ ] Update `src/app/admin/marketplace/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
-- [ ] Update `src/app/admin/adverts/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
-- [ ] Update `src/app/admin/orders/page.tsx`: Set `loading(true)` by default; render `<TableSkeleton />`.
-- [ ] Update `src/app/admin/jobs/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
-- [ ] Update `src/app/admin/id-cards/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
-- [ ] Update `src/app/admin/messages/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
-- [ ] Verify zero "Empty State" flashes occur on load across all admin pages.
+- [x] Add `<TableSkeleton />` to `src/components/admin/AdminUI.tsx`.
+- [x] Update `src/app/admin/users/page.tsx`: Set `isLoadingUsers(true)` by default; render `<TableSkeleton />`.
+- [x] Update `src/app/admin/businesses/page.tsx`: Wire `isLoading` state to `<TableSkeleton />`.
+- [x] Update `src/app/admin/marketplace/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+- [x] Update `src/app/admin/adverts/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+- [x] Update `src/app/admin/orders/page.tsx`: Set `loading(true)` by default; render `<TableSkeleton />`.
+- [x] Update `src/app/admin/jobs/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+- [x] Update `src/app/admin/id-cards/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+- [x] Update `src/app/admin/messages/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+- [x] Verify zero "Empty State" flashes occur on load across all admin pages.
 
 ---
 
@@ -390,13 +390,13 @@ Create a reusable security modal in [`src/components/admin/AdminUI.tsx`](file://
 ---
 
 ## 4. Implementation Checklist for Issue #4
-- [ ] Update table status rendering in `src/app/admin/users/page.tsx`: Suspended -> Red badge with `<ShieldAlert />`; Active -> Green badge with `<CheckCircle2 />`.
-- [ ] Build `<AdminPasswordConfirmationModal />` in `src/components/admin/AdminUI.tsx`.
-- [ ] Implement `POST /api/v1/auth/verify-password` using bcrypt compare against active admin session.
-- [ ] Add "Delete Account" button in `src/app/admin/users/page.tsx`.
-- [ ] Wire Suspend, Reactivate, Delete User, and Promote Admin buttons to trigger `<AdminPasswordConfirmationModal />`.
-- [ ] Wire Delete Business in `src/app/admin/businesses/page.tsx` to trigger `<AdminPasswordConfirmationModal />`.
-- [ ] Ensure deleting/suspending a user automatically hides their active listings from public search.
+- [x] Update table status rendering in `src/app/admin/users/page.tsx`: Suspended -> Red badge with `<ShieldAlert />`; Active -> Green badge with `<CheckCircle2 />`.
+- [x] Build `<AdminPasswordConfirmationModal />` in `src/components/admin/AdminUI.tsx`.
+- [x] Implement `POST /api/v1/auth/verify-password` using bcrypt compare against active admin session.
+- [x] Add "Delete Account" button in `src/app/admin/users/page.tsx`.
+- [x] Wire Suspend, Reactivate, Delete User, and Promote Admin buttons to trigger `<AdminPasswordConfirmationModal />`.
+- [x] Wire Delete Business in `src/app/admin/businesses/page.tsx` to trigger `<AdminPasswordConfirmationModal />`.
+- [x] Ensure deleting/suspending a user automatically hides their active listings from public search.
 
 ---
 
@@ -452,11 +452,11 @@ await fetch('/api/v1/settings', {
 ---
 
 ## 3. Implementation Checklist for Issue #5
-- [ ] Add `Authorization: Bearer <token>` and `credentials: 'include'` to `PUT /api/v1/settings` call in `src/app/admin/settings/page.tsx`.
-- [ ] Ensure non-200 responses trigger an error toast rather than a false success message.
-- [ ] Create `POST /api/v1/auth/change-password` API route with bcrypt verification.
-- [ ] Connect `handlePasswordUpdate` in `src/app/admin/settings/page.tsx` to `POST /api/v1/auth/change-password`.
-- [ ] Test password change end-to-end: verify old password no longer logs in, new password works.
+- [x] Add `Authorization: Bearer <token>` and `credentials: 'include'` to `PUT /api/v1/settings` call in `src/app/admin/settings/page.tsx`.
+- [x] Ensure non-200 responses trigger an error toast rather than a false success message.
+- [x] Create `POST /api/v1/auth/change-password` API route with bcrypt verification.
+- [x] Connect `handlePasswordUpdate` in `src/app/admin/settings/page.tsx` to `POST /api/v1/auth/change-password`.
+- [x] Test password change end-to-end: verify old password no longer logs in, new password works.
 
 ---
 
@@ -508,12 +508,12 @@ Currently, two vital operational areas of the Admin Console are completely sever
 ---
 
 ## 3. Implementation Checklist for Issue #6
-- [ ] Connect `src/app/admin/bill-payments/page.tsx` to `GET /api/v1/invoices` on mount.
-- [ ] Update `handleSaveReceipt` to persist manual receipts via `POST /api/v1/invoices`.
-- [ ] Create `contact_messages` migration in PostgreSQL.
-- [ ] Implement `POST /api/v1/messages`, `GET /api/v1/messages`, and `PATCH /api/v1/messages/[id]`.
-- [ ] Wire `src/app/contact/page.tsx` submission to call `POST /api/v1/messages`.
-- [ ] Wire `src/app/admin/messages/page.tsx` to load live messages and dispatch real email replies.
+- [x] Connect `src/app/admin/bill-payments/page.tsx` to `GET /api/v1/invoices` on mount.
+- [x] Update `handleSaveReceipt` to persist manual receipts via `POST /api/v1/invoices`.
+- [x] Create `contact_messages` migration in PostgreSQL.
+- [x] Implement `POST /api/v1/messages`, `GET /api/v1/messages`, and `PATCH /api/v1/messages/[id]`.
+- [x] Wire `src/app/contact/page.tsx` submission to call `POST /api/v1/messages`.
+- [x] Wire `src/app/admin/messages/page.tsx` to load live messages and dispatch real email replies.
 
 ---
 
@@ -563,10 +563,10 @@ Add `getAuthenticatedUser(req, true)` with `role === 'admin'` check to `PATCH` a
 ---
 
 ## 3. Implementation Checklist for Issue #7
-- [ ] Add `@media print` CR80 card isolation styles to ID Card print preview.
-- [ ] Fix `handleConfirmHire` in `src/app/admin/jobs/page.tsx` to set status `'Hired'`.
-- [ ] Add functional CV download link to candidate application drawer.
-- [ ] Add admin authentication guards to `src/app/api/v1/orders/[orderNumber]/route.ts`.
+- [x] Add `@media print` CR80 card isolation styles to ID Card print preview.
+- [x] Fix `handleConfirmHire` in `src/app/admin/jobs/page.tsx` to set status `'Hired'`.
+- [x] Add functional CV download link to candidate application drawer.
+- [x] Add admin authentication guards to `src/app/api/v1/orders/[orderNumber]/route.ts`.
 
 ---
 
@@ -632,12 +632,12 @@ ALTER TABLE platform_settings
 ---
 
 ## 4. Implementation Checklist for Issue #8
-- [ ] Add CMS columns to `platform_settings` table in PostgreSQL.
-- [ ] Implement `GET /api/v1/cms` and `PATCH /api/v1/cms` routes.
-- [ ] Connect `src/app/admin/content/page.tsx` to `PATCH /api/v1/cms` on save.
-- [ ] Dynamically bind `Hero.tsx` and `AnnouncementBar.tsx` to database CMS.
-- [ ] Dynamically bind `src/app/about/page.tsx` and `src/app/contact/page.tsx` to database CMS.
-- [ ] Test live updates: edit copy in Admin -> verify immediate update on public pages.
+- [x] Add CMS columns to `platform_settings` table in PostgreSQL.
+- [x] Implement `GET /api/v1/cms` and `PATCH /api/v1/cms` routes.
+- [x] Connect `src/app/admin/content/page.tsx` to `PATCH /api/v1/cms` on save.
+- [x] Dynamically bind `Hero.tsx` and `AnnouncementBar.tsx` to database CMS.
+- [x] Dynamically bind `src/app/about/page.tsx` and `src/app/contact/page.tsx` to database CMS.
+- [x] Test live updates: edit copy in Admin -> verify immediate update on public pages.
 
 ---
 
@@ -728,11 +728,11 @@ if (Number(count) >= effectiveLimit) {
 ---
 
 ## 5. Implementation Checklist for Issue #9
-- [ ] Add quota and tier columns to `businesses` and `platform_settings` tables in PostgreSQL.
-- [ ] Add tier quota & pricing form to `src/app/admin/settings/page.tsx`.
-- [ ] Add custom quota override input to `src/app/admin/businesses/page.tsx`.
-- [ ] Implement quota enforcement in `src/app/api/v1/products/route.ts` (`POST`).
-- [ ] Build catalog usage meter and **Expand Catalog** modal in `src/app/dashboard/business/page.tsx`.
-- [ ] Connect Paynow/EcoCash/InnBucks upgrade checkout with automatic quota elevation.
-- [ ] Dynamically render tier limits and prices in public `/pricing`.
-- [ ] Run full Next.js production build (`npm run build`).
+- [x] Add quota and tier columns to `businesses` and `platform_settings` tables in PostgreSQL.
+- [x] Add tier quota & pricing form to `src/app/admin/settings/page.tsx`.
+- [x] Add custom quota override input to `src/app/admin/businesses/page.tsx`.
+- [x] Implement quota enforcement in `src/app/api/v1/products/route.ts` (`POST`).
+- [x] Build catalog usage meter and **Expand Catalog** modal in `src/app/dashboard/business/page.tsx`.
+- [x] Connect Paynow/EcoCash/InnBucks upgrade checkout with automatic quota elevation.
+- [x] Dynamically render tier limits and prices in public `/pricing`.
+- [x] Run full Next.js production build (`npm run build`).

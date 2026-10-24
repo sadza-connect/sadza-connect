@@ -23,6 +23,15 @@ const updateSettingsSchema = z.object({
   hq_address: z.string().optional(),
   harare_address: z.string().optional(),
   operating_hours: z.string().optional(),
+  tier_starter_name: z.string().optional(),
+  tier_starter_limit: z.number().int().positive().optional(),
+  tier_starter_price_usd: z.number().nonnegative().optional(),
+  tier_growth_name: z.string().optional(),
+  tier_growth_limit: z.number().int().positive().optional(),
+  tier_growth_price_usd: z.number().nonnegative().optional(),
+  tier_enterprise_name: z.string().optional(),
+  tier_enterprise_limit: z.number().int().positive().optional(),
+  tier_enterprise_price_usd: z.number().nonnegative().optional(),
   extra_config: z.record(z.any()).optional(),
 });
 

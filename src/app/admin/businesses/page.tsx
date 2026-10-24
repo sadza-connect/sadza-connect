@@ -102,6 +102,8 @@ export default function AdminBusinessesPage() {
     subscriptionStatus: 'Month 1 Grace Period' as BusinessListing['subscriptionStatus'],
     graceDaysRemaining: '30',
     customMonthlyPriceUsd: '',
+    catalogTier: 'starter',
+    customProductLimit: '',
     cr14Verified: false,
     featured: false,
     images: [] as GalleryItem[],
@@ -179,6 +181,8 @@ export default function AdminBusinessesPage() {
       subscriptionStatus: 'Month 1 Grace Period',
       graceDaysRemaining: '30',
       customMonthlyPriceUsd: '',
+      catalogTier: 'starter',
+      customProductLimit: '',
       cr14Verified: false,
       featured: false,
       images: [],
@@ -205,6 +209,11 @@ export default function AdminBusinessesPage() {
         b.customMonthlyPriceUsd !== undefined && b.customMonthlyPriceUsd !== null
           ? String(b.customMonthlyPriceUsd)
           : '',
+      catalogTier: b.catalogTier || 'starter',
+      customProductLimit:
+        b.customProductLimit !== undefined && b.customProductLimit !== null
+          ? String(b.customProductLimit)
+          : '',
       cr14Verified: b.cr14Verified,
       featured: b.featured,
       images: b.image ? [{ src: b.image, caption: b.name }] : [],
@@ -227,6 +236,11 @@ export default function AdminBusinessesPage() {
         ? Math.max(0, parseFloat(form.customMonthlyPriceUsd))
         : null;
 
+    const customLimitNum =
+      form.customProductLimit.trim() !== ''
+        ? Math.max(1, parseInt(form.customProductLimit, 10))
+        : null;
+
     if (editingId) {
       const existing = businesses.find((b) => b.id === editingId);
       if (existing) {
@@ -244,6 +258,8 @@ export default function AdminBusinessesPage() {
               logo_url: coverImg,
               is_featured: form.featured,
               custom_monthly_price_usd: customPriceNum,
+              catalog_tier: form.catalogTier,
+              custom_product_limit: customLimitNum,
             }),
           });
         } catch (err) {
@@ -273,6 +289,11 @@ export default function AdminBusinessesPage() {
                   ? Math.max(1, Number(form.graceDaysRemaining) || 30)
                   : undefined,
               customMonthlyPriceUsd: customPriceNum,
+              catalogTier: form.catalogTier,
+              customProductLimit: customLimitNum,
+              productLimit:
+                customLimitNum ??
+                (form.catalogTier === 'enterprise' ? 300 : form.catalogTier === 'growth' ? 100 : 25),
               cr14Verified: form.cr14Verified,
               zimraVerified: form.cr14Verified,
               featured: form.featured,
@@ -300,6 +321,8 @@ export default function AdminBusinessesPage() {
             cover_url: coverImg,
             logo_url: coverImg,
             custom_monthly_price_usd: customPriceNum,
+            catalog_tier: form.catalogTier,
+            custom_product_limit: customLimitNum,
           }),
         });
       } catch (err) {
@@ -323,6 +346,11 @@ export default function AdminBusinessesPage() {
             ? Math.max(1, Number(form.graceDaysRemaining) || 30)
             : undefined,
         customMonthlyPriceUsd: customPriceNum,
+        catalogTier: form.catalogTier,
+        customProductLimit: customLimitNum,
+        productLimit:
+          customLimitNum ??
+          (form.catalogTier === 'enterprise' ? 300 : form.catalogTier === 'growth' ? 100 : 25),
         rating: 4.9,
         reviewCount: 12,
         province: form.province,
@@ -502,6 +530,7 @@ export default function AdminBusinessesPage() {
                   <th className="px-4 py-3">Legal Track &amp; KYC Badge</th>
                   <th className="px-4 py-3">Subscription &amp; Grace</th>
                   <th className="px-4 py-3">Monthly Rate</th>
+                  <th className="px-4 py-3">Catalog Quota</th>
                   <th className="px-5 py-3 text-right sm:px-6">Actions</th>
                 </tr>
               </thead>
@@ -599,6 +628,20 @@ export default function AdminBusinessesPage() {
                           >
                             {rateInfo.isCustom ? '★ Admin Custom' : 'Track Default'}
                           </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-slate-800 capitalize">
+                          {b.catalogTier || 'starter'} Tier
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {b.customProductLimit ? (
+                            <span className="font-semibold text-purple-700">Custom {b.customProductLimit} max</span>
+                          ) : (
+                            <span>Limit: {b.productLimit || (b.catalogTier === 'enterprise' ? 300 : b.catalogTier === 'growth' ? 100 : 25)} max</span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -769,6 +812,24 @@ export default function AdminBusinessesPage() {
                   value={form.customMonthlyPriceUsd}
                   onChange={(e) => setForm({ ...form, customMonthlyPriceUsd: e.target.value })}
                   wrapClassName="sm:col-span-2"
+                />
+                <AdminSelect
+                  label="Catalog Storefront Tier"
+                  value={form.catalogTier}
+                  onChange={(e) => setForm({ ...form, catalogTier: e.target.value })}
+                >
+                  <option value="starter">Starter Storefront (Default 25 products)</option>
+                  <option value="growth">Growth Storefront (Default 100 products)</option>
+                  <option value="enterprise">Enterprise Wholesaler (Default 300 products)</option>
+                </AdminSelect>
+                <AdminInput
+                  label="Admin Custom Product Limit Override"
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 500 (leave empty for tier default)"
+                  hint="Determined by Admin. Overrides platform tier product quota for bespoke partners."
+                  value={form.customProductLimit}
+                  onChange={(e) => setForm({ ...form, customProductLimit: e.target.value })}
                 />
               </ModalGrid>
             </ModalSection>

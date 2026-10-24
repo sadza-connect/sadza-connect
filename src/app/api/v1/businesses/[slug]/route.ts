@@ -40,6 +40,9 @@ const updateBusinessSchema = z.object({
   verification_badge: z.string().optional(),
   registration_number: z.string().optional(),
   custom_monthly_price_usd: z.number().nonnegative().nullable().optional(),
+  product_limit: z.number().int().positive().optional(),
+  catalog_tier: z.string().optional(),
+  custom_product_limit: z.number().int().positive().nullable().optional(),
   is_verified: z.boolean().optional(),
   verification_status: z.string().optional(),
 });
@@ -129,6 +132,12 @@ export async function PATCH(
       }
       if (body.phone && body.phone !== existing.phone) {
         throw new ValidationError('Primary Registration Phone is permanently locked for KYC compliance.');
+      }
+      if (body.custom_product_limit !== undefined && body.custom_product_limit !== existing.custom_product_limit) {
+        throw new AuthorizationError('Custom product limit overrides can only be configured by Platform Administrators.');
+      }
+      if (body.custom_monthly_price_usd !== undefined && body.custom_monthly_price_usd !== existing.custom_monthly_price_usd) {
+        throw new AuthorizationError('Custom monthly price overrides can only be configured by Platform Administrators.');
       }
     }
 

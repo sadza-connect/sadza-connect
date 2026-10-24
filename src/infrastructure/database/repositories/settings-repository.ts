@@ -21,6 +21,15 @@ export interface PlatformSettingsRow {
   about_mission?: string | null;
   about_vision?: string | null;
   core_values?: any[];
+  tier_starter_name?: string;
+  tier_starter_limit?: number;
+  tier_starter_price_usd?: number | string;
+  tier_growth_name?: string;
+  tier_growth_limit?: number;
+  tier_growth_price_usd?: number | string;
+  tier_enterprise_name?: string;
+  tier_enterprise_limit?: number;
+  tier_enterprise_price_usd?: number | string;
   extra_config?: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -46,6 +55,15 @@ export interface UpdatePlatformSettingsDTO {
   about_mission?: string | null;
   about_vision?: string | null;
   core_values?: any[];
+  tier_starter_name?: string;
+  tier_starter_limit?: number;
+  tier_starter_price_usd?: number;
+  tier_growth_name?: string;
+  tier_growth_limit?: number;
+  tier_growth_price_usd?: number;
+  tier_enterprise_name?: string;
+  tier_enterprise_limit?: number;
+  tier_enterprise_price_usd?: number;
   extra_config?: Record<string, any>;
 }
 
@@ -109,6 +127,15 @@ export class SettingsRepository {
       about_mission: row.about_mission || 'Eliminating counterfeit supply risk and fragmented directories by providing a single, transparent, CR14-verified commercial network with predictable $10/month business subscriptions.',
       about_vision: row.about_vision || 'To be Zimbabwe’s most trusted digital commercial infrastructure, connecting every verified enterprise, supplier, and household across all 10 provinces and the global Diaspora.',
       core_values: parseJsonArray(row.core_values),
+      tier_starter_name: row.tier_starter_name || 'Starter Storefront',
+      tier_starter_limit: parseInt(row.tier_starter_limit?.toString() || '25', 10),
+      tier_starter_price_usd: parseFloat(row.tier_starter_price_usd?.toString() || '15.0'),
+      tier_growth_name: row.tier_growth_name || 'Growth Storefront',
+      tier_growth_limit: parseInt(row.tier_growth_limit?.toString() || '100', 10),
+      tier_growth_price_usd: parseFloat(row.tier_growth_price_usd?.toString() || '25.0'),
+      tier_enterprise_name: row.tier_enterprise_name || 'Enterprise Wholesaler',
+      tier_enterprise_limit: parseInt(row.tier_enterprise_limit?.toString() || '300', 10),
+      tier_enterprise_price_usd: parseFloat(row.tier_enterprise_price_usd?.toString() || '50.0'),
       extra_config: row.extra_config || {},
     };
   }
@@ -150,6 +177,15 @@ export class SettingsRepository {
     if (data.about_mission !== undefined) updatePayload.about_mission = data.about_mission;
     if (data.about_vision !== undefined) updatePayload.about_vision = data.about_vision;
     if (data.core_values !== undefined) updatePayload.core_values = JSON.stringify(data.core_values);
+    if (data.tier_starter_name !== undefined) updatePayload.tier_starter_name = data.tier_starter_name;
+    if (data.tier_starter_limit !== undefined) updatePayload.tier_starter_limit = data.tier_starter_limit;
+    if (data.tier_starter_price_usd !== undefined) updatePayload.tier_starter_price_usd = data.tier_starter_price_usd;
+    if (data.tier_growth_name !== undefined) updatePayload.tier_growth_name = data.tier_growth_name;
+    if (data.tier_growth_limit !== undefined) updatePayload.tier_growth_limit = data.tier_growth_limit;
+    if (data.tier_growth_price_usd !== undefined) updatePayload.tier_growth_price_usd = data.tier_growth_price_usd;
+    if (data.tier_enterprise_name !== undefined) updatePayload.tier_enterprise_name = data.tier_enterprise_name;
+    if (data.tier_enterprise_limit !== undefined) updatePayload.tier_enterprise_limit = data.tier_enterprise_limit;
+    if (data.tier_enterprise_price_usd !== undefined) updatePayload.tier_enterprise_price_usd = data.tier_enterprise_price_usd;
 
     const [updated] = await db('platform_settings')
       .where('id', current.id)
@@ -192,6 +228,15 @@ export class SettingsRepository {
       about_mission: updated.about_mission || 'Eliminating counterfeit supply risk and fragmented directories by providing a single, transparent, CR14-verified commercial network with predictable $10/month business subscriptions.',
       about_vision: updated.about_vision || 'To be Zimbabwe’s most trusted digital commercial infrastructure, connecting every verified enterprise, supplier, and household across all 10 provinces and the global Diaspora.',
       core_values: parseJsonArray(updated.core_values),
+      tier_starter_name: updated.tier_starter_name || 'Starter Storefront',
+      tier_starter_limit: parseInt(updated.tier_starter_limit?.toString() || '25', 10),
+      tier_starter_price_usd: parseFloat(updated.tier_starter_price_usd?.toString() || '15.0'),
+      tier_growth_name: updated.tier_growth_name || 'Growth Storefront',
+      tier_growth_limit: parseInt(updated.tier_growth_limit?.toString() || '100', 10),
+      tier_growth_price_usd: parseFloat(updated.tier_growth_price_usd?.toString() || '25.0'),
+      tier_enterprise_name: updated.tier_enterprise_name || 'Enterprise Wholesaler',
+      tier_enterprise_limit: parseInt(updated.tier_enterprise_limit?.toString() || '300', 10),
+      tier_enterprise_price_usd: parseFloat(updated.tier_enterprise_price_usd?.toString() || '50.0'),
       extra_config: updated.extra_config || {},
     };
   }
