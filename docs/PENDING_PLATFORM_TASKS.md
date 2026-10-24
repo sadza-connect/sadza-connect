@@ -1,6 +1,6 @@
 # Sadza Connect — Pending Platform Tasks & GitHub Issue Backlog
 
-This document compiles pending tasks and enhancement specifications for **Sadza Connect**. Each section is formatted as a self-contained specification ready to be copied directly into a GitHub Issue for sequential implementation and tracking.
+This document compiles pending tasks, architectural specifications, and enhancement backlogs for **Sadza Connect**. Each section is formatted as a self-contained specification ready to be copied directly into a GitHub Issue for sequential implementation, review, and tracking.
 
 ---
 
@@ -10,6 +10,8 @@ This document compiles pending tasks and enhancement specifications for **Sadza 
 | :--- | :--- | :--- | :--- | :--- |
 | **#1** | Dynamic Catalog Quotas, Automated Tier Expansion & Dynamic Admin Pricing Controls | **High** | Anti-spam, Storefront limits, Admin overrides, Paynow upgrades | Backlog / Ready for Implementation |
 | **#2** | Complete Scrubbing of Internal Technical Jargon & Infrastructure Leaks (PostgreSQL, Supabase, etc.) | **High** | UI Polish, Brand trust, User registration/login spinners, Admin UI | Backlog / Ready for Implementation |
+| **#3** | Admin Table Skeleton Loaders & Eliminating False Empty-State Flashes Across All Sidebar Pages | **High** | Admin UX, Loading skeletons, Route transitions, In-memory cache | Backlog / Ready for Implementation |
+| **#4** | Purging Mock Fallbacks, Fabricated Reviews, and Hardcoded Demo Assets Across Platform | **High** | Data integrity, Real brand placeholders, Clean admin modals | Backlog / Ready for Implementation |
 
 ---
 
@@ -282,3 +284,245 @@ Exposing backend infrastructure terminology like **PostgreSQL**, **Supabase**, *
 - [ ] **Phase 4: Global Codebase Audit & Build Verification**
   - [ ] Run `git grep -i -E "postgresql|supabase" src/` to verify zero residual user-facing strings.
   - [ ] Run `npx tsc --noEmit` and `npm run build` to ensure all pages compile cleanly.
+
+---
+
+# GitHub Issue #3: Admin Table Skeleton Loaders & Eliminating False Empty-State Flashes Across All Sidebar Pages
+
+## 1. Feature Overview & Problem Statement
+When an Administrator navigates through the Admin Console sidebar (e.g., clicking **Users**, **Businesses**, **Products**, **Adverts**, **Orders**, or **Vacancies**), the page immediately flashes an **"Empty State"** notification:
+> *"No users found. Try changing your search query or role filter."*
+> *"No businesses match filters."*
+> *"No products match filters."*
+
+Then, 400ms to 1200ms later when the database network response arrives, the empty state abruptly disappears and the data table pops into view.
+
+### The Root Cause:
+1. **Premature Array Evaluation:** The table data state starts as `[]`. In JSX, the component checks `{filtered.length === 0 ? <EmptyState /> : <table>}` without checking if data is currently loading.
+2. **`isLoading` Defaults to `false`:** In several pages (`users`, `orders`), `isLoading` was initialized to `false`. In others (`marketplace`, `adverts`, `jobs`), there wasn't even an `isLoading` variable.
+3. **No Skeleton Component in `AdminUI`:** There are zero table skeleton or placeholder components anywhere in `src/components/admin/AdminUI.tsx`, forcing pages to render either the table or the empty box.
+
+---
+
+## 2. Architectural Blueprint: 3-State Data Table Lifecycle
+
+Every admin data table must strictly adhere to a **3-State Lifecycle**:
+
+```
+[ Route Mounts / Filter Changes ]
+               │
+               ▼
+   Is data currently loading?
+       ├──► YES ──► Render <TableSkeleton columns={N} rows={M} />
+       │            (Pulsing animated shimmer placeholder rows)
+       ▼ NO
+   Are there 0 items in filtered array?
+       ├──► YES ──► Render <EmptyState title="No records found" ... />
+       │            (ONLY shown when fetch is complete and zero results exist)
+       ▼ NO
+   Render populated <table> data rows
+```
+
+---
+
+## 3. Implementation Details
+
+### A. Reusable `<TableSkeleton />` Component (`src/components/admin/AdminUI.tsx`)
+Create a high-fidelity table skeleton loader:
+```tsx
+export function TableSkeleton({
+  columns = 6,
+  rows = 5,
+}: {
+  columns?: number;
+  rows?: number;
+}) {
+  return (
+    <div className="overflow-x-auto animate-pulse">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-[#e6eaf1] bg-[#f4f6f9]/80">
+            {Array.from({ length: columns }).map((_, i) => (
+              <th key={i} className="px-5 py-3">
+                <div className="h-3.5 w-20 rounded bg-slate-200/80" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#e6eaf1]">
+          {Array.from({ length: rows }).map((_, r) => (
+            <tr key={r} className="hover:bg-slate-50/50">
+              {Array.from({ length: columns }).map((_, c) => (
+                <td key={c} className="px-5 py-4">
+                  <div
+                    className={cn(
+                      'h-4 rounded bg-slate-200/70',
+                      c === 0 ? 'w-36' : c === columns - 1 ? 'w-16 ml-auto' : 'w-24'
+                    )}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+### B. Standardized State Initialization Across All Admin Pages
+Every admin page must initialize its loading state to `true`:
+```tsx
+const [isLoading, setIsLoading] = useState(true);
+```
+And wrap the table view in the 3-state condition:
+```tsx
+{isLoading ? (
+  <TableSkeleton columns={6} rows={6} />
+) : filtered.length === 0 ? (
+  <EmptyState ... />
+) : (
+  <div className="overflow-x-auto">
+    <table>...</table>
+  </div>
+)}
+```
+
+### C. Pages Requiring Table Skeleton & State Fix:
+1. `src/app/admin/users/page.tsx`
+2. `src/app/admin/businesses/page.tsx`
+3. `src/app/admin/marketplace/page.tsx`
+4. `src/app/admin/adverts/page.tsx`
+5. `src/app/admin/orders/page.tsx`
+6. `src/app/admin/jobs/page.tsx`
+7. `src/app/admin/id-cards/page.tsx`
+8. `src/app/admin/messages/page.tsx`
+
+---
+
+## 4. Implementation Checklist for Issue #3
+
+- [ ] **Phase 1: Component Infrastructure**
+  - [ ] Add `<TableSkeleton />` with customizable columns, row counts, and pulsing shimmers to `src/components/admin/AdminUI.tsx`.
+- [ ] **Phase 2: Admin Sidebar Pages Fix**
+  - [ ] Update `src/app/admin/users/page.tsx`: Set `isLoadingUsers(true)` by default; render `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/businesses/page.tsx`: Wire `isLoading` state to `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/marketplace/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/adverts/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/orders/page.tsx`: Set `loading(true)` by default; render `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/jobs/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/id-cards/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+  - [ ] Update `src/app/admin/messages/page.tsx`: Introduce `isLoading` state and `<TableSkeleton />`.
+- [ ] **Phase 3: Client Route Caching & Flicker Elimination**
+  - [ ] Cache retrieved admin datasets in a lightweight memory store so navigating back and forth across sidebar tabs shows existing data immediately while revalidating in the background.
+- [ ] **Phase 4: QA & Verification**
+  - [ ] Navigate across all 8 admin tabs in browser: verify zero "Empty State" flashes occur on load.
+  - [ ] Verify that real empty states still show when filters genuinely match 0 items.
+
+---
+
+# GitHub Issue #4: Purging Mock Fallbacks, Fabricated Reviews, and Hardcoded Demo Assets Across Platform
+
+## 1. Feature Overview & Problem Statement
+During initial UI prototyping, dozens of hardcoded dummy fallbacks, fake reviews, mock phone numbers, and stock Unsplash assets were embedded to keep cards from looking empty. In production, this causes severe commercial data integrity issues:
+1. **Unrelated Stock Photos:** A merchant who creates a product (e.g. "50kg Maize Meal" or "Brake Pads") without an image has an Unsplash photo of a **solar panel** automatically attached to their listing!
+2. **Fabricated 5-Star Reviews:** Every newly registered enterprise automatically gets a fake 5-star review from `"Verified Buyer"` reading *"Fast communication on WhatsApp and genuine products supplied in good time"* and a fake `4.5 rating (12 reviews)`.
+3. **Dead Dummy Phone Numbers & Emails:** Fallback contact numbers like `+263 77 000 0000`, `+263 77 210 1101`, and `client@example.co.zw` are displayed to real customers and logistics couriers.
+4. **Polluted Admin Forms:** Opening "Add Product", "Add Advert", or "Add Order" in Admin opens modals pre-filled with demo company data (`SunPower Solar`, `$450`, `$1450`, etc.) instead of clean blank inputs.
+
+---
+
+## 2. Identified Fallbacks & Remediation Plan
+
+### A. Product Mappers & Upload Forms
+* **`src/app/dashboard/business/page.tsx`:**
+  - Remove `PRESET_PRODUCT_IMAGES[0]` (`photo-1509391366360-2e959784a276`) from initial `prodImages` state. The image array must start empty `[]`.
+  - Make image upload a required/strongly guided field in the form.
+  - Reset default pre-filled price (`'120'`), unit (`'Per Unit / Kit'`), and stock note (`'In Stock • Immediate Dispatch'`) to empty strings with clear placeholders.
+* **`src/lib/data/product-mapper.ts`:**
+  - Remove fallback to Unsplash solar panel (`photo-1509391366360-2e959784a276`).
+  - If a product has no image, return a clean SVG placeholder identifier or `null` so the UI renders a branded category placeholder (e.g., an icon with the category name), NEVER a random solar panel.
+  - Remove hardcoded seller fallback phone `+263770000000`. If seller phone is missing, render `null`.
+* **`src/app/admin/marketplace/page.tsx`:**
+  - Remove Unsplash fallback image in `imgSrc`.
+  - Clear all pre-filled form fields (`sellerName: 'SunPower Solar'`, `priceUsd: '450'`, `specs`, `highlights`). Forms must start blank with helpful `placeholder="..."` hints.
+  - Remove automatic assignment to `availableBusinesses[0]` or `'b1'` / `'midlands-solar-agro-solutions'`; require explicit business selection.
+
+### B. Business Mappers & Ratings
+* **`src/lib/data/business-mapper.ts`:**
+  - **DELETE** the injected fake review object:
+    ```typescript
+    // REMOVE THIS FABRICATED REVIEW
+    reviews: [
+      {
+        id: `rev-${b.id}-1`,
+        author: 'Verified Buyer',
+        role: 'Commercial Client',
+        rating: 5,
+        date: 'Recent',
+        comment: 'Fast communication on WhatsApp and genuine products supplied in good time.',
+      },
+    ]
+    ```
+  - Stop defaulting `reviewCount` to `12` and `rating` to `4.5`. If a business has no reviews in the database, return `reviewCount: 0` and `rating: 0`. The UI should render *"No reviews yet • Be the first to review"*.
+  - Remove fallback image (`photo-1497440001374-f26997328c1b`). If no logo/cover is uploaded, display a neutral building icon or brand monogram of the business initials.
+  - Remove fake fallback phone `+263 77 000 0000` and fake email `contact@${b.slug}.co.zw`.
+* **`src/app/admin/businesses/page.tsx`:**
+  - Remove `photo-1509391366360-2e959784a276` from `coverImg`.
+  - Do not default `cr14Verified: true` when creating a business in Admin; require manual toggle verification.
+
+### C. Sponsored Advert Mappers & Forms
+* **`src/lib/data/advert-mapper.ts`:**
+  - Remove fallback to Unsplash logistics photo (`photo-1586528116311-ad8dd3c8310d`).
+  - Remove hardcoded fallback phone numbers `263772111222` and `+263 77 211 1222`.
+* **`src/app/admin/adverts/page.tsx`:**
+  - Clear pre-filled demo data (`businessName: 'SunPower Solar'`, `promoBadge: 'SAVE 15% THIS MONTH'`, `originalPriceUsd: '1450'`, `promoPriceUsd: '1250'`, `whatsapp: '263772101101'`).
+  - Forms must start blank with placeholder text.
+
+### D. Orders & Careers Mappers
+* **`src/lib/data/order-mapper.ts`:**
+  - Remove hardcoded `email: 'client@example.co.zw'`. If customer email is null, display `N/A`.
+  - Remove hardcoded `province: 'Harare'` and fallback carrier `Swift Transit`. Only show courier if assigned.
+* **`src/app/admin/orders/page.tsx`:**
+  - Clear pre-filled demo supplier `"SunPower Solar & Inverters Zimbabwe"`.
+* **`src/lib/data/job-mapper.ts`:**
+  - Remove the 3 auto-injected boilerplate requirements (`Minimum 2 years experience...`). Display only genuine requirements submitted by the employer.
+  - Remove fallback `cvFileName: 'Curriculum_Vitae.pdf'`.
+* **`src/app/admin/jobs/page.tsx`:**
+  - Clear pre-filled demo values (`SunPower Solar`, `$500 – $750 USD / month`, `whatsapp: '263772101101'`).
+* **`src/lib/data/id-card-mapper.ts`:**
+  - Remove hardcoded model photo (`photo-1534528741775-53994a69daeb`) and phone `+263 77 210 1101`. Use standard avatar placeholder icon when photo is missing.
+
+---
+
+## 3. Safe Fallbacks to Preserve (Do Not Remove)
+The following operational fallbacks are safe and essential for platform stability:
+1. **Dynamic Currency Conversion:** If `price_zig` is null in the database, automatically computing `price_usd * usdToZigRate` ensures reliable dual-currency pricing across the country.
+2. **Safe Date Formatting:** Returning `'Recently Listed'` if an API record has a null `created_at` timestamp prevents client crashes.
+3. **Auto-Slugification:** Automatically slugifying names (e.g., `"Harare Solar Depot"` -> `"harare-solar-depot"`) for friendly URLs.
+
+---
+
+## 4. Implementation Checklist for Issue #4
+
+- [ ] **Phase 1: Product & Dashboard Purge**
+  - [ ] Remove `PRESET_PRODUCT_IMAGES` pre-population in `src/app/dashboard/business/page.tsx`.
+  - [ ] Remove Unsplash solar panel fallback in `src/lib/data/product-mapper.ts` and `src/app/admin/marketplace/page.tsx`.
+  - [ ] Implement neutral SVG / category branded placeholder for products without photos.
+  - [ ] Clean pre-filled demo values in `src/app/admin/marketplace/page.tsx`.
+- [ ] **Phase 2: Business & Review Integrity**
+  - [ ] Remove injected fake reviews and fabricated 4.5/12 rating defaults from `src/lib/data/business-mapper.ts`.
+  - [ ] Implement clean zero-review state (*"No reviews yet"*) in business storefront and marketplace cards.
+  - [ ] Remove fake fallback phone/email numbers and Unsplash building images from business mapper.
+- [ ] **Phase 3: Sponsored Adverts & ID Cards Purge**
+  - [ ] Remove Unsplash warehouse photo and dummy phone numbers from `src/lib/data/advert-mapper.ts`.
+  - [ ] Clear pre-filled demo data in `src/app/admin/adverts/page.tsx`.
+  - [ ] Remove Unsplash model photo from `src/lib/data/id-card-mapper.ts`.
+- [ ] **Phase 4: Orders & Vacancies Purge**
+  - [ ] Remove dummy email `client@example.co.zw` and default carrier `Swift Transit` from `src/lib/data/order-mapper.ts`.
+  - [ ] Remove auto-injected boilerplate requirements from `src/lib/data/job-mapper.ts`.
+  - [ ] Clear demo form values in `src/app/admin/orders/page.tsx` and `src/app/admin/jobs/page.tsx`.
+- [ ] **Phase 5: Global Audit & Production Build**
+  - [ ] Verify that registering a business and creating a product produces 100% genuine data with zero unintended fallbacks.
+  - [ ] Run `npx tsc --noEmit` and `npm run build` to verify clean compilation.
