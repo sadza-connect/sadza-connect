@@ -207,7 +207,7 @@ function PvcIdCardPreview({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-6 py-2">
+      <div id="pvc-card-printable" className="flex flex-wrap items-center justify-center gap-6 py-2">
         {view === 'front' && FrontCard}
         {view === 'back' && BackCard}
         {view === 'both' && (
@@ -217,6 +217,33 @@ function PvcIdCardPreview({
           </>
         )}
       </div>
+
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #pvc-card-printable,
+          #pvc-card-printable * {
+            visibility: visible !important;
+          }
+          #pvc-card-printable {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 10mm !important;
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 12mm !important;
+            justify-content: center !important;
+            align-items: center !important;
+            background: white !important;
+            z-index: 999999 !important;
+          }
+        }
+      `}</style>
 
       {showControls && view !== 'both' && (
         <button

@@ -13,6 +13,8 @@ import {
   UserCheck,
   FileText,
   Send,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -376,7 +378,7 @@ export default function AdminJobsPage() {
   function handleConfirmHire(e: React.FormEvent) {
     e.preventDefault();
     if (!hireModalApp) return;
-    updateAppStatus(hireModalApp.id, 'Shortlisted');
+    updateAppStatus(hireModalApp.id, 'Hired');
     showToast(
       `Official Employment Offer Email dispatched to ${hireModalApp.applicantName} (${hireModalApp.applicantEmail})!`
     );
@@ -794,13 +796,26 @@ export default function AdminJobsPage() {
                     <p className="text-[11px] text-[#465a7e]">Verified PDF Curriculum Vitae</p>
                   </div>
                 </div>
-                <AdminButton
-                  size="sm"
-                  variant="outline"
-                  onClick={() => showToast(`Opened ${selectedApp.cvFileName}`)}
-                >
-                  Download CV
-                </AdminButton>
+                {selectedApp.cvUrl ? (
+                  <a
+                    href={selectedApp.cvUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={selectedApp.cvFileName || 'Candidate_CV.pdf'}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#1e57eb] bg-white text-xs font-bold text-[#1e57eb] hover:bg-[#eef5ff] transition-colors cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download CV</span>
+                  </a>
+                ) : (
+                  <AdminButton
+                    size="sm"
+                    variant="outline"
+                    onClick={() => showToast(`No remote CV file link available for ${selectedApp.cvFileName}`)}
+                  >
+                    <FileText className="h-3.5 w-3.5" /> View CV
+                  </AdminButton>
+                )}
               </div>
             </ModalBody>
 

@@ -3,12 +3,13 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { orderRepository } from '@/infrastructure/database/repositories/order-repository';
 import { mapDbOrderToAdminOrderItem } from '@/lib/data/order-mapper';
+import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
   errorResponse,
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
-import { NotFoundError } from '@/shared/errors/AppError';
+import { AuthorizationError, NotFoundError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
 
@@ -64,6 +65,11 @@ export async function PATCH(
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const caller = await getAuthenticatedUser(req, true);
+    if (!caller || caller.role !== 'admin') {
+      throw new AuthorizationError('Administrative privileges required');
+    }
+
     const { orderNumber } = await params;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderNumber);
 
@@ -103,6 +109,11 @@ export async function DELETE(
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const caller = await getAuthenticatedUser(req, true);
+    if (!caller || caller.role !== 'admin') {
+      throw new AuthorizationError('Administrative privileges required');
+    }
+
     const { orderNumber } = await params;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderNumber);
 

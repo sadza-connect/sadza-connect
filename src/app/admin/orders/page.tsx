@@ -152,9 +152,14 @@ export default function AdminOrdersPage() {
     e.preventDefault();
     if (!statusModalOrder) return;
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
       await fetch(`/api/v1/orders/${statusModalOrder.orderNumber}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({
           status: newStatusVal,
           waybill_number: newTrackingVal.trim() || undefined,
@@ -615,7 +620,12 @@ export default function AdminOrdersPage() {
         onConfirm={async () => {
           if (deletingOrder) {
             try {
-              await fetch(`/api/v1/orders/${deletingOrder.orderNumber}`, { method: 'DELETE' });
+              const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+              await fetch(`/api/v1/orders/${deletingOrder.orderNumber}`, {
+                method: 'DELETE',
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                credentials: 'include',
+              });
             } catch {
               // Continue
             }

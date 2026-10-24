@@ -92,8 +92,9 @@ export interface JobApplicationRecord {
   applicantPhone: string;
   experienceSummary: string;
   cvFileName: string;
+  cvUrl?: string | null;
   appliedDate: string;
-  status: 'Submitted' | 'Under Review' | 'Shortlisted';
+  status: 'Submitted' | 'Under Review' | 'Shortlisted' | 'Hired' | 'Rejected';
 }
 
 export const DEFAULT_JOB_APPLICATIONS: JobApplicationRecord[] = [];

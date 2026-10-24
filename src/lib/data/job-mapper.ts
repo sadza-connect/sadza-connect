@@ -51,6 +51,7 @@ export function mapDbApplicationToRecord(app: any): JobApplicationRecord {
     applicantPhone: app.applicant_phone,
     experienceSummary: app.experience_summary || 'No written summary provided.',
     cvFileName: app.cv_file_name || (app.cv_url ? 'Curriculum_Vitae.pdf' : 'No CV Uploaded'),
+    cvUrl: app.cv_url || null,
     appliedDate: dateStr,
     status: (app.status as any) || 'Submitted',
   };
