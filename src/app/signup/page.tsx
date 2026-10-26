@@ -41,6 +41,7 @@ const PROVINCES = [
 ];
 
 import { ALL_COUNTRIES, formatE164Phone } from '@/lib/data/countries';
+import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 
 function SignupFormContent() {
   const searchParams = useSearchParams();
@@ -498,31 +499,17 @@ function SignupFormContent() {
                       </span>
                     </div>
                     <div className="relative flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 hover:border-slate-400 dark:hover:border-slate-500 focus-within:border-emerald-500 dark:focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/25 dark:focus-within:ring-emerald-400/25 transition-all">
-                      {/* Country Code Dropdown */}
-                      <div className="relative flex items-center border-r border-slate-300 dark:border-slate-700">
-                        <select
+                      {/* Searchable Country Code Dropdown */}
+                      <div className="border-r border-slate-300 dark:border-slate-700">
+                        <CountryCodeSelect
                           value={countryCode}
-                          onChange={(e) => {
-                            const newCode = e.target.value;
+                          onChange={(newCode) => {
                             setCountryCode(newCode);
                             if (newCode !== '+263' && selectedType === 'personal' && province !== 'Diaspora') {
                               setProvince('Diaspora');
                             }
                           }}
-                          className="appearance-none bg-transparent pl-3 pr-6 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
-                          aria-label="Country calling code"
-                        >
-                          {ALL_COUNTRIES.map((c) => (
-                            <option
-                              key={`${c.code}-${c.dialCode}`}
-                              value={c.dialCode}
-                              className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1"
-                            >
-                              {c.flag} {c.dialCode} ({c.name})
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-1.5 h-3 w-3 text-slate-400" />
+                        />
                       </div>
 
                       {/* Phone Input */}

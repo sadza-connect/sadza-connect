@@ -247,3 +247,23 @@ export function parsePhoneComponents(phone: string): { dialCode: string; localNu
 
   return { dialCode: '+263', localNumber: trimmed };
 }
+
+/**
+ * Filters the country list based on user search query (name, dial code, ISO code).
+ */
+export function filterCountries(query: string): CountryDialInfo[] {
+  if (!query || !query.trim()) return ALL_COUNTRIES;
+  const clean = query.trim().toLowerCase();
+  const digitsOnly = clean.replace(/\D/g, '');
+
+  return ALL_COUNTRIES.filter((country) => {
+    // 1. Country Name match
+    if (country.name.toLowerCase().includes(clean)) return true;
+    // 2. ISO Code match (e.g., "ZW", "NG", "GB")
+    if (country.code.toLowerCase().includes(clean)) return true;
+    // 3. Dial code match (e.g., "+263" or "263")
+    if (country.dialCode.toLowerCase().includes(clean)) return true;
+    if (digitsOnly && country.dialCode.replace(/\D/g, '').includes(digitsOnly)) return true;
+    return false;
+  });
+}
