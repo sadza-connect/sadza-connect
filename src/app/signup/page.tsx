@@ -19,7 +19,7 @@ import {
   EyeIcon,
   EyeOffIcon,
 } from '@/components/ui/Icons';
-import { Store, User, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Store, User, Sparkles, CheckCircle2, ChevronDown } from 'lucide-react';
 import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 import { ActionLoader } from '@/components/ui/ActionLoader';
 import { useAuth } from '@/context/AuthContext';
@@ -40,6 +40,32 @@ const PROVINCES = [
   'Diaspora',
 ];
 
+export interface CountryDialCode {
+  code: string;
+  name: string;
+  dialCode: string;
+  flag: string;
+  placeholder: string;
+}
+
+export const SUPPORTED_COUNTRIES: CountryDialCode[] = [
+  { code: 'ZW', name: 'Zimbabwe', dialCode: '+263', flag: '🇿🇼', placeholder: '77 123 4567' },
+  { code: 'ZA', name: 'South Africa', dialCode: '+27', flag: '🇿🇦', placeholder: '82 123 4567' },
+  { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧', placeholder: '7911 123456' },
+  { code: 'BW', name: 'Botswana', dialCode: '+267', flag: '🇧🇼', placeholder: '71 234 567' },
+  { code: 'US', name: 'United States', dialCode: '+1', flag: '🇺🇸', placeholder: '415 555 2671' },
+  { code: 'CA', name: 'Canada', dialCode: '+1', flag: '🇨🇦', placeholder: '416 555 0199' },
+  { code: 'AU', name: 'Australia', dialCode: '+61', flag: '🇦🇺', placeholder: '412 345 678' },
+  { code: 'NA', name: 'Namibia', dialCode: '+264', flag: '🇳🇦', placeholder: '81 123 4567' },
+  { code: 'ZM', name: 'Zambia', dialCode: '+260', flag: '🇿🇲', placeholder: '97 123 4567' },
+  { code: 'MZ', name: 'Mozambique', dialCode: '+258', flag: '🇲🇿', placeholder: '84 123 4567' },
+  { code: 'IE', name: 'Ireland', dialCode: '+353', flag: '🇮🇪', placeholder: '85 123 4567' },
+  { code: 'NZ', name: 'New Zealand', dialCode: '+64', flag: '🇳🇿', placeholder: '21 123 4567' },
+  { code: 'AE', name: 'UAE', dialCode: '+971', flag: '🇦🇪', placeholder: '50 123 4567' },
+  { code: 'CN', name: 'China', dialCode: '+86', flag: '🇨🇳', placeholder: '138 0000 0000' },
+  { code: 'INTL', name: 'Other', dialCode: '+', flag: '🌐', placeholder: 'Country code + number' },
+];
+
 function SignupFormContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -58,6 +84,7 @@ function SignupFormContent() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+263');
   const [province, setProvince] = useState(PROVINCES[0]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -69,6 +96,18 @@ function SignupFormContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [isNavigatingToNextStage, setIsNavigatingToNextStage] = useState(false);
+
+  const getFormattedPhone = () => {
+    const cleanDigits = phoneNumber.replace(/\D/g, '');
+    if (countryCode === '+') {
+      return `+${cleanDigits.replace(/^0+/, '')}`;
+    }
+    const codeDigits = countryCode.replace(/\D/g, '');
+    if (cleanDigits.startsWith(codeDigits)) {
+      return `+${cleanDigits}`;
+    }
+    return `${countryCode}${cleanDigits.replace(/^0+/, '')}`;
+  };
 
   const handleOtpVerified = (sessionData?: any) => {
     setIsNavigatingToNextStage(true);
@@ -93,7 +132,7 @@ function SignupFormContent() {
       const params = new URLSearchParams({
         owner: fullName,
         email: email,
-        phone: phoneNumber,
+        phone: getFormattedPhone(),
         verified: 'true',
       });
       router.push(`/onboarding/business?${params.toString()}`);
@@ -122,13 +161,11 @@ function SignupFormContent() {
 
   const handleSendRegistrationCode = async () => {
     const cleanDigits = phoneNumber.replace(/\D/g, '');
-    if (cleanDigits.length < 8 || cleanDigits.length > 15) {
-      throw new Error('Please enter a valid phone number with 8 to 15 digits (e.g., 77 123 4567).');
+    if (cleanDigits.length < 7 || cleanDigits.length > 15) {
+      throw new Error('Please enter a valid phone number with 7 to 15 digits.');
     }
 
-    const formattedPhone = cleanDigits.startsWith('263')
-      ? `+${cleanDigits}`
-      : `+263${cleanDigits.replace(/^0+/, '')}`;
+    const formattedPhone = getFormattedPhone();
 
     const cleanEmail = email.trim().toLowerCase();
     const emailDomain = cleanEmail.split('@')[1];
@@ -204,8 +241,8 @@ function SignupFormContent() {
     // Reject any emails or non-numeric characters in phone number
     const hasInvalidChars = /[a-zA-Z@]/.test(phoneNumber);
     const phoneDigits = phoneNumber.replace(/\D/g, '');
-    if (hasInvalidChars || phoneDigits.length < 8 || phoneDigits.length > 15) {
-      setErrorMessage('Please enter a valid mobile phone number with digits only (e.g., 77 123 4567). Email addresses are not accepted in the phone field.');
+    if (hasInvalidChars || phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setErrorMessage('Please enter a valid phone number with digits only (7 to 15 digits). Email addresses are not accepted in the phone field.');
       return;
     }
     if (!hasMinLength) {
@@ -482,27 +519,58 @@ function SignupFormContent() {
                     </div>
                   </div>
 
-                  {/* Phone Number */}
+                  {/* Phone Number with International Country Code Selector */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                      Phone / Contact number
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100">
+                        Phone / Contact number
+                      </label>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Local &amp; Diaspora supported
+                      </span>
+                    </div>
                     <div className="relative flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 hover:border-slate-400 dark:hover:border-slate-500 focus-within:border-emerald-500 dark:focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/25 dark:focus-within:ring-emerald-400/25 transition-all">
-                      <div className="flex items-center gap-1.5 pl-3.5 pr-2 border-r border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 select-none">
-                        <span>🇿🇼</span>
-                        <span>+263</span>
+                      {/* Country Code Dropdown */}
+                      <div className="relative flex items-center border-r border-slate-300 dark:border-slate-700">
+                        <select
+                          value={countryCode}
+                          onChange={(e) => {
+                            const newCode = e.target.value;
+                            setCountryCode(newCode);
+                            if (newCode !== '+263' && selectedType === 'personal' && province !== 'Diaspora') {
+                              setProvince('Diaspora');
+                            }
+                          }}
+                          className="appearance-none bg-transparent pl-3 pr-6 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                          aria-label="Country calling code"
+                        >
+                          {SUPPORTED_COUNTRIES.map((c) => (
+                            <option
+                              key={`${c.code}-${c.dialCode}`}
+                              value={c.dialCode}
+                              className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1"
+                            >
+                              {c.flag} {c.dialCode} ({c.name})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-1.5 h-3 w-3 text-slate-400" />
                       </div>
+
+                      {/* Phone Input */}
                       <input
                         type="tel"
                         required
                         value={phoneNumber}
                         onChange={(e) => {
-                          // Reject letters, @, and non-phone characters in real time
                           const sanitized = e.target.value.replace(/[^0-9\s\-()+]/g, '');
                           setPhoneNumber(sanitized);
                           if (errorMessage) setErrorMessage('');
                         }}
-                        placeholder="77 123 4567"
+                        placeholder={
+                          SUPPORTED_COUNTRIES.find((c) => c.dialCode === countryCode)?.placeholder ||
+                          '77 123 4567'
+                        }
                         className="flex-1 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 bg-transparent focus:outline-none font-medium"
                       />
                     </div>
