@@ -60,8 +60,8 @@ export class TokenExpiredError extends AppError {
 }
 
 export class RateLimitError extends AppError {
-  constructor(retryAfter: number) {
-    super('Too many requests. Please try again later.', 429, 'RATE_LIMIT_EXCEEDED', {
+  constructor(retryAfter: number, message = 'Too many requests. Please try again later.') {
+    super(message, 429, 'RATE_LIMIT_EXCEEDED', {
       retryAfter,
     });
   }

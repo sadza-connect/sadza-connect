@@ -206,20 +206,20 @@ export class AuthService {
   async verifyEmail(token: string): Promise<{ user: User; tokens: AuthTokens }> {
     const storedToken = await this.verificationTokenRepo.findByToken(token);
     if (!storedToken) {
-      throw new NotFoundError('Verification code');
+      throw new AuthenticationError('Invalid 6-digit verification code. Please check your email or request a new code.');
     }
 
     if (storedToken.used_at) {
-      throw new TokenExpiredError('Verification code has already been used');
+      throw new TokenExpiredError('This verification code has already been used.');
     }
 
     if (new Date(storedToken.expires_at) < new Date()) {
-      throw new TokenExpiredError('Verification code has expired');
+      throw new TokenExpiredError('This verification code has expired. Please request a new code.');
     }
 
     const user = await this.userRepo.findById(storedToken.user_id);
     if (!user) {
-      throw new NotFoundError('User');
+      throw new AuthenticationError('User account associated with this verification code was not found.');
     }
 
     const verified = user.isVerified ? user : user.markVerified();
@@ -273,20 +273,20 @@ export class AuthService {
   async verifyResetOtp(identifier: string, otp: string): Promise<{ resetToken: string }> {
     const user = await this.userRepo.findByEmailOrPhone(identifier);
     if (!user) {
-      throw new NotFoundError('User');
+      throw new AuthenticationError('No account found with this email or phone number.');
     }
 
     const storedToken = await this.passwordResetTokenRepo.findByOtp(otp);
     if (!storedToken || storedToken.user_id !== user.id) {
-      throw new NotFoundError('Password reset code');
+      throw new AuthenticationError('Invalid or expired 6-digit PIN. Please re-check or request a new code.');
     }
 
     if (storedToken.used_at) {
-      throw new TokenExpiredError('Password reset code has already been used');
+      throw new TokenExpiredError('This 6-digit PIN has already been used. Please request a new code.');
     }
 
     if (new Date(storedToken.expires_at) < new Date()) {
-      throw new TokenExpiredError('Password reset code has expired');
+      throw new TokenExpiredError('This 6-digit PIN has expired. Please request a new code.');
     }
 
     await this.passwordResetTokenRepo.markAsUsed(storedToken.id);

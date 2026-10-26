@@ -37,6 +37,7 @@ import {
   Package,
   Handshake,
   Lock,
+  AlertCircle,
 } from 'lucide-react';
 
 export type OnboardingTrack = 'registered_entity' | 'owner_operated' | 'association_institutional';
@@ -491,6 +492,7 @@ function BusinessOnboardingContent() {
   const [verificationSkipped, setVerificationSkipped] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [createdSlug, setCreatedSlug] = useState('');
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Restore draft progress on load if returning from Save & Exit
   useEffect(() => {
@@ -740,6 +742,7 @@ function BusinessOnboardingContent() {
   const handleCompleteOnboarding = async (skipped: boolean) => {
     if (!onboardingTrack || !legalForm) return;
     setIsSubmitting(true);
+    setSubmissionError(null);
     setVerificationSkipped(skipped);
 
     try {
@@ -780,17 +783,26 @@ function BusinessOnboardingContent() {
         }),
       });
       const data = await res.json();
-      if (data.success && data.data?.business?.slug) {
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || data.message || 'Unable to register business. Please try again.');
+      }
+      if (data.data?.business?.slug) {
         setCreatedSlug(data.data.business.slug);
       }
       // Mark onboarding completed and purge draft
       setOnboardingCompleted(true);
-    } catch (err) {
+      setIsCompleted(true);
+      setSubmissionError(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
       console.error('Failed to submit onboarding business record:', err);
+      let errMsg = err?.message || 'We encountered a connection issue while submitting your application. Your details are saved. Please click Submit Application again.';
+      if (errMsg.toLowerCase().includes('database') || errMsg.toLowerCase().includes('econnreset')) {
+        errMsg = 'Database connection was temporarily interrupted. Please try again in a moment.';
+      }
+      setSubmissionError(errMsg);
     } finally {
       setIsSubmitting(false);
-      setIsCompleted(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -1930,6 +1942,17 @@ function BusinessOnboardingContent() {
                     ))}
                   </div>
                 </div>
+
+                {/* Submission Error Banner */}
+                {submissionError && (
+                  <div className="flex items-center gap-3 rounded-2xl border border-rose-300 dark:border-rose-800 bg-rose-50/90 dark:bg-rose-950/40 p-4 text-xs font-medium text-rose-800 dark:text-rose-200 shadow-xs animate-in fade-in">
+                    <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
+                    <div className="flex-1">
+                      <div className="font-bold text-rose-900 dark:text-rose-100">Application Submission Interrupted</div>
+                      <div className="mt-0.5">{submissionError}</div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Launch Action Buttons */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">

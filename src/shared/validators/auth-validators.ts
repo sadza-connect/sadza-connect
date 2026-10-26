@@ -33,9 +33,9 @@ export const registerSchema = z.object({
     )
     .refine((val) => {
       const digits = val.replace(/\D/g, '');
-      return digits.length >= 8 && digits.length <= 15;
+      return digits.length >= 7 && digits.length <= 15;
     }, {
-      message: 'Phone number must contain between 8 and 15 digits',
+      message: 'Phone number must contain between 7 and 15 digits',
     })
     .optional(),
   province: z.string().trim().max(100).optional(),

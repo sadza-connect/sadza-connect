@@ -23,6 +23,34 @@ import { useAuth } from '@/context/AuthContext';
 import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
+function formatLoginError(errorMsg?: string): string {
+  if (!errorMsg) return 'Authentication failed. Please verify your email or phone number and password.';
+  const lower = errorMsg.toLowerCase();
+
+  if (
+    lower.includes('econnreset') ||
+    lower.includes('read econnreset') ||
+    lower.includes('socket hang up') ||
+    lower.includes('connection terminated') ||
+    lower.includes('database') ||
+    lower.includes('knex') ||
+    lower.includes('select ')
+  ) {
+    return 'Database connection was temporarily interrupted. Please try signing in again.';
+  }
+
+  if (
+    lower.includes('getaddrinfo') ||
+    lower.includes('networkerror') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('offline')
+  ) {
+    return 'Unable to connect to the server. Please check your internet connection.';
+  }
+
+  return errorMsg;
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,6 +67,7 @@ function LoginForm() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotInput, setForgotInput] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState('');
 
   // Email verification modal state
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -106,7 +135,8 @@ function LoginForm() {
 
       router.push(destination);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication failed. Please verify your credentials.');
+      const formatted = formatLoginError(err?.message);
+      setErrorMessage(formatted);
     } finally {
       setIsLoading(false);
     }
@@ -117,16 +147,21 @@ function LoginForm() {
     if (!forgotInput.trim()) return;
 
     setIsLoading(true);
+    setForgotError('');
     try {
       const apiUrl = getApiBaseUrl();
-      await safeFetchJson(`${apiUrl}/auth/forgot-password`, {
+      const res = await safeFetchJson(`${apiUrl}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotInput.trim().toLowerCase() }),
       });
+      if (!res.ok) {
+        setForgotError(res.error || 'Failed to dispatch password reset link. Please try again.');
+        return;
+      }
       setForgotSent(true);
-    } catch {
-      setForgotSent(true);
+    } catch (err: any) {
+      setForgotError(err?.message || 'Failed to dispatch password reset link. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -344,6 +379,12 @@ function LoginForm() {
           </div>
         ) : (
           <form onSubmit={handleForgotSubmit} className="mt-2 space-y-3.5">
+            {forgotError && (
+              <div className="rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 p-2.5 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                <span>{forgotError}</span>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
                 Email address

@@ -44,7 +44,7 @@ class MemoryRateLimiter {
 
     if (record.count >= this.maxRequests) {
       const retryAfterSeconds = Math.ceil((record.resetAt - now) / 1000);
-      throw new RateLimitError(retryAfterSeconds);
+      throw new RateLimitError(retryAfterSeconds, this.message);
     }
 
     record.count += 1;

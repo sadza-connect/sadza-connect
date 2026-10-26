@@ -99,17 +99,56 @@ async function executeSingleFetch<T = any>(
       if (rawMsg) {
         let msg = String(rawMsg);
         const lower = msg.toLowerCase();
+
+        // Extract specific validation message if generic 'Validation failed' was returned
+        if (msg === 'Validation failed' && parsedBody?.error?.details?.fields) {
+          const fieldEntries = Object.values(parsedBody.error.details.fields);
+          if (fieldEntries.length > 0 && Array.isArray(fieldEntries[0]) && fieldEntries[0][0]) {
+            msg = String(fieldEntries[0][0]);
+          }
+        }
+
+        // Catch database connection drops and socket resets
         if (
+          lower.includes('econnreset') ||
+          lower.includes('read econnreset') ||
+          lower.includes('57p01') ||
+          lower.includes('connection terminated') ||
+          lower.includes('socket hang up') ||
+          lower.includes('broken pipe')
+        ) {
+          msg = 'Database connection was temporarily interrupted. Please try again in a moment.';
+        } else if (
+          lower.includes('select ') ||
+          lower.includes('insert into') ||
+          lower.includes('update ') ||
+          lower.includes('delete from') ||
+          lower.includes('relation ') ||
+          lower.includes('syntax error') ||
+          lower.includes('knex') ||
+          lower.includes('postgres') ||
+          lower.includes('supabase') ||
+          lower.includes('pooler')
+        ) {
+          msg = 'Database service is temporarily unavailable. Please try again in a few moments.';
+        } else if (
           lower.includes('getaddrinfo') ||
           lower.includes('eai_again') ||
-          lower.includes('supabase') ||
-          lower.includes('postgres') ||
-          lower.includes('knex') ||
-          lower.includes('pooler')
+          lower.includes('etimedout') ||
+          lower.includes('econnrefused') ||
+          lower.includes('enotfound')
         ) {
           msg = 'Unable to establish secure connection. Please check your internet connection and try again.';
         }
         return { ok: false, status: res.status, error: msg };
+      }
+
+      if (res.status === 401) {
+        return {
+          ok: false,
+          status: 401,
+          error: 'Incorrect email, phone number, or password. Please try again.',
+        };
       }
 
       if (res.status === 404) {
@@ -121,13 +160,29 @@ async function executeSingleFetch<T = any>(
         };
       }
 
+      if (res.status === 409) {
+        return {
+          ok: false,
+          status: 409,
+          error: 'An account or record with these details already exists.',
+        };
+      }
+
+      if (res.status === 429) {
+        return {
+          ok: false,
+          status: 429,
+          error: 'Too many attempts. Please wait a few moments before trying again.',
+        };
+      }
+
       if (res.status === 502 || res.status === 503 || res.status === 504) {
         return {
           ok: false,
           status: res.status,
           isHtmlOr404: true,
           error:
-            'The server is waking up (cold start). Please wait 10 seconds and try again.',
+            'The service is temporarily unavailable or warming up. Please wait 5 seconds and try again.',
         };
       }
 

@@ -91,10 +91,29 @@ export function errorResponse(
     'Unhandled internal error in API Route Handler',
   );
 
-  let clientMessage = 'An unexpected server error occurred. Please try again.';
+  let clientMessage = 'An unexpected server error occurred. Please try again in a few moments.';
+  let clientCode = 'INTERNAL_ERROR';
+  let statusCode = 500;
+
   if (errorObj.message) {
     const raw = errorObj.message.toLowerCase();
+
+    // Transient database socket and connection resets
     if (
+      raw.includes('econnreset') ||
+      raw.includes('read econnreset') ||
+      raw.includes('write econnreset') ||
+      raw.includes('57p01') ||
+      raw.includes('connection terminated') ||
+      raw.includes('client was closed') ||
+      raw.includes('socket hang up') ||
+      raw.includes('broken pipe')
+    ) {
+      clientMessage =
+        'Database connection was temporarily interrupted. Please try again in a moment.';
+      clientCode = 'DATABASE_CONNECTION_ERROR';
+      statusCode = 503;
+    } else if (
       raw.includes('eai_again') ||
       raw.includes('getaddrinfo') ||
       raw.includes('etimedout') ||
@@ -103,17 +122,36 @@ export function errorResponse(
     ) {
       clientMessage =
         'Unable to establish secure connection. Please check your internet connection and try again.';
+      clientCode = 'NETWORK_ERROR';
+      statusCode = 503;
     } else if (
+      raw.includes('select ') ||
+      raw.includes('insert into') ||
+      raw.includes('update ') ||
+      raw.includes('delete from') ||
+      raw.includes('relation ') ||
+      raw.includes('column ') ||
+      raw.includes('syntax error') ||
       raw.includes('supabase') ||
       raw.includes('postgres') ||
       raw.includes('knex') ||
-      raw.includes('relation') ||
-      raw.includes('column') ||
-      raw.includes('database')
+      raw.includes('pooler')
+    ) {
+      // Never expose raw SQL queries or database schemas to users or client apps
+      clientMessage =
+        'Database service is temporarily unavailable. Please try again in a few moments.';
+      clientCode = 'DATABASE_ERROR';
+      statusCode = 503;
+    } else if (
+      raw.includes('duplicate key') ||
+      raw.includes('unique constraint') ||
+      raw.includes('already exists')
     ) {
       clientMessage =
-        'Service is temporarily unavailable. Please try again in a few moments.';
-    } else if (env.NODE_ENV === 'development') {
+        'A record with these details already exists. Please check your information.';
+      clientCode = 'CONFLICT';
+      statusCode = 409;
+    } else if (env.NODE_ENV === 'development' && !raw.includes('select ') && !raw.includes('users')) {
       clientMessage = errorObj.message;
     }
   }
@@ -122,8 +160,9 @@ export function errorResponse(
     {
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
+        code: clientCode,
         message: clientMessage,
+        ...(env.NODE_ENV === 'development' && { devOriginalMessage: errorObj.message }),
       },
       meta: {
         requestId,
@@ -131,7 +170,7 @@ export function errorResponse(
       },
     },
     {
-      status: 500,
+      status: statusCode,
       headers: {
         'x-request-id': requestId,
       },
@@ -155,7 +194,8 @@ export async function parseAndValidateBody<T>(
     const result = schema.safeParse(body);
     if (!result.success) {
       const fieldErrors = result.error.flatten().fieldErrors;
-      throw new ValidationError('Validation failed', { fields: fieldErrors });
+      const firstIssue = result.error.issues[0]?.message || 'Validation failed';
+      throw new ValidationError(firstIssue, { fields: fieldErrors });
     }
     return result.data;
   }
