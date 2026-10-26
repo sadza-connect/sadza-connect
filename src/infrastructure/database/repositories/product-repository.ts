@@ -121,7 +121,9 @@ export class ProductRepository {
       baseQuery.where('products.business_id', filters.businessId);
     }
 
-    // Active Storefront Rule: Hide products belonging to businesses whose 30-day trial expired without payment
+    // Active Storefront Rule: Hide products belonging to businesses whose trial expired without payment
+    // For verified businesses, the 30-day grace period is counted from first_verified_at.
+    // For unverified/pending businesses, an onboarding window of 14 days from created_at is granted.
     if (!filters.includeExpired && !filters.businessId) {
       baseQuery.where((builder) => {
         builder
@@ -129,7 +131,19 @@ export class ProductRepository {
           .orWhere((subBuilder) => {
             subBuilder
               .where('businesses.subscription_status', 'Month 1 Grace Period')
-              .andWhere('businesses.created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
+              .andWhere((graceBuilder) => {
+                graceBuilder
+                  .where((vBuilder) => {
+                    vBuilder
+                      .whereNotNull('businesses.first_verified_at')
+                      .andWhere('businesses.first_verified_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
+                  })
+                  .orWhere((uBuilder) => {
+                    uBuilder
+                      .whereNull('businesses.first_verified_at')
+                      .andWhere('businesses.created_at', '>=', db.raw("NOW() - INTERVAL '14 days'"));
+                  });
+              });
           });
       });
     }

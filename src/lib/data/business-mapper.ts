@@ -110,13 +110,21 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
         ? 'Paid Subscriber'
         : b.subscription_status === 'Expired'
         ? 'Expired'
-        : Math.max(0, 30 - Math.floor((Date.now() - (b.created_at ? new Date(b.created_at).getTime() : Date.now())) / (1000 * 60 * 60 * 24))) > 0
-        ? 'Month 1 Grace Period'
-        : 'Expired',
+        : b.first_verified_at
+        ? Math.max(0, 30 - Math.floor((Date.now() - new Date(b.first_verified_at).getTime()) / (1000 * 60 * 60 * 24))) > 0
+          ? 'Month 1 Grace Period'
+          : 'Expired'
+        : 'Month 1 Grace Period',
     graceDaysRemaining:
       b.subscription_status === 'Paid Subscriber'
         ? undefined
-        : Math.max(0, 30 - Math.floor((Date.now() - (b.created_at ? new Date(b.created_at).getTime() : Date.now())) / (1000 * 60 * 60 * 24))),
+        : b.subscription_status === 'Expired'
+        ? 0
+        : b.first_verified_at
+        ? Math.max(0, 30 - Math.floor((Date.now() - new Date(b.first_verified_at).getTime()) / (1000 * 60 * 60 * 24)))
+        : 30,
+    firstVerifiedAt: b.first_verified_at || undefined,
+    verifiedAt: b.verified_at || undefined,
     rating: typeof b.rating_avg === 'number' ? b.rating_avg : (b.rating_avg ? parseFloat(b.rating_avg) : 0),
     reviewCount: Number(b.reviews_count || 0),
     province: b.province,

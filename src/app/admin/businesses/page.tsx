@@ -464,6 +464,7 @@ export default function AdminBusinessesPage() {
 
     const tier = (nextVal ? (isTrackB ? 'tier1_artisan' : 'tier2_corporate') : 'unverified') as BusinessListing['verifiedTier'];
 
+    const nowIso = new Date().toISOString();
     const updated = businesses.map((item) =>
       item.id === b.id
         ? {
@@ -473,13 +474,22 @@ export default function AdminBusinessesPage() {
             verificationStatus: nextStatus,
             verificationBadge: badge,
             verifiedTier: tier,
+            verifiedAt: nextVal ? nowIso : undefined,
+            firstVerifiedAt: item.firstVerifiedAt || (nextVal ? nowIso : undefined),
+            graceDaysRemaining: nextVal && !item.firstVerifiedAt ? 30 : item.graceDaysRemaining,
           }
         : item
     );
     saveStoredBusinesses(updated);
     setBusinesses(updated);
     showToast(
-      `${b.name}: Statutory KYC ${nextVal ? 'Approved & Verified' : 'Marked Pending'}`
+      `${b.name}: Statutory KYC ${
+        nextVal
+          ? !b.firstVerifiedAt
+            ? 'Approved & 30-Day Free Grace Activated'
+            : 'Approved & Verified'
+          : 'Marked Pending'
+      }`
     );
   }
 
@@ -707,9 +717,11 @@ export default function AdminBusinessesPage() {
                       >
                         <AdminBadge tone={statusTone(b.subscriptionStatus || 'Paid Subscriber')} dot>
                           {b.subscriptionStatus || 'Paid Subscriber'}
-                          {b.subscriptionStatus === 'Month 1 Grace Period' &&
-                            b.graceDaysRemaining !== undefined &&
-                            ` (${b.graceDaysRemaining}d left)`}
+                          {b.subscriptionStatus === 'Month 1 Grace Period' && (
+                            b.firstVerifiedAt
+                              ? ` (${b.graceDaysRemaining ?? 30}d left)`
+                              : ' (Starts on verification)'
+                          )}
                         </AdminBadge>
                       </button>
                     </td>
@@ -1123,7 +1135,7 @@ export default function AdminBusinessesPage() {
                   Current Status: {reviewingKycBiz?.cr14Verified ? 'Approved & Verified' : 'Pending Review'}
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Approving verification grants the enterprise a Verified Trust Badge across directory search results.
+                  Approving verification grants the enterprise a Verified Trust Badge and activates their 30-Day Free Grace Period.
                 </p>
               </div>
               <div>

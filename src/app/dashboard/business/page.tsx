@@ -1199,16 +1199,22 @@ export default function BusinessDashboardPage() {
               <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                 Paid ({activeMonthlyRateStr}/mo)
               </span>
-            ) : (
+            ) : currentBusiness.firstVerifiedAt ? (
               <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                 {currentBusiness.graceDaysRemaining !== undefined ? currentBusiness.graceDaysRemaining : 30}d Grace Left
+              </span>
+            ) : (
+              <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+                30d Trial (Pending Verification)
               </span>
             )}
           </div>
           <p className="text-[11px] text-slate-300 leading-relaxed">
             {currentBusiness.subscriptionStatus === 'Paid Subscriber'
               ? 'Full Directory & Marketplace visibility active across all 10 provinces.'
-              : `Complimentary ${settings.freeGracePeriodDays}-day onboarding trial active.`}
+              : currentBusiness.firstVerifiedAt
+              ? `Complimentary ${settings.freeGracePeriodDays}-day onboarding trial active.`
+              : `Your 30-day trial begins the moment your KYC documents are approved.`}
           </p>
           <button
             type="button"
@@ -1422,20 +1428,26 @@ export default function BusinessDashboardPage() {
                     tone={
                       currentBusiness.subscriptionStatus === 'Paid Subscriber'
                         ? 'success'
-                        : 'warning'
+                        : currentBusiness.firstVerifiedAt
+                        ? 'warning'
+                        : 'info'
                     }
                   >
                     {currentBusiness.subscriptionStatus === 'Paid Subscriber'
                       ? `Paid Subscriber (${activeMonthlyRateStr}/mo)`
-                      : `Month 1 Free Grace (${currentBusiness.graceDaysRemaining !== undefined ? currentBusiness.graceDaysRemaining : 30} of ${
+                      : currentBusiness.firstVerifiedAt
+                      ? `Month 1 Free Grace (${currentBusiness.graceDaysRemaining !== undefined ? currentBusiness.graceDaysRemaining : 30} of ${
                           settings.freeGracePeriodDays
-                        } Days Left)`}
+                        } Days Left)`
+                      : `30-Day Free Trial (Activates Upon Admin Verification)`}
                   </AdminBadge>
                 </div>
                 <p className="mt-1 text-xs text-slate-600">
                   {currentBusiness.subscriptionStatus === 'Paid Subscriber'
                     ? `Your storefront, ${myProducts.length} marketplace SKUs, and direct WhatsApp buyer leads are live across Zimbabwe.`
-                    : `Enjoy full platform access during your ${settings.freeGracePeriodDays}-day complimentary grace period. Renew at ${activeMonthlyRateStr}/month anytime for uninterrupted visibility.`}
+                    : currentBusiness.firstVerifiedAt
+                    ? `Enjoy full platform access during your ${settings.freeGracePeriodDays}-day complimentary grace period. Renew at ${activeMonthlyRateStr}/month anytime for uninterrupted visibility.`
+                    : `Your 30-day complimentary trial is reserved and will begin automatically once your statutory documents are approved.`}
                 </p>
               </div>
             </div>
@@ -2645,7 +2657,11 @@ export default function BusinessDashboardPage() {
                   <EmptyState
                     icon={CreditCard}
                     title="No paid invoices yet"
-                    description={`You are currently in your ${settings.freeGracePeriodDays}-day complimentary onboarding grace period.`}
+                    description={
+                      currentBusiness.firstVerifiedAt
+                        ? `You are currently in your ${settings.freeGracePeriodDays}-day complimentary onboarding grace period.`
+                        : `Your ${settings.freeGracePeriodDays}-day complimentary onboarding trial will activate once your business KYC documents are approved.`
+                    }
                   />
                 </div>
               ) : (

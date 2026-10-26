@@ -36,6 +36,8 @@ export interface BusinessRow {
   custom_monthly_price_usd?: number | string | null;
   subscription_status?: string;
   subscription_expires_at?: string | null;
+  first_verified_at?: string | null;
+  verified_at?: string | null;
   product_limit?: number;
   catalog_tier?: string;
   custom_product_limit?: number | null;
@@ -88,6 +90,8 @@ export interface CreateBusinessDTO {
   custom_monthly_price_usd?: number | null;
   subscription_status?: string;
   subscription_expires_at?: string | Date | null;
+  first_verified_at?: string | Date | null;
+  verified_at?: string | Date | null;
   product_limit?: number;
   catalog_tier?: string;
   custom_product_limit?: number | null;
@@ -109,6 +113,8 @@ export interface UpdateBusinessDTO {
   custom_monthly_price_usd?: number | null;
   subscription_status?: string;
   subscription_expires_at?: string | Date | null;
+  first_verified_at?: string | Date | null;
+  verified_at?: string | Date | null;
   product_limit?: number;
   catalog_tier?: string;
   custom_product_limit?: number | null;
@@ -210,7 +216,9 @@ export class BusinessRepository {
     }
 
     // 6. Active Storefront / 30-Day Free Trial Filter
-    // Unpaid expired businesses become invisible in public views
+    // Unpaid expired businesses become invisible in public views.
+    // For verified businesses, the 30-day grace period is counted from first_verified_at.
+    // For unverified/pending businesses, an onboarding window of 14 days from created_at is granted.
     if (!filters.includeExpired) {
       baseQuery.where((builder) => {
         builder
@@ -218,7 +226,19 @@ export class BusinessRepository {
           .orWhere((subBuilder) => {
             subBuilder
               .where('subscription_status', 'Month 1 Grace Period')
-              .andWhere('created_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
+              .andWhere((graceBuilder) => {
+                graceBuilder
+                  .where((vBuilder) => {
+                    vBuilder
+                      .whereNotNull('first_verified_at')
+                      .andWhere('first_verified_at', '>=', db.raw("NOW() - INTERVAL '30 days'"));
+                  })
+                  .orWhere((uBuilder) => {
+                    uBuilder
+                      .whereNull('first_verified_at')
+                      .andWhere('created_at', '>=', db.raw("NOW() - INTERVAL '14 days'"));
+                  });
+              });
           });
       });
     }
@@ -341,7 +361,11 @@ export class BusinessRepository {
         catalog_tier: data.catalog_tier || 'starter',
         custom_product_limit: data.custom_product_limit !== undefined ? data.custom_product_limit : null,
         subscription_status: data.subscription_status || 'Month 1 Grace Period',
-        subscription_expires_at: data.subscription_expires_at || db.raw("NOW() + INTERVAL '30 days'"),
+        subscription_expires_at:
+          data.subscription_expires_at ||
+          (data.is_verified ? db.raw("NOW() + INTERVAL '30 days'") : null),
+        first_verified_at: data.first_verified_at || (data.is_verified ? db.fn.now() : null),
+        verified_at: data.verified_at || (data.is_verified ? db.fn.now() : null),
         phone: data.phone || null,
         email: data.email || null,
         whatsapp: data.whatsapp || null,
@@ -390,6 +414,8 @@ export class BusinessRepository {
     if (data.custom_product_limit !== undefined) patch.custom_product_limit = data.custom_product_limit;
     if (data.subscription_status !== undefined) patch.subscription_status = data.subscription_status;
     if (data.subscription_expires_at !== undefined) patch.subscription_expires_at = data.subscription_expires_at;
+    if (data.first_verified_at !== undefined) patch.first_verified_at = data.first_verified_at;
+    if (data.verified_at !== undefined) patch.verified_at = data.verified_at;
     if (data.phone !== undefined) patch.phone = data.phone;
     if (data.email !== undefined) patch.email = data.email;
     if (data.whatsapp !== undefined) patch.whatsapp = data.whatsapp;
@@ -471,14 +497,28 @@ export class BusinessRepository {
       }
     }
 
+    const updatePayload: Record<string, any> = {
+      verification_status: status,
+      is_verified: isVerified,
+      verification_badge: badge,
+      updated_at: db.fn.now(),
+    };
+
+    if (isVerified) {
+      updatePayload.verified_at = db.fn.now();
+      // If verified for the first time, activate the 30-day free grace period!
+      if (!existing.first_verified_at) {
+        updatePayload.first_verified_at = db.fn.now();
+        if (existing.subscription_status !== 'Paid Subscriber') {
+          updatePayload.subscription_status = 'Month 1 Grace Period';
+          updatePayload.subscription_expires_at = db.raw("NOW() + INTERVAL '30 days'");
+        }
+      }
+    }
+
     const [updated] = await db('businesses')
       .where({ id })
-      .update({
-        verification_status: status,
-        is_verified: isVerified,
-        verification_badge: badge,
-        updated_at: db.fn.now(),
-      })
+      .update(updatePayload)
       .returning('*');
 
     if (!updated) {

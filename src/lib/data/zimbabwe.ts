@@ -242,6 +242,8 @@ export interface BusinessListing {
   catalogTier?: string;
   customProductLimit?: number | null;
   graceDaysRemaining?: number;
+  firstVerifiedAt?: string;
+  verifiedAt?: string;
   rating: number;
   reviewCount: number;
   province: string;
