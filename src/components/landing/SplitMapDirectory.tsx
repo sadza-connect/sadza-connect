@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 interface BusinessItem {
   id: number;
@@ -260,7 +261,7 @@ export function SplitMapDirectory() {
 
                       <div className="flex items-center gap-2">
                         <a
-                          href={`https://wa.me/${b.whatsapp}?text=Hi%20${encodeURIComponent(b.name)},%20I%20found%20your%20business%20on%20Sadza%20Connect`}
+                          href={`https://wa.me/${sanitizePhoneNumber(b.whatsapp)}?text=Hi%20${encodeURIComponent(b.name)},%20I%20found%20your%20business%20on%20Sadza%20Connect`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
@@ -385,7 +386,7 @@ export function SplitMapDirectory() {
                   </div>
 
                   <a
-                    href={`https://wa.me/${selectedBusiness.whatsapp}?text=Hi,%20I'm%20viewing%20${encodeURIComponent(selectedBusiness.name)}%20on%20Sadza%20Connect`}
+                    href={`https://wa.me/${sanitizePhoneNumber(selectedBusiness.whatsapp)}?text=Hi,%20I'm%20viewing%20${encodeURIComponent(selectedBusiness.name)}%20on%20Sadza%20Connect`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="shrink-0 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-emerald hover:bg-brand-500 transition-colors flex items-center gap-1.5"

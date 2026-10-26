@@ -13,6 +13,7 @@ import {
   ValidationError,
   AuthorizationError,
 } from '@/shared/errors/AppError';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export const runtime = 'nodejs';
 
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
       ? `Token: ${token} (${unitsKwh} kWh units). Meter: ${body.account_number}`
       : `Reference: ${paymentRef}. Account: ${body.account_number}`;
 
-    const whatsappLink = `https://wa.me/${body.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+    const whatsappLink = `https://wa.me/${sanitizePhoneNumber(body.customer_phone)}?text=${encodeURIComponent(
       `Sadza Connect Utility Receipt (${body.biller}): Paid ${body.currency} ${body.amount}. ${tokenMsg}. Thank you!`
     )}`;
 

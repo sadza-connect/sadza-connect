@@ -40,31 +40,7 @@ const PROVINCES = [
   'Diaspora',
 ];
 
-export interface CountryDialCode {
-  code: string;
-  name: string;
-  dialCode: string;
-  flag: string;
-  placeholder: string;
-}
-
-export const SUPPORTED_COUNTRIES: CountryDialCode[] = [
-  { code: 'ZW', name: 'Zimbabwe', dialCode: '+263', flag: '🇿🇼', placeholder: '77 123 4567' },
-  { code: 'ZA', name: 'South Africa', dialCode: '+27', flag: '🇿🇦', placeholder: '82 123 4567' },
-  { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧', placeholder: '7911 123456' },
-  { code: 'BW', name: 'Botswana', dialCode: '+267', flag: '🇧🇼', placeholder: '71 234 567' },
-  { code: 'US', name: 'United States', dialCode: '+1', flag: '🇺🇸', placeholder: '415 555 2671' },
-  { code: 'CA', name: 'Canada', dialCode: '+1', flag: '🇨🇦', placeholder: '416 555 0199' },
-  { code: 'AU', name: 'Australia', dialCode: '+61', flag: '🇦🇺', placeholder: '412 345 678' },
-  { code: 'NA', name: 'Namibia', dialCode: '+264', flag: '🇳🇦', placeholder: '81 123 4567' },
-  { code: 'ZM', name: 'Zambia', dialCode: '+260', flag: '🇿🇲', placeholder: '97 123 4567' },
-  { code: 'MZ', name: 'Mozambique', dialCode: '+258', flag: '🇲🇿', placeholder: '84 123 4567' },
-  { code: 'IE', name: 'Ireland', dialCode: '+353', flag: '🇮🇪', placeholder: '85 123 4567' },
-  { code: 'NZ', name: 'New Zealand', dialCode: '+64', flag: '🇳🇿', placeholder: '21 123 4567' },
-  { code: 'AE', name: 'UAE', dialCode: '+971', flag: '🇦🇪', placeholder: '50 123 4567' },
-  { code: 'CN', name: 'China', dialCode: '+86', flag: '🇨🇳', placeholder: '138 0000 0000' },
-  { code: 'INTL', name: 'Other', dialCode: '+', flag: '🌐', placeholder: 'Country code + number' },
-];
+import { ALL_COUNTRIES, formatE164Phone } from '@/lib/data/countries';
 
 function SignupFormContent() {
   const searchParams = useSearchParams();
@@ -98,15 +74,7 @@ function SignupFormContent() {
   const [isNavigatingToNextStage, setIsNavigatingToNextStage] = useState(false);
 
   const getFormattedPhone = () => {
-    const cleanDigits = phoneNumber.replace(/\D/g, '');
-    if (countryCode === '+') {
-      return `+${cleanDigits.replace(/^0+/, '')}`;
-    }
-    const codeDigits = countryCode.replace(/\D/g, '');
-    if (cleanDigits.startsWith(codeDigits)) {
-      return `+${cleanDigits}`;
-    }
-    return `${countryCode}${cleanDigits.replace(/^0+/, '')}`;
+    return formatE164Phone(countryCode, phoneNumber);
   };
 
   const handleOtpVerified = (sessionData?: any) => {
@@ -544,7 +512,7 @@ function SignupFormContent() {
                           className="appearance-none bg-transparent pl-3 pr-6 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
                           aria-label="Country calling code"
                         >
-                          {SUPPORTED_COUNTRIES.map((c) => (
+                          {ALL_COUNTRIES.map((c) => (
                             <option
                               key={`${c.code}-${c.dialCode}`}
                               value={c.dialCode}
@@ -568,7 +536,7 @@ function SignupFormContent() {
                           if (errorMessage) setErrorMessage('');
                         }}
                         placeholder={
-                          SUPPORTED_COUNTRIES.find((c) => c.dialCode === countryCode)?.placeholder ||
+                          ALL_COUNTRIES.find((c) => c.dialCode === countryCode)?.placeholder ||
                           '77 123 4567'
                         }
                         className="flex-1 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 bg-transparent focus:outline-none font-medium"

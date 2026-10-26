@@ -9,6 +9,7 @@ import {
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettings,
 } from '@/data/platformStore';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export function Footer() {
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
@@ -65,7 +66,7 @@ export function Footer() {
 
             <div className="pt-2">
               <a
-                href={`https://wa.me/${settings.supportWhatsApp}?text=Hello%20Sadza%20Connect%20Desk`}
+                href={`https://wa.me/${sanitizePhoneNumber(settings.supportWhatsApp)}?text=Hello%20Sadza%20Connect%20Desk`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 px-3.5 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-colors"

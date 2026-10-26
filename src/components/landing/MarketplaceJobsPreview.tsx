@@ -19,6 +19,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const LATEST_JOBS = [
   {
@@ -195,7 +196,7 @@ export function MarketplaceJobsPreview() {
                   </div>
 
                   <a
-                    href={`https://wa.me/${item.whatsapp}?text=Hi,%20I'm%20interested%20in%20your%20listing:%20${encodeURIComponent(item.title)}%20on%20Sadza%20Connect`}
+                    href={`https://wa.me/${sanitizePhoneNumber(item.whatsapp)}?text=Hi,%20I'm%20interested%20in%20your%20listing:%20${encodeURIComponent(item.title)}%20on%20Sadza%20Connect`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-colors"

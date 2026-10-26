@@ -58,6 +58,7 @@ import { mapDbBillToReceipt } from '@/lib/data/bill-mapper';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { mapDbApplicationToRecord } from '@/lib/data/job-mapper';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 type UserTab = 'overview' | 'utilities' | 'saved' | 'jobs' | 'settings';
 
@@ -763,7 +764,7 @@ export default function UserDashboardPage() {
                             View Storefront
                           </Link>
                           <a
-                            href={`https://wa.me/${biz.whatsapp.replace(/\D/g, '')}`}
+                            href={`https://wa.me/${sanitizePhoneNumber(biz.whatsapp)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 text-center py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"

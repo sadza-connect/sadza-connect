@@ -4,14 +4,53 @@
  */
 
 export function sanitizePhoneNumber(phone: string): string {
-  // Strip spaces, dashes, parentheses, plus
-  const digits = phone.replace(/\D/g, '');
-  // If local Zimbabwean format 07XXXXXXXX, prepend 263 and drop leading 0
-  if (digits.startsWith('0') && digits.length === 10) {
+  if (!phone) return '';
+  const trimmed = phone.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return '';
+
+  // 1. If number explicitly starts with '+', it is in standard E.164 format.
+  // wa.me requires digits only (country code + subscriber number, no plus)
+  if (trimmed.startsWith('+')) {
+    return digits;
+  }
+
+  // 2. If it starts with '00' (international exit code, e.g. 00263, 00234, 0027)
+  if (digits.startsWith('00')) {
+    return digits.substring(2);
+  }
+
+  // 3. Local Zimbabwean mobile format (071, 073, 077, 078) -> prepend 263
+  if (
+    digits.startsWith('0') &&
+    (digits.startsWith('071') ||
+      digits.startsWith('073') ||
+      digits.startsWith('077') ||
+      digits.startsWith('078'))
+  ) {
     return `263${digits.substring(1)}`;
   }
+
+  // 4. Local Zimbabwean 9-digit format without leading 0 -> prepend 263
+  if (
+    digits.length === 9 &&
+    (digits.startsWith('71') ||
+      digits.startsWith('73') ||
+      digits.startsWith('77') ||
+      digits.startsWith('78'))
+  ) {
+    return `263${digits}`;
+  }
+
+  // 5. If it starts with a leading zero from any other country, strip the 0
+  if (digits.startsWith('0')) {
+    return `263${digits.substring(1)}`;
+  }
+
   return digits;
 }
+
+export const cleanWaNumber = sanitizePhoneNumber;
 
 export function generateWhatsAppLink(phone: string, message: string): string {
   const cleanPhone = sanitizePhoneNumber(phone);

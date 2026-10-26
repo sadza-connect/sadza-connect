@@ -55,6 +55,7 @@ import {
 import { BusinessListing } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const BUSINESS_SCALES = [
   { id: 'All', label: 'All Business Types', icon: Layers },
@@ -1457,7 +1458,7 @@ export function CommercialPortalWorkspace() {
                               <Eye className="h-4 w-4" />
                             </button>
                             <a
-                              href={`https://wa.me/${item.whatsapp}?text=Hi%20${encodeURIComponent(
+                              href={`https://wa.me/${sanitizePhoneNumber(item.whatsapp)}?text=Hi%20${encodeURIComponent(
                                 item.sellerName
                               )},%20I%20saw%20your%20product%20"${encodeURIComponent(
                                 item.title
@@ -1656,7 +1657,7 @@ export function CommercialPortalWorkspace() {
                                   <span>Call</span>
                                 </a>
                                 <a
-                                  href={`https://wa.me/${biz.whatsapp}?text=Hi%20${encodeURIComponent(
+                                  href={`https://wa.me/${sanitizePhoneNumber(biz.whatsapp)}?text=Hi%20${encodeURIComponent(
                                     biz.name
                                   )},%20I%20found%20your%20business%20on%20Sadza%20Connect`}
                                   target="_blank"
@@ -1752,7 +1753,7 @@ export function CommercialPortalWorkspace() {
                               <ExternalLink className="h-3.5 w-3.5" />
                             </a>
                             <a
-                              href={`https://wa.me/${selectedMapBusiness.whatsapp}`}
+                              href={`https://wa.me/${sanitizePhoneNumber(selectedMapBusiness.whatsapp)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white inline-flex items-center gap-1.5"
@@ -1998,7 +1999,7 @@ export function CommercialPortalWorkspace() {
                             {ad.validUntil}
                           </span>
                           <a
-                            href={`https://wa.me/${ad.whatsapp}?text=Hi%20${encodeURIComponent(
+                            href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
                               ad.businessName
                             )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
                               ad.headline
@@ -2678,7 +2679,7 @@ export function CommercialPortalWorkspace() {
                 </p>
               </div>
               <a
-                href={`https://wa.me/${quickViewProduct.whatsapp}?text=Hi%20${encodeURIComponent(
+                href={`https://wa.me/${sanitizePhoneNumber(quickViewProduct.whatsapp)}?text=Hi%20${encodeURIComponent(
                   quickViewProduct.sellerName
                 )},%20I%20would%20like%20to%20order%20"${encodeURIComponent(
                   quickViewProduct.title

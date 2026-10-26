@@ -8,6 +8,7 @@ import {
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
 import { NotFoundError } from '@/shared/errors/AppError';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export const runtime = 'nodejs';
 
@@ -47,7 +48,7 @@ export async function POST(
     });
 
     const hrPhone = job.whatsapp || '263773333444';
-    const whatsappLink = `https://wa.me/${hrPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+    const whatsappLink = `https://wa.me/${sanitizePhoneNumber(hrPhone)}?text=${encodeURIComponent(
       `Hello ${job.company_name}, I have submitted my formal application for the '${job.title}' position on Sadza Connect (Ref: APP-${application.id.slice(0, 8)}). My name is ${body.applicant_name}.`
     )}`;
 

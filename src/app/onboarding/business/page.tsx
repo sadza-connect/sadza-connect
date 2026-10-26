@@ -10,6 +10,7 @@ import { CategoryCombobox } from '@/components/ui/CategoryCombobox';
 import { ActionLoader } from '@/components/ui/ActionLoader';
 import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
 import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
+import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
 import {
   Building2,
   User,
@@ -737,6 +738,13 @@ function BusinessOnboardingContent() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const defaultDialCode = parsePhoneComponents(registeredPhone).dialCode || '+263';
+      const normalizedWhatsApp = publicWhatsApp.trim()
+        ? (publicWhatsApp.trim().startsWith('+')
+            ? publicWhatsApp.trim()
+            : formatE164Phone(defaultDialCode, publicWhatsApp.trim()))
+        : registeredPhone;
+
       const res = await fetch('/api/v1/businesses', {
         method: 'POST',
         headers,
@@ -755,7 +763,7 @@ function BusinessOnboardingContent() {
           registration_number: registrationNumber.trim() || undefined,
           phone: registeredPhone,
           email: registeredEmail,
-          whatsapp: publicWhatsApp.trim() || registeredPhone,
+          whatsapp: normalizedWhatsApp,
           description: description.trim(),
           kyc_documents: uploadedDocs,
         }),

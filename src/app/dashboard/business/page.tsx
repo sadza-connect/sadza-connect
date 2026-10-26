@@ -82,6 +82,8 @@ import {
   calculateOnboardingProgress,
   type OnboardingProgressInfo,
 } from '@/lib/utils/onboarding-state';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
 
 type DashboardTab =
   | 'overview'
@@ -1031,6 +1033,13 @@ export default function BusinessDashboardPage() {
     e.preventDefault();
     const matchedCat = BUSINESS_CATEGORIES.find((c) => c.name === editCategory);
 
+    const existingDialCode = parsePhoneComponents(currentBusiness.whatsapp || currentBusiness.phone).dialCode || '+263';
+    const finalWhatsapp = editWhatsapp.trim()
+      ? (editWhatsapp.trim().startsWith('+')
+          ? editWhatsapp.trim()
+          : formatE164Phone(existingDialCode, editWhatsapp.trim()))
+      : editWhatsapp.trim();
+
     // Persist to database while strictly preserving locked fields
     try {
       await fetch(`/api/v1/businesses/${encodeURIComponent(currentBusiness.slug)}`, {
@@ -1042,7 +1051,7 @@ export default function BusinessDashboardPage() {
           address: editAddress.trim(),
           sector: editCategory,
           business_type: editEntityType,
-          whatsapp: editWhatsapp.trim(),
+          whatsapp: finalWhatsapp,
           operating_hours: { summary: editHours.trim() },
         }),
       });
@@ -1059,7 +1068,7 @@ export default function BusinessDashboardPage() {
             categorySlug: matchedCat ? matchedCat.slug : b.categorySlug,
             province: editProvince,
             address: editAddress.trim(),
-            whatsapp: editWhatsapp.trim(),
+            whatsapp: finalWhatsapp,
             openingHours: editHours.trim(),
             description: editDescription.trim(),
             services: editServices
@@ -1071,6 +1080,7 @@ export default function BusinessDashboardPage() {
     );
     saveStoredBusinesses(updated);
     setBusinesses(updated);
+    setEditWhatsapp(finalWhatsapp);
     showToast('Business Storefront Profile updated and synced across Directory!');
   };
 
@@ -1629,7 +1639,7 @@ export default function BusinessDashboardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <a
-                        href={`https://wa.me/${currentBusiness.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
+                        href={`https://wa.me/${sanitizePhoneNumber(currentBusiness.whatsapp)}?text=${encodeURIComponent(
                           `Hello! I am viewing ${currentBusiness.name} on Sadza Connect and would like to enquire about your products.`
                         )}`}
                         target="_blank"
@@ -2223,7 +2233,7 @@ export default function BusinessDashboardPage() {
                               <option value="Shortlisted">Shortlisted</option>
                             </select>
                             <a
-                              href={`https://wa.me/${app.applicantPhone.replace(/\D/g, '')}`}
+                              href={`https://wa.me/${sanitizePhoneNumber(app.applicantPhone)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"

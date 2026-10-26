@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { Button } from '@/components/ui/Button';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 interface Message {
   sender: 'user' | 'ai';
@@ -259,7 +260,7 @@ export function AiAssistantSection() {
                             </div>
 
                             <a
-                              href={`https://wa.me/${rec.whatsapp}?text=Hi,%20I%20found%20you%20via%20Sadza%20AI`}
+                              href={`https://wa.me/${sanitizePhoneNumber(rec.whatsapp)}?text=Hi,%20I%20found%20you%20via%20Sadza%20AI`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-500 transition-colors"

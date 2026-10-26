@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Star, MapPin, MessageCircle, Phone, ArrowUpRight, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const FEATURED_BUSINESSES = [
   {
@@ -143,7 +144,7 @@ export function FeaturedBusinesses() {
                   </div>
 
                   <a
-                    href={`https://wa.me/${b.whatsapp}?text=Hi,%20I'm%20contacting%20${encodeURIComponent(b.name)}%20via%20Sadza%20Connect`}
+                    href={`https://wa.me/${sanitizePhoneNumber(b.whatsapp)}?text=Hi,%20I'm%20contacting%20${encodeURIComponent(b.name)}%20via%20Sadza%20Connect`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-colors"

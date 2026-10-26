@@ -37,6 +37,7 @@ import {
   getDeletedAdvertIds,
 } from '@/data/advertsStore';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const OFFER_TYPES = [
   'All Offer Types',
@@ -517,7 +518,7 @@ export default function AdvertsDirectoryPage() {
                         <span>Call</span>
                       </a>
                       <a
-                        href={`https://wa.me/${ad.whatsapp}?text=Hi%20${encodeURIComponent(
+                        href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
                           ad.businessName
                         )},%20I'm%20claiming%20your%20advert%20offer%20"${encodeURIComponent(
                           ad.headline
