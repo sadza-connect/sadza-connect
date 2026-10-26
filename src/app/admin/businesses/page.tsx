@@ -321,8 +321,18 @@ export default function AdminBusinessesPage() {
               cr14Verified: form.cr14Verified,
               zimraVerified: form.cr14Verified,
               verificationStatus: form.cr14Verified ? 'Verified' : 'Pending',
-              verificationBadge: form.cr14Verified ? 'Verified Registered Company' : undefined,
-              verifiedTier: (form.cr14Verified ? 'tier2_corporate' : 'unverified') as BusinessListing['verifiedTier'],
+              verificationBadge: form.cr14Verified
+                ? ((b.businessType || '').includes('Sole') || (b.businessType || '').includes('Artisan') || (b.businessType || '').includes('Owner') || b.onboardingTrack === 'owner_operated'
+                    ? 'Verified Owner-Operated Business (National ID)'
+                    : (b.businessType || '').includes('Cooperative')
+                    ? 'Verified Cooperative'
+                    : 'Verified Registered Company')
+                : undefined,
+              verifiedTier: (form.cr14Verified
+                ? ((b.businessType || '').includes('Sole') || (b.businessType || '').includes('Artisan') || (b.businessType || '').includes('Owner') || b.onboardingTrack === 'owner_operated'
+                    ? 'tier1_artisan'
+                    : 'tier2_corporate')
+                : 'unverified') as BusinessListing['verifiedTier'],
               featured: form.featured,
               image: coverImg,
             }
@@ -396,7 +406,7 @@ export default function AdminBusinessesPage() {
         whatsapp: form.whatsapp,
         email: form.email,
         openingHours: form.openingHours,
-        verifiedTier: form.cr14Verified ? 'tier2_corporate' : 'unverified',
+        verifiedTier: (form.cr14Verified ? 'tier2_corporate' : 'unverified') as BusinessListing['verifiedTier'],
         verificationStatus: form.cr14Verified ? 'Verified' : 'Pending',
         verificationBadge: form.cr14Verified ? 'Verified Registered Company' : undefined,
         cr14Verified: form.cr14Verified,
@@ -436,6 +446,24 @@ export default function AdminBusinessesPage() {
       return;
     }
 
+    const isTrackB =
+      b.onboardingTrack === 'owner_operated' ||
+      b.verifiedTier === 'tier1_artisan' ||
+      (b.businessType || '').toLowerCase().includes('owner') ||
+      (b.businessType || '').toLowerCase().includes('sole') ||
+      (b.businessType || '').toLowerCase().includes('artisan') ||
+      (b.businessType || '').toLowerCase().includes('informal');
+
+    const badge = nextVal
+      ? (b.verificationBadge && !b.verificationBadge.includes('Corporate') && !b.verificationBadge.includes('Registered Company')
+          ? b.verificationBadge
+          : isTrackB
+          ? 'Verified Owner-Operated Business (National ID)'
+          : 'Verified Registered Company')
+      : undefined;
+
+    const tier = (nextVal ? (isTrackB ? 'tier1_artisan' : 'tier2_corporate') : 'unverified') as BusinessListing['verifiedTier'];
+
     const updated = businesses.map((item) =>
       item.id === b.id
         ? {
@@ -443,8 +471,8 @@ export default function AdminBusinessesPage() {
             cr14Verified: nextVal,
             zimraVerified: nextVal,
             verificationStatus: nextStatus,
-            verificationBadge: nextVal ? 'Verified Registered Company' : undefined,
-            verifiedTier: (nextVal ? 'tier2_corporate' : 'unverified') as BusinessListing['verifiedTier'],
+            verificationBadge: badge,
+            verifiedTier: tier,
           }
         : item
     );
@@ -502,9 +530,9 @@ export default function AdminBusinessesPage() {
           icon={Building2}
         />
         <StatCard
-          label="CR14 & ZIMRA Verified"
+          label="Statutory Verified"
           value={businesses.filter((b) => b.cr14Verified).length}
-          hint="Active green verification badge"
+          hint="CR14 or National ID verified"
           icon={ShieldCheck}
         />
         <StatCard
@@ -1018,14 +1046,20 @@ export default function AdminBusinessesPage() {
                   No Compliance Documents Uploaded
                 </h4>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  The merchant has not uploaded CR14, Tax Clearance, or Director ID documents yet. They can attach them in their merchant dashboard.
+                  The merchant has not uploaded compliance documents (such as National ID, CR14, or trade permits) yet. They can attach them in their merchant dashboard.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {reviewingKycBiz.kycDocuments.map((doc: any, idx: number) => {
                   const docTitle =
-                    doc.docType === 'cr6_cr14'
+                    doc.docType === 'owner_national_id'
+                      ? 'Owner National ID (Metal/Plastic) or Passport'
+                      : doc.docType === 'proof_of_location'
+                      ? 'Proof of Operating Location / Permit'
+                      : doc.docType === 'storefront_photo'
+                      ? 'Storefront / Workshop / Trade Photo'
+                      : doc.docType === 'cr6_cr14'
                       ? 'Form CR6 (or CR14) — Register of Directors'
                       : doc.docType === 'tax_clearance'
                       ? 'ZIMRA Tax Clearance Certificate (ITF263)'
@@ -1094,7 +1128,9 @@ export default function AdminBusinessesPage() {
               </div>
               <div>
                 <AdminBadge tone={reviewingKycBiz?.cr14Verified ? 'success' : 'warning'} dot>
-                  {reviewingKycBiz?.cr14Verified ? 'Verified Company' : 'Pending'}
+                  {reviewingKycBiz?.cr14Verified
+                    ? (reviewingKycBiz.verificationBadge || (reviewingKycBiz.verifiedTier === 'tier1_artisan' ? 'Identity Verified (National ID)' : 'Verified Company'))
+                    : 'Pending'}
                 </AdminBadge>
               </div>
             </div>

@@ -404,8 +404,8 @@ export class BusinessRepository {
       if (data.verification_status === undefined) {
         patch.verification_status = data.is_verified ? 'Verified' : 'Pending';
       }
-      if (data.verification_badge === undefined) {
-        patch.verification_badge = data.is_verified ? 'Verified Registered Company' : null;
+      if (data.verification_badge === undefined && !data.is_verified) {
+        patch.verification_badge = null;
       }
     }
     if (data.verification_status !== undefined) {
@@ -413,8 +413,8 @@ export class BusinessRepository {
       if (data.is_verified === undefined) {
         patch.is_verified = data.verification_status === 'Verified';
       }
-      if (data.verification_badge === undefined) {
-        patch.verification_badge = data.verification_status === 'Verified' ? 'Verified Registered Company' : null;
+      if (data.verification_badge === undefined && data.verification_status !== 'Verified') {
+        patch.verification_badge = null;
       }
     }
     if (data.is_featured !== undefined) patch.is_featured = data.is_featured;
@@ -435,12 +435,48 @@ export class BusinessRepository {
     const db = getDb();
     const isVerified = status === 'Verified';
 
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new NotFoundError(`Business with ID ${id} not found`);
+    }
+
+    let badge: string | null = null;
+    if (isVerified) {
+      const btLower = (existing.business_type || '').toLowerCase();
+      const track = existing.onboarding_track || (
+        btLower.includes('owner-operated') ||
+        btLower.includes('sole proprietor') ||
+        btLower.includes('informal') ||
+        btLower.includes('artisan')
+          ? 'owner_operated'
+          : btLower.includes('cooperative') ||
+            btLower.includes('association') ||
+            btLower.includes('trust')
+          ? 'association_institutional'
+          : 'registered_entity'
+      );
+
+      if (track === 'owner_operated') {
+        if (existing.legal_form === 'artisan_workshop') {
+          badge = 'Verified Artisan Enterprise';
+        } else if (existing.legal_form === 'informal_trader') {
+          badge = 'Verified Informal Business (National ID)';
+        } else {
+          badge = 'Verified Owner-Operated Business (National ID)';
+        }
+      } else if (track === 'association_institutional') {
+        badge = existing.legal_form === 'cooperative' ? 'Verified Cooperative' : 'Verified Organisation';
+      } else {
+        badge = existing.legal_form === 'pbc' ? 'Verified Registered Business (PBC)' : 'Verified Registered Company';
+      }
+    }
+
     const [updated] = await db('businesses')
       .where({ id })
       .update({
         verification_status: status,
         is_verified: isVerified,
-        verification_badge: isVerified ? 'Verified Registered Company' : null,
+        verification_badge: badge,
         updated_at: db.fn.now(),
       })
       .returning('*');

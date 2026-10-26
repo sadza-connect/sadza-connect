@@ -378,8 +378,29 @@ export default function BusinessDashboardPage() {
     return businesses.find((b) => b.id === selectedBusinessId) || businesses[0] || EMPTY_FALLBACK_BUSINESS;
   }, [businesses, selectedBusinessId]);
 
+  const effectiveTrack = useMemo(() => {
+    if (currentBusiness?.onboardingTrack) return currentBusiness.onboardingTrack;
+    const bt = (currentBusiness?.businessType || '').toLowerCase();
+    if (
+      bt.includes('owner-operated') ||
+      bt.includes('sole proprietor') ||
+      bt.includes('informal') ||
+      bt.includes('artisan')
+    ) {
+      return 'owner_operated';
+    }
+    if (
+      bt.includes('cooperative') ||
+      bt.includes('association') ||
+      bt.includes('trust')
+    ) {
+      return 'association_institutional';
+    }
+    return 'registered_entity';
+  }, [currentBusiness?.onboardingTrack, currentBusiness?.businessType]);
+
   const defaultTrackRate = useMemo(() => {
-    const track = currentBusiness?.onboardingTrack || 'registered_entity';
+    const track = effectiveTrack;
     if (track === 'owner_operated') {
       return settings.soloMonthlyPriceUsd ?? 5;
     }
@@ -387,7 +408,7 @@ export default function BusinessDashboardPage() {
       return settings.coopMonthlyPriceUsd ?? 10;
     }
     return settings.corporateMonthlyPriceUsd ?? settings.monthlySubscriptionPriceUsd ?? 15;
-  }, [currentBusiness?.onboardingTrack, settings]);
+  }, [effectiveTrack, settings]);
 
   const activeMonthlyRate = useMemo(() => {
     if (
@@ -1101,7 +1122,7 @@ export default function BusinessDashboardPage() {
             </span>
             {currentBusiness.cr14Verified ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                <ShieldCheck className="h-3 w-3" /> {currentBusiness.verificationBadge || 'Verified Company'}
+                <ShieldCheck className="h-3 w-3" /> {currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Company')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
@@ -1256,7 +1277,7 @@ export default function BusinessDashboardPage() {
                   </h1>
                   <AdminBadge tone={currentBusiness.cr14Verified ? 'success' : 'warning'} dot>
                     {currentBusiness.cr14Verified
-                      ? (currentBusiness.verificationBadge || 'Verified Company')
+                      ? (currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Company'))
                       : 'Unverified (Pending Admin Review)'}
                   </AdminBadge>
                 </div>
@@ -1572,7 +1593,7 @@ export default function BusinessDashboardPage() {
               </div>
 
               {/* TRACK-SPECIFIC OPERATIONS HUB */}
-              {currentBusiness.onboardingTrack === 'owner_operated' ? (
+              {effectiveTrack === 'owner_operated' ? (
                 /* TRACK B: WHATSAPP DIRECT SALES & MOBILE RECEIPT HUB */
                 <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-slate-900 dark:to-slate-900 p-5 sm:p-6 shadow-xs space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-100 dark:border-emerald-900/60 pb-4">
@@ -1692,6 +1713,31 @@ export default function BusinessDashboardPage() {
                           Operating under Zimbabwe Sole Proprietor laws. You are <strong>exempt</strong> from corporate CR6 director registers, formal annual company secretarial returns, and ITF263 tax clearance certificates.
                         </p>
                       </div>
+                      {/* National ID (NIN) Identity Verification Badge */}
+                      <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 p-3 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Identity Verification (National ID / NIN)
+                        </span>
+                        <div className="flex items-center gap-1.5 font-bold">
+                          {currentBusiness.cr14Verified ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                              {currentBusiness.verificationBadge || 'Identity Verified (National ID)'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                              <Clock className="h-3.5 w-3.5" />
+                              Pending Identity Review
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {currentBusiness.cr14Verified
+                            ? 'Your Zimbabwean National ID is verified and displayed to buyers as a trusted owner-operator.'
+                            : 'Upload your National ID in the KYC Vault below for admin review.'}
+                        </p>
+                      </div>
+
                       <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/50 p-3 border border-emerald-200/60 text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
                         <div className="font-bold flex items-center gap-1">
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> National Directory Active
@@ -1704,7 +1750,7 @@ export default function BusinessDashboardPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentBusiness.onboardingTrack === 'association_institutional' ? (
+              ) : effectiveTrack === 'association_institutional' ? (
                 /* TRACK C: COOPERATIVE MEMBER REGISTRY & BULK SUPPLY AGGREGATOR */
                 <div className="rounded-2xl border border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/80 via-white to-purple-50/30 dark:from-purple-950/30 dark:via-slate-900 dark:to-slate-900 p-5 sm:p-6 shadow-xs space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-purple-100 dark:border-purple-900/60 pb-4">
@@ -2293,9 +2339,9 @@ export default function BusinessDashboardPage() {
                       Onboarding Track
                     </div>
                     <div className="mt-1 text-xs font-bold text-slate-900">
-                      {currentBusiness.onboardingTrack === 'owner_operated'
+                      {effectiveTrack === 'owner_operated'
                         ? 'Track B: Owner-Operated'
-                        : currentBusiness.onboardingTrack === 'association_institutional'
+                        : effectiveTrack === 'association_institutional'
                         ? 'Track C: Association / Trust'
                         : 'Track A: Registered Entity'}
                     </div>
@@ -2324,7 +2370,7 @@ export default function BusinessDashboardPage() {
                       {currentBusiness.cr14Verified ? (
                         <>
                           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                          <span>{currentBusiness.verificationBadge || 'Verified Registered Company'}</span>
+                          <span>{currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Registered Company')}</span>
                         </>
                       ) : (
                         <>
@@ -2463,7 +2509,7 @@ export default function BusinessDashboardPage() {
                         </div>
                         <AdminBadge tone={currentBusiness.cr14Verified ? 'success' : 'warning'}>
                           {currentBusiness.cr14Verified
-                            ? (currentBusiness.verificationBadge || 'Verified Company')
+                            ? (currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Company'))
                             : 'Unverified (Pending Review)'}
                         </AdminBadge>
                       </div>

@@ -23,6 +23,58 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
 
   const isVerified = Boolean(b.is_verified || b.verification_status === 'Verified');
 
+  const btLower = String(b.business_type || '').toLowerCase();
+  const track = b.onboarding_track || (
+    btLower.includes('owner-operated') ||
+    btLower.includes('sole proprietor') ||
+    btLower.includes('informal') ||
+    btLower.includes('artisan')
+      ? 'owner_operated'
+      : btLower.includes('cooperative') ||
+        btLower.includes('association') ||
+        btLower.includes('trust')
+      ? 'association_institutional'
+      : 'registered_entity'
+  );
+
+  const isTrackB = track === 'owner_operated';
+  const isTrackC = track === 'association_institutional';
+
+  // Compute verified tier
+  const verifiedTier: BusinessListing['verifiedTier'] = !isVerified
+    ? 'unverified'
+    : isTrackB
+    ? 'tier1_artisan'
+    : 'tier2_corporate';
+
+  // Compute verification badge
+  let computedBadge: string | undefined = undefined;
+  if (isVerified) {
+    if (b.verification_badge && b.verification_badge !== 'Verified Registered Company') {
+      computedBadge = b.verification_badge;
+    } else if (isTrackB) {
+      if (b.legal_form === 'artisan_workshop') {
+        computedBadge = 'Verified Artisan Enterprise';
+      } else if (b.legal_form === 'informal_trader') {
+        computedBadge = 'Verified Informal Business (National ID)';
+      } else {
+        computedBadge = 'Verified Owner-Operated Business (National ID)';
+      }
+    } else if (isTrackC) {
+      computedBadge = b.legal_form === 'cooperative' ? 'Verified Cooperative' : 'Verified Organisation';
+    } else {
+      computedBadge = b.legal_form === 'pbc' ? 'Verified Registered Business (PBC)' : 'Verified Registered Company';
+    }
+  }
+
+  const verificationTag = isVerified
+    ? isTrackB
+      ? 'Identity Verified (National ID)'
+      : isTrackC
+      ? 'Constitution Verified'
+      : 'CR14 Verified'
+    : 'Pending Verification';
+
   return {
     id: b.id,
     slug: b.slug,
@@ -33,11 +85,11 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, ''),
     categoryName: b.sector || 'General Commercial',
-    businessType: b.business_type || 'Registered Company (Pvt Ltd)',
-    onboardingTrack: b.onboarding_track || undefined,
+    businessType: b.business_type || (isTrackB ? 'Owner-Operated or Informal Enterprise' : isTrackC ? 'Cooperative / Association' : 'Registered Company (Pvt Ltd)'),
+    onboardingTrack: track,
     legalForm: b.legal_form || undefined,
     applicantRole: b.applicant_role || undefined,
-    verificationBadge: isVerified ? (b.verification_badge || 'Verified Registered Company') : undefined,
+    verificationBadge: computedBadge,
     registrationNumber: b.registration_number || undefined,
     customMonthlyPriceUsd:
       b.custom_monthly_price_usd !== undefined && b.custom_monthly_price_usd !== null
@@ -74,13 +126,15 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
     whatsapp: b.whatsapp || b.phone || '',
     email: b.email || '',
     openingHours: operatingHoursStr,
-    verifiedTier: isVerified ? 'tier2_corporate' : 'unverified',
+    verifiedTier,
     verificationStatus: isVerified ? 'Verified' : 'Pending',
     cr14Verified: isVerified,
     zimraVerified: isVerified,
     featured: Boolean(b.is_featured),
     image: defaultImage,
-    description: b.description || (isVerified ? 'Verified Zimbabwean Commercial Supplier & Enterprise.' : 'Zimbabwean Commercial Supplier & Enterprise (Pending Verification).'),
+    description: b.description || (isVerified
+      ? (isTrackB ? 'Verified Zimbabwean Owner-Operated Enterprise.' : 'Verified Zimbabwean Commercial Supplier & Enterprise.')
+      : (isTrackB ? 'Zimbabwean Enterprise (Pending Identity Verification).' : 'Zimbabwean Commercial Supplier & Enterprise (Pending Verification).')),
     services: [
       b.sector ? `${b.sector} Supplies` : 'General Wholesale',
       'Nationwide Delivery',
@@ -89,7 +143,7 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
     tags: [
       b.sector,
       b.province,
-      isVerified ? 'CR14 Verified' : 'Pending Verification',
+      verificationTag,
     ].filter(Boolean) as string[],
     reviews: Array.isArray(b.reviews) ? b.reviews : [],
     kycDocuments: Array.isArray(b.kyc_documents)

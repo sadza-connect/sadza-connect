@@ -269,7 +269,7 @@ export default function BusinessProfilePage() {
                     {business.cr14Verified ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        {business.verificationBadge || 'Verified Registered Company'}
+                        {business.verificationBadge || (business.verifiedTier === 'tier1_artisan' ? 'Identity Verified (National ID)' : 'Verified Registered Company')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">

@@ -121,6 +121,8 @@ interface DirectoryBusiness {
   activeProductsCount: number;
   slug?: string;
   onboardingTrack?: string;
+  verificationBadge?: string;
+  verifiedTier?: string;
 }
 
 const PROVINCE_MAP_COORDS: Record<string, { mapX: number; mapY: number; lat: number; lng: number }> = {
@@ -175,6 +177,8 @@ function mapListingToDirectoryBusiness(b: BusinessListing): DirectoryBusiness {
     mapY: coords.mapY,
     activeProductsCount: (b.services || []).length || 6,
     onboardingTrack: b.onboardingTrack,
+    verificationBadge: b.verificationBadge,
+    verifiedTier: b.verifiedTier,
   };
 }
 
@@ -1588,7 +1592,10 @@ export function CommercialPortalWorkspace() {
                                   {biz.verifiedCR14 ? (
                                     <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
                                       <ShieldCheck className="h-3.5 w-3.5" />
-                                      CR14 Verified
+                                      {biz.verificationBadge ||
+                                        (biz.onboardingTrack === 'owner_operated' || biz.businessType === 'Sole Proprietor'
+                                          ? 'National ID Verified'
+                                          : 'CR14 Verified')}
                                     </span>
                                   ) : (
                                     <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">

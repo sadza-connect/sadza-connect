@@ -238,7 +238,7 @@ export default function BusinessesDirectoryPage() {
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>CR14 & ZIMRA Certified Only</span>
+                  <span>Verified Merchants Only (CR14 & National ID)</span>
                 </button>
 
                 {(searchTerm ||
@@ -336,7 +336,7 @@ export default function BusinessesDirectoryPage() {
                           {biz.cr14Verified ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white shadow-xs">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              {biz.verificationBadge || 'Verified Company'}
+                              {biz.verificationBadge || (biz.verifiedTier === 'tier1_artisan' ? 'Identity Verified (National ID)' : 'Verified Company')}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/90 text-white shadow-xs">
