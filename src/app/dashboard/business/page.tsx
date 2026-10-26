@@ -28,6 +28,8 @@ import {
   Phone,
   Mail,
   Send,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import {
   ZIMBABWE_PROVINCES,
@@ -141,7 +143,29 @@ export default function BusinessDashboardPage() {
   const [showGateModal, setShowGateModal] = useState(false);
   const [gateActionName, setGateActionName] = useState('publishing marketplace items');
 
-  const handleOpenProductModal = () => {
+  const handleOpenProductModal = (item?: MarketplaceProduct | unknown) => {
+    const prodToEdit =
+      item && typeof item === 'object' && 'id' in item && 'priceUsd' in item
+        ? (item as MarketplaceProduct)
+        : undefined;
+
+    if (prodToEdit) {
+      setEditingProduct(prodToEdit);
+      setProdTitle(prodToEdit.title || '');
+      setProdCategory(prodToEdit.category || BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy');
+      setProdPriceUsd(String(prodToEdit.priceUsd || ''));
+      setProdUnit(prodToEdit.unit || 'Per Unit');
+      setProdStockNote(prodToEdit.stockNote || 'In Stock');
+      setProdImages(
+        prodToEdit.image
+          ? [{ src: prodToEdit.image, caption: prodToEdit.title || 'Product Photo' }]
+          : []
+      );
+      setProdDesc(prodToEdit.description || '');
+      setShowProductModal(true);
+      return;
+    }
+
     if (onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted) {
       setGateActionName('publishing marketplace products');
       setShowGateModal(true);
@@ -159,6 +183,15 @@ export default function BusinessDashboardPage() {
       setShowTierModal(true);
       return;
     }
+
+    setEditingProduct(null);
+    setProdTitle('');
+    setProdCategory(currentBusiness?.categoryName || BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy');
+    setProdPriceUsd('');
+    setProdUnit('Per Unit');
+    setProdStockNote('In Stock');
+    setProdImages([]);
+    setProdDesc('');
     setShowProductModal(true);
   };
 
@@ -199,6 +232,8 @@ export default function BusinessDashboardPage() {
 
   // Product Form Modal
   const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<MarketplaceProduct | null>(null);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [prodTitle, setProdTitle] = useState('');
   const [prodCategory, setProdCategory] = useState<string>(
     BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy'
@@ -633,8 +668,73 @@ export default function BusinessDashboardPage() {
     }
   };
 
-  const handleAddProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!prodTitle.trim()) {
+      showToast('Please enter a product title.');
+      return;
+    }
+
+    const usd = Math.max(1, Number(prodPriceUsd) || 10);
+    const chosenImage = prodImages[0]?.src || '';
+
+    // EDIT MODE
+    if (editingProduct) {
+      setIsSavingProduct(true);
+      try {
+        const targetIdentifier = editingProduct.slug || editingProduct.id;
+        const res = await fetch(`/api/v1/products/${encodeURIComponent(targetIdentifier)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: prodTitle.trim(),
+            category: prodCategory,
+            price_usd: usd,
+            images: chosenImage ? [chosenImage] : [],
+            stock_quantity: 10,
+            condition: editingProduct.condition || 'Brand New',
+            description:
+              prodDesc.trim() ||
+              `Supplied directly by ${currentBusiness.name} in ${currentBusiness.province}. Contact via WhatsApp for dispatch and bulk pricing.`,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) {
+          showToast(json.error?.message || json.message || 'Failed to update product SKU.');
+          return;
+        }
+
+        const updatedProd: MarketplaceProduct = {
+          ...editingProduct,
+          title: prodTitle.trim(),
+          category: prodCategory,
+          priceUsd: usd,
+          unit: prodUnit.trim() || 'Per Unit',
+          stockNote: prodStockNote.trim() || 'In Stock',
+          image: chosenImage || editingProduct.image,
+          description:
+            prodDesc.trim() ||
+            `Supplied directly by ${currentBusiness.name} in ${currentBusiness.province}. Contact via WhatsApp for dispatch and bulk pricing.`,
+        };
+
+        const nextProducts = products.map((p) => (p.id === editingProduct.id ? updatedProd : p));
+        setProducts(nextProducts);
+        saveStoredProducts(nextProducts);
+        setShowProductModal(false);
+        setEditingProduct(null);
+        showToast('Product SKU updated successfully!');
+      } catch (err: any) {
+        console.error('Failed to update product in database:', err);
+        showToast(err.message || 'Network error updating product');
+      } finally {
+        setIsSavingProduct(false);
+      }
+      return;
+    }
+
+    // CREATE MODE
     const effectiveLimit =
       currentBusiness.customProductLimit ??
       currentBusiness.productLimit ??
@@ -649,13 +749,12 @@ export default function BusinessDashboardPage() {
       return;
     }
 
-    const usd = Math.max(1, Number(prodPriceUsd) || 10);
-    const chosenImage = prodImages[0]?.src || '';
-
+    setIsSavingProduct(true);
     try {
       const res = await fetch('/api/v1/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           business_id: currentBusiness.id,
           business_slug: currentBusiness.slug,
@@ -673,7 +772,10 @@ export default function BusinessDashboardPage() {
       const json = await res.json();
       if (!res.ok) {
         showToast(json.error?.message || json.message || 'Failed to publish product.');
-        if (json.error?.message?.toLowerCase().includes('quota') || json.error?.message?.toLowerCase().includes('tier')) {
+        if (
+          json.error?.message?.toLowerCase().includes('quota') ||
+          json.error?.message?.toLowerCase().includes('tier')
+        ) {
           setShowProductModal(false);
           setShowTierModal(true);
         }
@@ -697,6 +799,8 @@ export default function BusinessDashboardPage() {
       console.error('Failed to publish product to database:', err);
       showToast(err.message || 'Network error publishing product');
       return;
+    } finally {
+      setIsSavingProduct(false);
     }
 
     const slug = `${prodTitle
@@ -1310,7 +1414,7 @@ export default function BusinessDashboardPage() {
               <AdminButton
                 variant="outline"
                 size="sm"
-                onClick={handleOpenProductModal}
+                onClick={() => handleOpenProductModal()}
                 className="hidden sm:inline-flex"
               >
                 <Plus className="h-3.5 w-3.5" /> Upload Product
@@ -1515,7 +1619,7 @@ export default function BusinessDashboardPage() {
                     title="Recent Marketplace Products"
                     hint="Live inventory synced to your public storefront"
                     action={
-                      <AdminButton size="sm" onClick={handleOpenProductModal}>
+                      <AdminButton size="sm" onClick={() => handleOpenProductModal()}>
                         <Plus className="h-3.5 w-3.5" /> Add Product
                       </AdminButton>
                     }
@@ -1552,7 +1656,17 @@ export default function BusinessDashboardPage() {
                               </p>
                             </div>
                           </div>
-                          <AdminBadge tone="success">{prod.stockNote}</AdminBadge>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <AdminBadge tone="success">{prod.stockNote}</AdminBadge>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenProductModal(prod)}
+                              className="rounded-lg p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition cursor-pointer"
+                              title="Edit Product Details"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1928,7 +2042,7 @@ export default function BusinessDashboardPage() {
                     <AdminButton variant="outline" onClick={() => setShowTierModal(true)}>
                       <TrendingUp className="h-4 w-4 text-emerald-600" /> Expand Catalog Quota
                     </AdminButton>
-                    <AdminButton onClick={handleOpenProductModal}>
+                    <AdminButton onClick={() => handleOpenProductModal()}>
                       <Plus className="h-4 w-4" /> Upload New Product
                     </AdminButton>
                   </div>
@@ -2013,7 +2127,7 @@ export default function BusinessDashboardPage() {
                       settings.tierStarterLimit ?? 25
                     } active product listings.`}
                     action={
-                      <AdminButton onClick={handleOpenProductModal}>
+                      <AdminButton onClick={() => handleOpenProductModal()}>
                         <Plus className="h-4 w-4" /> Upload First Product
                       </AdminButton>
                     }
@@ -2039,14 +2153,24 @@ export default function BusinessDashboardPage() {
                           >
                             {prod.title}
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProduct(prod.id)}
-                            className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
-                            title="Delete Product"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenProductModal(prod)}
+                              className="rounded-lg p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition cursor-pointer"
+                              title="Edit Product Details"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProduct(prod.id)}
+                              className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-xs font-bold text-emerald-700">
                           ${prod.priceUsd.toLocaleString()} USD{' '}
@@ -3039,15 +3163,22 @@ export default function BusinessDashboardPage() {
         </div>
       </AdminModal>
 
-      {/* MODAL 2: UPLOAD NEW PRODUCT WITH IMAGEUPLOADER */}
+      {/* MODAL 2: UPLOAD / UPDATE PRODUCT WITH IMAGEUPLOADER */}
       <AdminModal
         open={showProductModal}
-        onClose={() => setShowProductModal(false)}
+        onClose={() => {
+          setShowProductModal(false);
+          setEditingProduct(null);
+        }}
         size="xl"
-        title="Upload Marketplace Product"
-        description={`Publish a new product SKU under ${currentBusiness.name} with automatic USD & ZiG pricing.`}
+        title={editingProduct ? "Update Marketplace Product SKU" : "Upload Marketplace Product"}
+        description={
+          editingProduct
+            ? `Modify pricing, stock availability, photos, or technical specifications for "${editingProduct.title}".`
+            : `Publish a new product SKU under ${currentBusiness.name} with automatic USD & ZiG pricing.`
+        }
       >
-        <form onSubmit={handleAddProduct} className="flex flex-col flex-1 min-h-0">
+        <form onSubmit={handleSaveProduct} className="flex flex-col flex-1 min-h-0">
           <ModalBody>
             <AdminInput
               label="Product or Package Title *"
@@ -3113,11 +3244,26 @@ export default function BusinessDashboardPage() {
           </ModalBody>
 
           <ModalFooter>
-            <AdminButton type="button" variant="outline" onClick={() => setShowProductModal(false)}>
+            <AdminButton
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowProductModal(false);
+                setEditingProduct(null);
+              }}
+            >
               Cancel
             </AdminButton>
-            <AdminButton type="submit">
-              <Plus className="h-4 w-4" /> Publish Product to Marketplace
+            <AdminButton type="submit" loading={isSavingProduct} disabled={isSavingProduct}>
+              {editingProduct ? (
+                <>
+                  <Check className="h-4 w-4" /> Save Changes to Product
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" /> Publish Product to Marketplace
+                </>
+              )}
             </AdminButton>
           </ModalFooter>
         </form>
