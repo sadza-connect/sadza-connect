@@ -92,5 +92,16 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       isVerified ? 'CR14 Verified' : 'Pending Verification',
     ].filter(Boolean) as string[],
     reviews: Array.isArray(b.reviews) ? b.reviews : [],
+    kycDocuments: Array.isArray(b.kyc_documents)
+      ? b.kyc_documents
+      : typeof b.kyc_documents === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(b.kyc_documents);
+          } catch {
+            return [];
+          }
+        })()
+      : [],
   };
 }

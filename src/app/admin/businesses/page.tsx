@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   Send,
   ExternalLink,
+  FileText,
+  FileCheck,
+  Eye,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -87,6 +90,15 @@ export default function AdminBusinessesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingBiz, setDeletingBiz] = useState<BusinessListing | null>(null);
+  const [reviewingKycBiz, setReviewingKycBiz] = useState<BusinessListing | null>(null);
+
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
   const [form, setForm] = useState({
     name: '',
@@ -114,7 +126,10 @@ export default function AdminBusinessesPage() {
     async function loadAdminBusinesses() {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/v1/businesses?limit=100');
+        const res = await fetch('/api/v1/businesses?limit=100&include_expired=true', {
+          headers: getAuthHeaders(),
+          credentials: 'include',
+        });
         const json = await res.json();
         if (json.success && Array.isArray(json.data?.businesses)) {
           if (isMounted) {
@@ -245,9 +260,10 @@ export default function AdminBusinessesPage() {
       const existing = businesses.find((b) => b.id === editingId);
       if (existing) {
         try {
-          await fetch(`/api/v1/businesses/${encodeURIComponent(existing.slug)}`, {
+          const res = await fetch(`/api/v1/businesses/${encodeURIComponent(existing.slug)}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
+            credentials: 'include',
             body: JSON.stringify({
               description: form.description,
               province: form.province,
@@ -260,10 +276,18 @@ export default function AdminBusinessesPage() {
               custom_monthly_price_usd: customPriceNum,
               catalog_tier: form.catalogTier,
               custom_product_limit: customLimitNum,
+              is_verified: form.cr14Verified,
+              verification_status: form.cr14Verified ? 'Verified' : 'Pending',
             }),
           });
-        } catch (err) {
+          const json = await res.json();
+          if (!res.ok || !json.success) {
+            throw new Error(json.error?.message || json.message || 'Failed to update business in database');
+          }
+        } catch (err: any) {
           console.error('Failed to update business in database:', err);
+          showToast(`Error: ${err.message || 'Database update failed'}`);
+          return;
         }
       }
 
@@ -296,6 +320,9 @@ export default function AdminBusinessesPage() {
                 (form.catalogTier === 'enterprise' ? 300 : form.catalogTier === 'growth' ? 100 : 25),
               cr14Verified: form.cr14Verified,
               zimraVerified: form.cr14Verified,
+              verificationStatus: form.cr14Verified ? 'Verified' : 'Pending',
+              verificationBadge: form.cr14Verified ? 'Verified Registered Company' : undefined,
+              verifiedTier: (form.cr14Verified ? 'tier2_corporate' : 'unverified') as BusinessListing['verifiedTier'],
               featured: form.featured,
               image: coverImg,
             }
@@ -306,9 +333,10 @@ export default function AdminBusinessesPage() {
       showToast(`Updated enterprise profile for ${form.name}`);
     } else {
       try {
-        await fetch('/api/v1/businesses', {
+        const res = await fetch('/api/v1/businesses', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
+          credentials: 'include',
           body: JSON.stringify({
             name: form.name,
             province: form.province,
@@ -323,10 +351,18 @@ export default function AdminBusinessesPage() {
             custom_monthly_price_usd: customPriceNum,
             catalog_tier: form.catalogTier,
             custom_product_limit: customLimitNum,
+            is_verified: form.cr14Verified,
+            verification_status: form.cr14Verified ? 'Verified' : 'Pending',
           }),
         });
-      } catch (err) {
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error?.message || json.message || 'Failed to create business in database');
+        }
+      } catch (err: any) {
         console.error('Failed to create business in database:', err);
+        showToast(`Error: ${err.message || 'Database creation failed'}`);
+        return;
       }
 
       const slug = form.name
@@ -351,8 +387,8 @@ export default function AdminBusinessesPage() {
         productLimit:
           customLimitNum ??
           (form.catalogTier === 'enterprise' ? 300 : form.catalogTier === 'growth' ? 100 : 25),
-        rating: 4.9,
-        reviewCount: 12,
+        rating: 0,
+        reviewCount: 0,
         province: form.province,
         city: form.province,
         address: form.address,
@@ -360,7 +396,9 @@ export default function AdminBusinessesPage() {
         whatsapp: form.whatsapp,
         email: form.email,
         openingHours: form.openingHours,
-        verifiedTier: 'tier2_corporate',
+        verifiedTier: form.cr14Verified ? 'tier2_corporate' : 'unverified',
+        verificationStatus: form.cr14Verified ? 'Verified' : 'Pending',
+        verificationBadge: form.cr14Verified ? 'Verified Registered Company' : undefined,
         cr14Verified: form.cr14Verified,
         zimraVerified: form.cr14Verified,
         featured: form.featured,
@@ -372,7 +410,7 @@ export default function AdminBusinessesPage() {
       const updated = [newBiz, ...businesses];
       saveStoredBusinesses(updated);
       setBusinesses(updated);
-      showToast(`Registered & verified ${form.name}`);
+      showToast(`Registered ${form.name}`);
     }
     setFormOpen(false);
   }
@@ -382,22 +420,38 @@ export default function AdminBusinessesPage() {
     const nextStatus = nextVal ? 'Verified' : 'Pending';
 
     try {
-      await fetch(`/api/v1/businesses/${encodeURIComponent(b.slug)}/verify`, {
+      const res = await fetch(`/api/v1/businesses/${encodeURIComponent(b.slug)}/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify({ status: nextStatus }),
       });
-    } catch (err) {
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || 'Verification update failed');
+      }
+    } catch (err: any) {
       console.error('Failed to update KYC in database:', err);
+      showToast(`Error: ${err.message || 'Verification update failed'}`);
+      return;
     }
 
     const updated = businesses.map((item) =>
-      item.id === b.id ? { ...item, cr14Verified: nextVal, zimraVerified: nextVal } : item
+      item.id === b.id
+        ? {
+            ...item,
+            cr14Verified: nextVal,
+            zimraVerified: nextVal,
+            verificationStatus: nextStatus,
+            verificationBadge: nextVal ? 'Verified Registered Company' : undefined,
+            verifiedTier: (nextVal ? 'tier2_corporate' : 'unverified') as BusinessListing['verifiedTier'],
+          }
+        : item
     );
     saveStoredBusinesses(updated);
     setBusinesses(updated);
     showToast(
-      `${b.name}: CR14 & ZIMRA KYC ${nextVal ? 'Approved & Verified' : 'Marked Pending'}`
+      `${b.name}: Statutory KYC ${nextVal ? 'Approved & Verified' : 'Marked Pending'}`
     );
   }
 
@@ -583,18 +637,37 @@ export default function AdminBusinessesPage() {
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleKyc(b)}
-                          className="cursor-pointer text-left block"
-                          title="Click to toggle KYC verification status"
-                        >
-                          <AdminBadge tone={b.cr14Verified ? 'success' : 'warning'} dot>
-                            {b.cr14Verified
-                              ? b.verificationBadge || 'Verified'
-                              : 'Pending Review'}
-                          </AdminBadge>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleKyc(b)}
+                            className="cursor-pointer text-left block"
+                            title="Click to toggle KYC verification status"
+                          >
+                            <AdminBadge tone={b.cr14Verified ? 'success' : 'warning'} dot>
+                              {b.cr14Verified
+                                ? b.verificationBadge || 'Verified'
+                                : 'Pending Review'}
+                            </AdminBadge>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewingKycBiz(b)}
+                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded transition-colors ${
+                              b.kycDocuments && b.kycDocuments.length > 0
+                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-400'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                            }`}
+                            title="Review submitted statutory documents"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>
+                              {b.kycDocuments && b.kycDocuments.length > 0
+                                ? `${b.kycDocuments.length} doc${b.kycDocuments.length === 1 ? '' : 's'}`
+                                : 'Docs'}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-4">
@@ -661,6 +734,12 @@ export default function AdminBusinessesPage() {
                           icon={ExternalLink}
                           label="View Storefront"
                           href={`/businesses/${b.slug}`}
+                        />
+                        <IconButton
+                          icon={FileCheck}
+                          label="Review KYC Documents"
+                          tone="brand"
+                          onClick={() => setReviewingKycBiz(b)}
                         />
                         <IconButton
                           icon={Pencil}
@@ -915,6 +994,131 @@ export default function AdminBusinessesPage() {
           setDeletingBiz(null);
         }}
       />
+
+      {/* KYC Documents Review Modal */}
+      <AdminModal
+        open={Boolean(reviewingKycBiz)}
+        onClose={() => setReviewingKycBiz(null)}
+        title={reviewingKycBiz ? `KYC Compliance Review: ${reviewingKycBiz.name}` : 'KYC Review'}
+        description={
+          reviewingKycBiz
+            ? `${reviewingKycBiz.legalForm || reviewingKycBiz.businessType} • Reg No: ${
+                reviewingKycBiz.registrationNumber || 'Not provided'
+              }`
+            : ''
+        }
+        size="lg"
+      >
+        <ModalBody>
+          <ModalSection title="Uploaded Statutory Documents">
+            {!reviewingKycBiz?.kycDocuments || reviewingKycBiz.kycDocuments.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center bg-slate-50 dark:bg-slate-900/50">
+                <FileText className="h-10 w-10 text-slate-400 mx-auto mb-2" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  No Compliance Documents Uploaded
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  The merchant has not uploaded CR14, Tax Clearance, or Director ID documents yet. They can attach them in their merchant dashboard.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reviewingKycBiz.kycDocuments.map((doc: any, idx: number) => {
+                  const docTitle =
+                    doc.docType === 'cr6_cr14'
+                      ? 'Form CR6 (or CR14) — Register of Directors'
+                      : doc.docType === 'tax_clearance'
+                      ? 'ZIMRA Tax Clearance Certificate (ITF263)'
+                      : doc.docType === 'director_id'
+                      ? 'Director National ID / Passport'
+                      : doc.docType === 'trust_deed'
+                      ? 'Notarial Trust Deed / Constitution'
+                      : doc.title || doc.name || `Document #${idx + 1}`;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white">
+                            {docTitle}
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span className="font-mono text-slate-600 dark:text-slate-400">
+                              {doc.name || 'document.pdf'}
+                            </span>
+                            {doc.size && <span>• {doc.size}</span>}
+                            {doc.storageType && (
+                              <span className="uppercase text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                {doc.storageType}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {doc.url ? (
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors shrink-0"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Inspect File</span>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">No URL available</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ModalSection>
+
+          <ModalSection title="Verification Status">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+              <div>
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Current Status: {reviewingKycBiz?.cr14Verified ? 'Approved & Verified' : 'Pending Review'}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Approving verification grants the enterprise a Verified Trust Badge across directory search results.
+                </p>
+              </div>
+              <div>
+                <AdminBadge tone={reviewingKycBiz?.cr14Verified ? 'success' : 'warning'} dot>
+                  {reviewingKycBiz?.cr14Verified ? 'Verified Company' : 'Pending'}
+                </AdminBadge>
+              </div>
+            </div>
+          </ModalSection>
+        </ModalBody>
+
+        <ModalFooter>
+          <AdminButton variant="outline" onClick={() => setReviewingKycBiz(null)}>
+            Close
+          </AdminButton>
+
+          {reviewingKycBiz && (
+            <AdminButton
+              variant={reviewingKycBiz.cr14Verified ? 'danger' : 'primary'}
+              onClick={async () => {
+                await toggleKyc(reviewingKycBiz);
+                setReviewingKycBiz((prev) => (prev ? { ...prev, cr14Verified: !prev.cr14Verified } : null));
+              }}
+            >
+              {reviewingKycBiz.cr14Verified ? 'Revoke Verification' : 'Approve & Verify Business'}
+            </AdminButton>
+          )}
+        </ModalFooter>
+      </AdminModal>
     </div>
   );
 }

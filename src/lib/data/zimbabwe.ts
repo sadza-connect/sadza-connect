@@ -263,6 +263,7 @@ export interface BusinessListing {
   reviews?: BusinessReview[];
   views?: number;
   inquiries?: number;
+  kycDocuments?: any[];
 }
 
 export const SAMPLE_BUSINESSES: BusinessListing[] = [];

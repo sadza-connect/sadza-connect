@@ -139,6 +139,12 @@ export async function PATCH(
       if (body.custom_monthly_price_usd !== undefined && body.custom_monthly_price_usd !== existing.custom_monthly_price_usd) {
         throw new AuthorizationError('Custom monthly price overrides can only be configured by Platform Administrators.');
       }
+      if (body.is_verified !== undefined && body.is_verified !== existing.is_verified) {
+        throw new AuthorizationError('KYC verification status can only be modified by Platform Administrators.');
+      }
+      if (body.verification_status !== undefined && body.verification_status !== existing.verification_status) {
+        throw new AuthorizationError('KYC verification status can only be modified by Platform Administrators.');
+      }
     }
 
     const updated = await businessRepository.update(existing.id, body);

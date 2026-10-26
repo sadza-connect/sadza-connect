@@ -399,8 +399,24 @@ export class BusinessRepository {
     if (data.gallery !== undefined) patch.gallery = JSON.stringify(data.gallery);
     if (data.operating_hours !== undefined) patch.operating_hours = JSON.stringify(data.operating_hours);
     if (data.kyc_documents !== undefined) patch.kyc_documents = JSON.stringify(data.kyc_documents);
-    if (data.is_verified !== undefined) patch.is_verified = data.is_verified;
-    if (data.verification_status !== undefined) patch.verification_status = data.verification_status;
+    if (data.is_verified !== undefined) {
+      patch.is_verified = data.is_verified;
+      if (data.verification_status === undefined) {
+        patch.verification_status = data.is_verified ? 'Verified' : 'Pending';
+      }
+      if (data.verification_badge === undefined) {
+        patch.verification_badge = data.is_verified ? 'Verified Registered Company' : null;
+      }
+    }
+    if (data.verification_status !== undefined) {
+      patch.verification_status = data.verification_status;
+      if (data.is_verified === undefined) {
+        patch.is_verified = data.verification_status === 'Verified';
+      }
+      if (data.verification_badge === undefined) {
+        patch.verification_badge = data.verification_status === 'Verified' ? 'Verified Registered Company' : null;
+      }
+    }
     if (data.is_featured !== undefined) patch.is_featured = data.is_featured;
 
     const [updated] = await db('businesses')
