@@ -34,6 +34,7 @@ import {
   Zap,
   UploadCloud,
   Eye,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
@@ -167,16 +168,14 @@ function mapListingToDirectoryBusiness(b: BusinessListing): DirectoryBusiness {
     rating: b.rating || 5.0,
     reviews: b.reviewCount || 1,
     specialty: b.description || 'Verified Zimbabwean commercial supplier and service provider.',
-    whatsapp: (b.whatsapp || b.phone || '263771000000').replace(/\D/g, ''),
+    whatsapp: b.whatsapp || b.phone || '',
     phone: b.phone || '+263 77 000 0000',
-    image:
-      b.image ||
-      'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=700&q=80',
+    image: b.image || '',
     lat: coords.lat,
     lng: coords.lng,
     mapX: coords.mapX,
     mapY: coords.mapY,
-    activeProductsCount: (b.services || []).length || 6,
+    activeProductsCount: Number((b as any).productsCount || 0),
     onboardingTrack: b.onboardingTrack,
     verificationBadge: b.verificationBadge,
     verifiedTier: b.verifiedTier,
@@ -1558,120 +1557,171 @@ export function CommercialPortalWorkspace() {
                         </button>
                       </div>
                     ) : (
-                      filteredBusinesses.map((biz) => (
-                        <div
-                          key={biz.id}
-                          className="p-5 sm:p-6 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors flex flex-col sm:flex-row gap-5"
-                        >
-                          {/* Thumbnail */}
-                          <Link
-                            href={`/businesses/${biz.slug || biz.id}`}
-                            className="relative h-40 sm:h-32 sm:w-44 shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 block group/thumb"
-                          >
-                            <Image
-                              src={biz.image}
-                              alt={biz.name}
-                              fill
-                              sizes="(max-width: 640px) 100vw, 180px"
-                              className="object-cover transition-transform duration-300 group-hover/thumb:scale-105"
-                            />
-                            <div className="absolute top-2.5 left-2.5">
-                              <span className="rounded-lg bg-white/95 dark:bg-slate-900/95 px-2.5 py-1 text-[11px] font-bold text-slate-900 dark:text-white shadow-2xs">
-                                {biz.province}
-                              </span>
-                            </div>
-                          </Link>
+                      <div className="p-4 sm:p-6 space-y-4">
+                        {filteredBusinesses.map((biz) => {
+                          const bizProductsCount = products.filter(
+                            (p) =>
+                              (p as any).business_id === biz.id ||
+                              (biz.slug && (p as any).sellerSlug === biz.slug) ||
+                              (biz.name && p.sellerName?.toLowerCase() === biz.name.toLowerCase())
+                          ).length;
 
-                          {/* Details */}
-                          <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    {biz.businessType}
-                                  </span>
-                                  {biz.verifiedCR14 ? (
-                                    <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                                      <ShieldCheck className="h-3.5 w-3.5" />
-                                      {biz.verificationBadge ||
-                                        (biz.onboardingTrack === 'owner_operated' || biz.businessType === 'Sole Proprietor'
-                                          ? 'National ID Verified'
-                                          : 'CR14 Verified')}
+                          return (
+                            <div
+                              key={biz.id}
+                              className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 sm:p-6 hover:border-emerald-500/60 dark:hover:border-emerald-500/50 hover:shadow-lg dark:hover:shadow-emerald-950/20 transition-all duration-200 group flex flex-col md:flex-row gap-5"
+                            >
+                              {/* Thumbnail / Branded Emblem */}
+                              <Link
+                                href={`/businesses/${biz.slug || biz.id}`}
+                                className="relative h-44 md:h-36 md:w-48 shrink-0 rounded-xl overflow-hidden block group/thumb"
+                              >
+                                {biz.image ? (
+                                  <>
+                                    <Image
+                                      src={biz.image}
+                                      alt={biz.name}
+                                      fill
+                                      sizes="(max-width: 768px) 100vw, 192px"
+                                      className="object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                                    />
+                                    <div className="absolute top-2.5 left-2.5">
+                                      <span className="rounded-lg bg-white/95 dark:bg-slate-900/95 px-2.5 py-1 text-[11px] font-bold text-slate-900 dark:text-white shadow-2xs">
+                                        {biz.province}
+                                      </span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 p-3.5 flex flex-col justify-between relative shadow-xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className="rounded-md bg-black/40 backdrop-blur-xs px-2 py-0.5 text-[10px] font-bold text-white tracking-wider uppercase">
+                                        {biz.province}
+                                      </span>
+                                      <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                                    </div>
+                                    <div className="text-center my-auto">
+                                      <div className="h-11 w-11 rounded-xl bg-white/20 backdrop-blur-md mx-auto flex items-center justify-center text-white text-lg font-black shadow-inner border border-white/25">
+                                        {biz.name.charAt(0).toUpperCase()}
+                                      </div>
+                                      <p className="text-xs font-bold text-white truncate mt-1.5 px-1">{biz.name}</p>
+                                    </div>
+                                    <div className="text-[10px] text-emerald-100/80 truncate text-center font-medium">
+                                      {biz.category}
+                                    </div>
+                                  </div>
+                                )}
+                              </Link>
+
+                              {/* Details */}
+                              <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                <div>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                                        {biz.businessType}
+                                      </span>
+                                      {biz.verifiedCR14 ? (
+                                        <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 shadow-2xs">
+                                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                                          {biz.verificationBadge ||
+                                            (biz.onboardingTrack === 'owner_operated' || biz.businessType === 'Sole Proprietor'
+                                              ? 'National ID Verified'
+                                              : 'CR14 Verified')}
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
+                                          <Sparkles className="h-3 w-3 text-blue-600" />
+                                          New Listing • Month 1 Grace
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                      <span>{biz.rating.toFixed(1)}</span>
+                                      <span className="text-slate-400 font-normal">
+                                        ({biz.reviews})
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-2">
+                                    <Link
+                                      href={`/businesses/${biz.slug || biz.id}`}
+                                      className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors inline-flex items-center gap-1.5"
+                                    >
+                                      <span>{biz.name}</span>
+                                      <ArrowUpRight className="h-4 w-4 opacity-50 group-hover:opacity-100" />
+                                    </Link>
+                                  </h3>
+
+                                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
+                                    <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
+                                    <span className="truncate">
+                                      {biz.address} •{' '}
+                                      <strong className="text-slate-700 dark:text-slate-300">
+                                        {biz.province}
+                                      </strong>
                                     </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
-                                      New Listing • Month 1 Grace
-                                    </span>
-                                  )}
+                                  </p>
+
+                                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 line-clamp-2 leading-relaxed">
+                                    {biz.specialty}
+                                  </p>
                                 </div>
 
-                                <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
-                                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                                  <span>{biz.rating.toFixed(1)}</span>
-                                  <span className="text-slate-400 font-normal">
-                                    ({biz.reviews})
-                                  </span>
+                                {/* Bottom Actions Bar */}
+                                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    {bizProductsCount > 0 ? (
+                                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        <Package className="h-3.5 w-3.5 text-emerald-600" />
+                                        <span>
+                                          <strong className="text-slate-900 dark:text-white">{bizProductsCount}</strong>{' '}
+                                          {bizProductsCount === 1 ? 'product' : 'products'} in marketplace
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span>Direct Orders &amp; WhatsApp Quotes Active</span>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <Link
+                                      href={`/businesses/${biz.slug || biz.id}`}
+                                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
+                                    >
+                                      <span>Storefront</span>
+                                      <ArrowUpRight className="h-3.5 w-3.5" />
+                                    </Link>
+                                    <a
+                                      href={`tel:${biz.phone}`}
+                                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
+                                    >
+                                      <Phone className="h-3.5 w-3.5" />
+                                      <span>Call</span>
+                                    </a>
+                                    <a
+                                      href={`https://wa.me/${sanitizePhoneNumber(biz.whatsapp)}?text=Hi%20${encodeURIComponent(
+                                        biz.name
+                                      )},%20I%20found%20your%20business%20on%20Sadza%20Connect`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold transition-colors shadow-xs"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                      <span>WhatsApp</span>
+                                    </a>
+                                  </div>
                                 </div>
                               </div>
-
-                              <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-2">
-                                <Link
-                                  href={`/businesses/${biz.slug || biz.id}`}
-                                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors inline-flex items-center gap-1.5"
-                                >
-                                  <span>{biz.name}</span>
-                                  <ArrowUpRight className="h-4 w-4 opacity-50 group-hover:opacity-100" />
-                                </Link>
-                              </h3>
-
-                              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
-                                <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
-                                <span className="truncate">
-                                  {biz.address} •{' '}
-                                  <strong className="text-slate-700 dark:text-slate-300">
-                                    {biz.province}
-                                  </strong>
-                                </span>
-                              </p>
-
-                              <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 line-clamp-2 leading-relaxed">
-                                {biz.specialty}
-                              </p>
                             </div>
-
-                            {/* Bottom Actions Bar */}
-                            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                <strong className="text-slate-800 dark:text-slate-200">
-                                  {biz.activeProductsCount}
-                                </strong>{' '}
-                                products in marketplace
-                              </span>
-
-                              <div className="flex items-center gap-2.5">
-                                <a
-                                  href={`tel:${biz.phone}`}
-                                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
-                                >
-                                  <Phone className="h-3.5 w-3.5" />
-                                  <span>Call</span>
-                                </a>
-                                <a
-                                  href={`https://wa.me/${sanitizePhoneNumber(biz.whatsapp)}?text=Hi%20${encodeURIComponent(
-                                    biz.name
-                                  )},%20I%20found%20your%20business%20on%20Sadza%20Connect`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold transition-colors"
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" />
-                                  <span>WhatsApp</span>
-                                </a>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 ) : (

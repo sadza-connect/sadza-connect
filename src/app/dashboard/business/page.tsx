@@ -2467,11 +2467,19 @@ export default function BusinessDashboardPage() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <AdminInput
-                          label="Active WhatsApp Sales Line"
-                          value={editWhatsapp}
-                          onChange={(e) => setEditWhatsapp(e.target.value)}
-                        />
+                        <div>
+                          <AdminInput
+                            label="Active WhatsApp Sales Line"
+                            value={editWhatsapp}
+                            onChange={(e) => setEditWhatsapp(e.target.value)}
+                          />
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            Live buyer WhatsApp link:{' '}
+                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                              https://wa.me/{sanitizePhoneNumber(editWhatsapp || currentBusiness.whatsapp)}
+                            </span>
+                          </p>
+                        </div>
                         <AdminInput
                           label="Operating Hours"
                           value={editHours}

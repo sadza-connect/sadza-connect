@@ -143,11 +143,11 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
     description: b.description || (isVerified
       ? (isTrackB ? 'Verified Zimbabwean Owner-Operated Enterprise.' : 'Verified Zimbabwean Commercial Supplier & Enterprise.')
       : (isTrackB ? 'Zimbabwean Enterprise (Pending Identity Verification).' : 'Zimbabwean Commercial Supplier & Enterprise (Pending Verification).')),
-    services: [
-      b.sector ? `${b.sector} Supplies` : 'General Wholesale',
-      'Nationwide Delivery',
-      'Direct WhatsApp Quotes',
-    ],
+    services: Array.isArray(b.services)
+      ? b.services
+      : typeof b.services === 'string'
+      ? b.services.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [],
     tags: [
       b.sector,
       b.province,

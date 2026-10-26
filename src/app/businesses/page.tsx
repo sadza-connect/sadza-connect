@@ -323,9 +323,12 @@ export default function BusinessesDirectoryPage() {
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
                           </>
                         ) : (
-                          <div className="flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                            <Building2 className="w-12 h-12 text-slate-600 mb-1" />
-                            <span className="text-xs font-semibold text-slate-300 line-clamp-1">{biz.name}</span>
+                          <div className="w-full h-full bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-950 p-4 flex flex-col justify-center items-center text-center relative">
+                            <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white text-2xl font-black shadow-inner border border-white/20 mb-1.5">
+                              {biz.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-xs font-bold text-white/95 line-clamp-1 px-4">{biz.name}</span>
+                            <span className="text-[10px] text-emerald-200/70">{biz.province} • {biz.categoryName}</span>
                           </div>
                         )}
 

@@ -11,6 +11,8 @@ import { ActionLoader } from '@/components/ui/ActionLoader';
 import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
 import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
 import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
+import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import {
   Building2,
   User,
@@ -473,6 +475,10 @@ function BusinessOnboardingContent() {
   const [city, setCity] = useState(''); // EMPTY BY DEFAULT - Forces user entry
   const [streetAddress, setStreetAddress] = useState('');
   const [publicWhatsApp, setPublicWhatsApp] = useState('');
+  const [whatsAppCountryCode, setWhatsAppCountryCode] = useState(() => {
+    return parsePhoneComponents(registeredPhone).dialCode || '+263';
+  });
+  const [whatsAppLocalNumber, setWhatsAppLocalNumber] = useState('');
   const [publicEmail, setPublicEmail] = useState('');
   const [step6Completed, setStep6Completed] = useState(false);
   const [step6Error, setStep6Error] = useState('');
@@ -511,7 +517,12 @@ function BusinessOnboardingContent() {
           if (draft.province) setProvince(draft.province);
           if (draft.city) setCity(draft.city);
           if (draft.streetAddress) setStreetAddress(draft.streetAddress);
-          if (draft.publicWhatsApp) setPublicWhatsApp(draft.publicWhatsApp);
+          if (draft.publicWhatsApp) {
+            setPublicWhatsApp(draft.publicWhatsApp);
+            const parsed = parsePhoneComponents(draft.publicWhatsApp);
+            if (parsed.dialCode) setWhatsAppCountryCode(parsed.dialCode);
+            setWhatsAppLocalNumber(parsed.localNumber);
+          }
           if (draft.publicEmail) setPublicEmail(draft.publicEmail);
           if (draft.step6Completed) setStep6Completed(draft.step6Completed);
         }
@@ -1771,17 +1782,49 @@ function BusinessOnboardingContent() {
                       >
                         Public WhatsApp / Sales Line <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
                       </label>
-                      <div className="relative flex items-center">
-                        <Phone className="pointer-events-none absolute left-3.5 h-4 w-4 text-emerald-600" />
+                      <div className="relative flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all overflow-hidden">
+                        <div className="border-r border-slate-200 dark:border-slate-700">
+                          <CountryCodeSelect
+                            value={whatsAppCountryCode}
+                            onChange={(code) => {
+                              setWhatsAppCountryCode(code);
+                              const formatted = whatsAppLocalNumber.trim()
+                                ? formatE164Phone(code, whatsAppLocalNumber)
+                                : '';
+                              setPublicWhatsApp(formatted);
+                            }}
+                          />
+                        </div>
                         <input
                           id="public-whatsapp-field"
                           type="tel"
                           maxLength={25}
-                          value={publicWhatsApp}
-                          onChange={(e) => setPublicWhatsApp(e.target.value)}
+                          value={whatsAppLocalNumber}
+                          onChange={(e) => {
+                            const sanitized = e.target.value.replace(/[^0-9\s\-()+]/g, '');
+                            setWhatsAppLocalNumber(sanitized);
+                            const formatted = sanitized.trim()
+                              ? formatE164Phone(whatsAppCountryCode, sanitized)
+                              : '';
+                            setPublicWhatsApp(formatted);
+                          }}
                           placeholder="Leave blank to use registered phone"
-                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 py-2.5 pl-10 pr-3.5 text-base text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+                          className="flex-1 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 bg-transparent focus:outline-none font-medium"
                         />
+                      </div>
+
+                      {/* Real-time Format & WhatsApp Preview */}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                        <span className="text-slate-500 dark:text-slate-400">Buyers will reach you at:</span>
+                        {publicWhatsApp ? (
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            {publicWhatsApp} (wa.me/{sanitizePhoneNumber(publicWhatsApp)})
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 dark:text-slate-400">
+                            Defaulting to registered phone: <strong className="text-slate-700 dark:text-slate-300">{registeredPhone}</strong> (wa.me/{sanitizePhoneNumber(registeredPhone)})
+                          </span>
+                        )}
                       </div>
                     </div>
 

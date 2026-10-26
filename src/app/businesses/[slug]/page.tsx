@@ -249,9 +249,12 @@ export default function BusinessProfilePage() {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                    <Building2 className="w-16 h-16 text-slate-400 dark:text-slate-600 mb-2" />
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Verified Enterprise Storefront</span>
+                  <div className="w-full h-full min-h-[220px] bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-950 p-6 flex flex-col items-center justify-center text-center">
+                    <div className="h-20 w-20 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white text-3xl font-black shadow-inner border border-white/20 mb-3">
+                      {business.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-bold text-white tracking-wide">{business.name}</span>
+                    <span className="text-xs text-emerald-200/75 mt-0.5">Verified Enterprise Storefront</span>
                   </div>
                 )}
               </div>
@@ -399,22 +402,24 @@ export default function BusinessProfilePage() {
               {/* TAB 1: OVERVIEW */}
               {activeTab === 'overview' && (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 space-y-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                      Core Services & Specialties
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {business.services.map((service, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center gap-2.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span>{service}</span>
-                        </div>
-                      ))}
+                  {business.services && business.services.length > 0 && (
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
+                        Core Services &amp; Specialties
+                      </h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {business.services.map((service, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>{service}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Preview of Products */}
                   {businessProducts.length > 0 && (
