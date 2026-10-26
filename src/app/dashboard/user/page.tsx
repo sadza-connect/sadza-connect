@@ -53,6 +53,7 @@ import {
   ModalFooter,
 } from '@/components/admin/AdminUI';
 import { useToast } from '@/components/providers/ToastProvider';
+import { useAuth } from '@/context/AuthContext';
 import { mapDbBillToReceipt } from '@/lib/data/bill-mapper';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
@@ -61,6 +62,7 @@ import { mapDbApplicationToRecord } from '@/lib/data/job-mapper';
 type UserTab = 'overview' | 'utilities' | 'saved' | 'jobs' | 'settings';
 
 export default function UserDashboardPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [activeTab, setActiveTab] = useState<UserTab>('overview');
@@ -92,6 +94,12 @@ export default function UserDashboardPage() {
   const [cvTitle, setCvTitle] = useState('');
   const [cvSkills, setCvSkills] = useState('');
   const [cvFileName, setCvFileName] = useState('');
+
+  useEffect(() => {
+    if (user?.fullName && !cvFullName) {
+      setCvFullName(user.fullName);
+    }
+  }, [user?.fullName, cvFullName]);
 
   useEffect(() => {
     let isMounted = true;
@@ -319,8 +327,8 @@ export default function UserDashboardPage() {
               Active
             </span>
           </div>
-          <p className="text-sm font-bold text-white truncate">{cvFullName}</p>
-          <p className="text-[11px] text-slate-400 truncate">tinashe.sibanda@gmail.com</p>
+          <p className="text-sm font-bold text-white truncate">{user?.fullName || cvFullName || 'Valued User'}</p>
+          <p className="text-[11px] text-slate-400 truncate">{user?.email || 'Individual Account'}</p>
           <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 pt-0.5">
             <MapPin className="h-3 w-3" /> {cvProvince}
           </p>
@@ -368,7 +376,13 @@ export default function UserDashboardPage() {
       </nav>
 
       {/* Quick Actions Footer */}
-      <div className="border-t border-white/10 p-4 space-y-3">
+      <div className="border-t border-white/10 p-4 space-y-2.5">
+        <Link
+          href="/onboarding/business"
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-2.5 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+        >
+          <Building2 className="h-4 w-4" /> Register Your Business
+        </Link>
         <button
           type="button"
           onClick={() => setZesaModalOpen(true)}
@@ -428,7 +442,7 @@ export default function UserDashboardPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h1 className="truncate text-base font-bold text-slate-950 sm:text-lg">
-                    Welcome back, {cvFullName}
+                    Welcome back, {user?.fullName || cvFullName || 'Shopper'}
                   </h1>
                   <AdminBadge tone="success">Verified Buyer</AdminBadge>
                 </div>
@@ -436,7 +450,7 @@ export default function UserDashboardPage() {
                   <MapPin className="h-3.5 w-3.5 text-[#1e57eb]" />
                   <span>{cvProvince}</span>
                   <span>•</span>
-                  <span>+263 77 311 2233</span>
+                  <span>{user?.email || 'Individual Account'}</span>
                 </p>
               </div>
             </div>
@@ -480,6 +494,31 @@ export default function UserDashboardPage() {
                   hint={`CV: ${cvFileName}`}
                   icon={Briefcase}
                 />
+              </div>
+
+              {/* Register Storefront Promo Card */}
+              <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-white to-indigo-50 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Own a business, retail shop, or artisan trade in Zimbabwe?
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                      Register your storefront on Sadza Connect with a 30-day complimentary trial to list products, get verified, and reach nationwide buyers.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/onboarding/business"
+                  className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-xs"
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>Register Storefront</span>
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
 
               {/* 1-Click ZESA Token Top-Up Panel */}

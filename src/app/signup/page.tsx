@@ -101,11 +101,11 @@ function SignupFormContent() {
       triggerCelebration({
         type: 'register',
         title: 'Welcome to Sadza Connect!',
-        message: `Your personal account for ${fullName} is ready. Start discovering verified businesses.`,
+        message: `Your personal account for ${fullName} is ready. Redirecting to your personal dashboard.`,
         userName: fullName,
       });
 
-      router.push('/');
+      router.push('/dashboard/user');
     }
   };
 
