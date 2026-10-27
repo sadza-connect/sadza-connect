@@ -155,12 +155,16 @@ export default function BusinessDashboardPage() {
       setProdCategory(prodToEdit.category || BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy');
       setProdPriceUsd(String(prodToEdit.priceUsd || ''));
       setProdUnit(prodToEdit.unit || 'Per Unit');
-      setProdStockNote(prodToEdit.stockNote || 'In Stock');
-      setProdImages(
-        prodToEdit.image
-          ? [{ src: prodToEdit.image, caption: prodToEdit.title || 'Product Photo' }]
-          : []
-      );
+      const existingImages =
+        prodToEdit.images && prodToEdit.images.length > 0
+          ? prodToEdit.images.map((img, i) => ({
+              src: img,
+              caption: `${prodToEdit.title} (${i + 1})`,
+            }))
+          : prodToEdit.image
+            ? [{ src: prodToEdit.image, caption: prodToEdit.title || 'Product Photo' }]
+            : [];
+      setProdImages(existingImages);
       setProdDesc(prodToEdit.description || '');
       setShowProductModal(true);
       return;
@@ -676,7 +680,8 @@ export default function BusinessDashboardPage() {
     }
 
     const usd = Math.max(1, Number(prodPriceUsd) || 10);
-    const chosenImage = prodImages[0]?.src || '';
+    const allImages = prodImages.map((img) => img.src).filter(Boolean);
+    const chosenImage = allImages[0] || '';
 
     // EDIT MODE
     if (editingProduct) {
@@ -691,7 +696,7 @@ export default function BusinessDashboardPage() {
             name: prodTitle.trim(),
             category: prodCategory,
             price_usd: usd,
-            images: chosenImage ? [chosenImage] : [],
+            images: allImages,
             stock_quantity: 10,
             condition: editingProduct.condition || 'Brand New',
             description:
@@ -714,6 +719,7 @@ export default function BusinessDashboardPage() {
           unit: prodUnit.trim() || 'Per Unit',
           stockNote: prodStockNote.trim() || 'In Stock',
           image: chosenImage || editingProduct.image,
+          images: allImages.length > 0 ? allImages : (editingProduct.images || []),
           description:
             prodDesc.trim() ||
             `Supplied directly by ${currentBusiness.name} in ${currentBusiness.province}. Contact via WhatsApp for dispatch and bulk pricing.`,
@@ -761,7 +767,7 @@ export default function BusinessDashboardPage() {
           name: prodTitle.trim(),
           category: prodCategory,
           price_usd: usd,
-          images: chosenImage ? [chosenImage] : [],
+          images: allImages,
           stock_quantity: 10,
           condition: 'Brand New',
           description:
@@ -793,7 +799,15 @@ export default function BusinessDashboardPage() {
           business_is_verified: currentBusiness.cr14Verified,
           business_type: currentBusiness.businessType,
         });
-        setProducts((prev) => [mapped, ...prev]);
+        const nextProducts = [mapped, ...products.filter((p) => p.id !== mapped.id)];
+        setProducts(nextProducts);
+        saveStoredProducts(nextProducts);
+        setShowProductModal(false);
+        setProdTitle('');
+        setProdDesc('');
+        setProdImages([]);
+        showToast('Product published to Marketplace & your Business Storefront!');
+        return;
       }
     } catch (err: any) {
       console.error('Failed to publish product to database:', err);
@@ -3226,9 +3240,9 @@ export default function BusinessDashboardPage() {
             />
 
             <ImageUploader
-              label="Product Photo"
-              hint="Upload product photo from your device or choose a commercial preset"
-              multiple={false}
+              label="Product Photos (Multi-Image Carousel)"
+              hint="Upload up to 8 photos from your device or choose a commercial preset. The first photo will be used as the primary showcase image."
+              multiple={true}
               images={prodImages}
               onChange={setProdImages}
             />

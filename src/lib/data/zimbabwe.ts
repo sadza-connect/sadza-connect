@@ -296,6 +296,7 @@ export interface MarketplaceProduct {
   sellerPhone: string;
   sellerVerified: boolean;
   image: string;
+  images?: string[];
   description: string;
   highlights: string[];
   featured?: boolean;

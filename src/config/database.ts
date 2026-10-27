@@ -17,7 +17,7 @@ const commonConfig: Knex.Config = {
   },
   pool: {
     min: 0,
-    max: 10,
+    max: 20,
     idleTimeoutMillis: 30_000,
     acquireTimeoutMillis: 30_000,
     propagateCreateError: false,

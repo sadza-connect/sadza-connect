@@ -28,6 +28,8 @@ export function isTransientDbError(err: unknown): boolean {
     msg.includes('socket hang up') ||
     msg.includes('broken pipe') ||
     msg.includes('timeout exceeded when trying to connect') ||
+    msg.includes('timeout acquiring a connection') ||
+    msg.includes('knextimeouterror') ||
     msg.includes('terminating connection due to administrator command') ||
     code === '57p01' ||
     code === '57p02' ||

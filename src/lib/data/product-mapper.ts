@@ -13,6 +13,7 @@ export function mapDbProductToMarketplaceProduct(p: any): MarketplaceProduct {
   }
 
   const defaultImage = images[0] || p.image || '';
+  const allImages = images.length > 0 ? images : (defaultImage ? [defaultImage] : []);
 
   const usdPrice = typeof p.price_usd === 'number' ? p.price_usd : parseFloat(p.price_usd || '0');
   const isVerified = Boolean(p.seller_verified ?? p.is_verified ?? false);
@@ -38,6 +39,7 @@ export function mapDbProductToMarketplaceProduct(p: any): MarketplaceProduct {
     sellerPhone: p.business_phone || p.business_whatsapp || '',
     sellerVerified: isVerified,
     image: defaultImage,
+    images: allImages,
     description: p.description || '',
     highlights: [
       `Supplied by ${p.business_name || 'Verified Commercial Supplier'}`,
