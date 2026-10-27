@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getPlatformSettings, savePlatformSettings } from '@/data/platformStore';
 import {
   Menu,
   LogOut,
@@ -56,6 +57,31 @@ export function AdminShell({
     setIsLoggingOut(true);
     await logout();
     setIsLoggingOut(false);
+  };
+
+  const [quickRate, setQuickRate] = useState<string>('26.5');
+  const [rateSaved, setRateSaved] = useState(false);
+
+  useEffect(() => {
+    const s = getPlatformSettings();
+    if (s?.usdToZigRate) setQuickRate(String(s.usdToZigRate));
+  }, []);
+
+  const handleUpdateRate = async () => {
+    const parsed = parseFloat(quickRate);
+    if (isNaN(parsed) || parsed <= 0) return;
+    const s = getPlatformSettings();
+    savePlatformSettings({ ...s, usdToZigRate: parsed });
+    setRateSaved(true);
+    setTimeout(() => setRateSaved(false), 2000);
+    try {
+      await fetch('/api/v1/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ usd_to_zig_rate: parsed }),
+      });
+    } catch {}
   };
 
   const current = ADMIN_NAV.find((item) =>
@@ -132,6 +158,25 @@ export function AdminShell({
               placeholder="Quick jump or search console…"
               className="h-9 w-full rounded-lg border border-[#c8d2e0] bg-[#f4f6f9]/80 pl-9 pr-3 text-xs text-[#0a1018] outline-none transition-colors placeholder:text-[#6b81a5] focus:border-[#1e57eb] focus:bg-white"
             />
+          </div>
+
+          {/* Quick USD to ZiG Rate Updater (Matching Figma sadza-connect-admin-verification.png) */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#f4f6f9] border border-[#c8d2e0] text-xs shrink-0">
+            <span className="font-semibold text-[#465a7e]">USD to ZiG</span>
+            <input
+              type="number"
+              step="0.1"
+              value={quickRate}
+              onChange={(e) => setQuickRate(e.target.value)}
+              className="w-14 px-1.5 py-0.5 rounded-lg border border-[#c8d2e0] bg-white text-xs font-bold text-center text-[#0a1018] focus:outline-none focus:border-[#1e57eb]"
+            />
+            <button
+              type="button"
+              onClick={handleUpdateRate}
+              className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition shadow-2xs cursor-pointer"
+            >
+              {rateSaved ? 'Updated!' : 'Update rate'}
+            </button>
           </div>
 
           <div className="ml-auto xl:ml-0 flex items-center gap-2">
@@ -259,8 +304,12 @@ function SidebarContent({
                   active ? 'text-[#599bff]' : 'text-[#6b81a5] group-hover:text-white'
                 )}
               />
-              <span className="relative z-10">{item.label}</span>
-              {item.badge !== undefined ? (
+              <span className="relative z-10 truncate">{item.label}</span>
+              {item.comingSoon ? (
+                <span className="relative z-10 ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-white/10 text-amber-400">
+                  Soon
+                </span>
+              ) : item.badge !== undefined ? (
                 <span className="relative z-10 ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1e57eb] px-1.5 text-[0.68rem] font-bold text-white tabular-nums">
                   {item.badge}
                 </span>
