@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Search,
   MapPin,
@@ -46,10 +47,16 @@ const AUTOCOMPLETE_SUGGESTIONS = [
 ];
 
 export function Hero() {
+  const router = useRouter();
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCity, setSelectedCity] = useState('All');
   const [isFocused, setIsFocused] = useState(false);
+
+  const searchParams = new URLSearchParams();
+  if (searchTerm.trim()) searchParams.set('q', searchTerm.trim());
+  if (selectedCity && selectedCity !== 'All') searchParams.set('province', selectedCity);
+  const searchHref = `/businesses${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
 
   useEffect(() => {
     const sync = () => setSettings(getPlatformSettings());
@@ -131,6 +138,11 @@ export function Hero() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      router.push(searchHref);
+                    }
+                  }}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                   placeholder="Search businesses, services, solar, jobs or utilities..."
@@ -156,7 +168,7 @@ export function Hero() {
               </div>
 
               {/* Search CTA */}
-              <Link href="/businesses" className="w-full sm:w-auto">
+              <Link href={searchHref} className="w-full sm:w-auto">
                 <Button variant="primary" size="md" className="w-full px-7 py-3">
                   <Search className="h-4 w-4" />
                   <span>Search</span>

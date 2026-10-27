@@ -6,20 +6,15 @@ import Image from 'next/image';
 import {
   Search,
   MapPin,
-  ShieldCheck,
-  Star,
   MessageCircle,
-  Phone,
   CheckCircle2,
   Building2,
   Bookmark,
-  Clock,
-  ArrowUpRight,
   RotateCcw,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { BusinessListing, SAMPLE_BUSINESSES } from '@/lib/data/zimbabwe';
+import { BusinessListing } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getSavedBusinessIds,
@@ -29,13 +24,15 @@ import {
 } from '@/data/platformStore';
 import { createBusinessInquiryLink } from '@/lib/utils/whatsapp';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+import { getBusinessSectorCover } from '@/lib/data/business-images';
 
-const BUSINESS_TYPES = [
-  'All Types',
-  'Registered Company (Pvt Ltd)',
-  'SME / Partnership',
-  'Sole Proprietor',
-  'Cooperative / Association',
+const POPULAR_PROVINCES = [
+  'All Provinces',
+  'Harare',
+  'Bulawayo',
+  'Manicaland',
+  'Midlands',
+  'Masvingo',
 ];
 
 export default function BusinessesDirectoryPage() {
@@ -44,8 +41,8 @@ export default function BusinessesDirectoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
-  const [selectedBusinessType, setSelectedBusinessType] = useState('All Types');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<'relevant' | 'rating' | 'name'>('relevant');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -81,6 +78,16 @@ export default function BusinessesDirectoryPage() {
       }
     }
 
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const q = urlParams.get('q');
+      if (q) setSearchTerm(q);
+      const prov = urlParams.get('province');
+      if (prov) setSelectedProvince(prov);
+      const sec = urlParams.get('sector');
+      if (sec) setSelectedSector(sec);
+    }
+
     loadDirectory(cached.length === 0);
     setSavedIds(getSavedBusinessIds());
 
@@ -97,7 +104,7 @@ export default function BusinessesDirectoryPage() {
 
   const filteredBusinesses = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return businesses.filter((biz) => {
+    const result = businesses.filter((biz) => {
       if (biz.subscriptionStatus === 'Expired') return false;
 
       const matchesSearch =
@@ -114,28 +121,25 @@ export default function BusinessesDirectoryPage() {
         selectedSector === 'All Sectors' ||
         biz.categoryName.toLowerCase() === selectedSector.toLowerCase();
 
-      const matchesType =
-        selectedBusinessType === 'All Types' ||
-        biz.businessType === selectedBusinessType;
+      const matchesVerified = !verifiedOnly || Boolean(biz.cr14Verified);
 
-      const matchesVerified =
-        !verifiedOnly || Boolean(biz.cr14Verified);
-
-      return (
-        matchesSearch &&
-        matchesProvince &&
-        matchesSector &&
-        matchesType &&
-        matchesVerified
-      );
+      return matchesSearch && matchesProvince && matchesSector && matchesVerified;
     });
+
+    if (sortBy === 'rating') {
+      return [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    }
+    if (sortBy === 'name') {
+      return [...result].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return result;
   }, [
     businesses,
     searchTerm,
     selectedProvince,
     selectedSector,
-    selectedBusinessType,
     verifiedOnly,
+    sortBy,
   ]);
 
   const handleToggleSave = (id: string) => {
@@ -144,175 +148,214 @@ export default function BusinessesDirectoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 py-8 sm:py-12">
-        <div className="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Header */}
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 mb-3">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>National Commercial Registry</span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Verified Zimbabwe Business Directory
-              </h1>
-              <p className="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-300">
-                Search registered companies, SMEs, sole proprietors, and cooperatives across all 10 provinces. Contact suppliers directly via WhatsApp or telephone.
-              </p>
+      <main className="flex-1 py-8 sm:py-10">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          {/* -------------------------------------------------------------
+              HERO BANNER (Matching Figma sadza-connect-business-directory-storefront.png)
+          ------------------------------------------------------------- */}
+          <div className="relative rounded-3xl overflow-hidden mb-8 bg-slate-950 border border-slate-800 text-white shadow-md">
+            <div className="absolute inset-0">
+              <Image
+                src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2000&q=80"
+                alt="Zimbabwe Commercial Skyline"
+                fill
+                priority
+                className="object-cover opacity-20"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-emerald-950/75" />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Link
-                href="/signup?type=business"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors shadow-xs"
-              >
-                <Building2 className="w-4 h-4" />
-                <span>List Your Business (30 Days Free)</span>
-              </Link>
-            </div>
-          </div>
+            <div className="relative p-6 sm:p-10 lg:p-12">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="max-w-3xl">
+                  <h1 className="text-3xl sm:text-5xl font-black tracking-tight">
+                    Verified <span className="text-amber-400">Businesses</span>
+                  </h1>
+                  <p className="mt-2.5 text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
+                    Discover trusted Zimbabwean businesses. Real people. Real businesses. A stronger Zimbabwe.
+                  </p>
+                </div>
 
-          {/* Filter & Search Bar */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-8 space-y-4 shadow-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-              {/* Search Input */}
-              <div className="relative lg:col-span-4">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search business name, solar, cement, agro, catering..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900"
-                />
+                <div className="hidden lg:block text-right text-xs font-semibold tracking-wider uppercase text-emerald-400/90 shrink-0">
+                  <p className="text-slate-400">Support</p>
+                  <p className="text-emerald-300">Connect</p>
+                  <p className="text-white font-bold">Build Zimbabwe</p>
+                </div>
               </div>
 
-              {/* Sector Filter */}
-              <div className="lg:col-span-3">
-                <select
-                  value={selectedSector}
-                  onChange={(e) => setSelectedSector(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-emerald-600"
-                >
-                  <option value="All Sectors">All Commercial Sectors (20)</option>
-                  {COMMERCIAL_SECTORS.map((sec) => (
-                    <option key={sec.name} value={sec.name}>
-                      {sec.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Province Filter (Clean Names Only) */}
-              <div className="lg:col-span-3">
-                <select
-                  value={selectedProvince}
-                  onChange={(e) => setSelectedProvince(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-emerald-600"
-                >
-                  {CLEAN_PROVINCES.map((prov) => (
-                    <option key={prov} value={prov}>
-                      {prov}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Business Structure Filter */}
-              <div className="lg:col-span-2">
-                <select
-                  value={selectedBusinessType}
-                  onChange={(e) => setSelectedBusinessType(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-emerald-600"
-                >
-                  {BUSINESS_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Secondary Filter Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs sm:text-sm">
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Integrated Search Bar inside Hero */}
+              <div className="mt-6 flex flex-col sm:flex-row items-stretch gap-2 max-w-2xl bg-white/10 dark:bg-slate-900/60 backdrop-blur-md p-1.5 rounded-2xl border border-white/15">
+                <div className="relative flex-1 flex items-center">
+                  <Search className="absolute left-3.5 w-5 h-5 text-slate-300" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search for a business, category or product..."
+                    className="w-full pl-11 pr-4 py-3 bg-transparent text-white placeholder-slate-400 text-sm focus:outline-none"
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={() => setVerifiedOnly(!verifiedOnly)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
-                    verifiedOnly
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-500'
-                  }`}
+                  className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Verified Merchants Only (CR14 & National ID)</span>
+                  <Search className="w-4 h-4 sm:hidden" />
+                  <span>Search</span>
                 </button>
-
-                {(searchTerm ||
-                  selectedProvince !== 'All Provinces' ||
-                  selectedSector !== 'All Sectors' ||
-                  selectedBusinessType !== 'All Types' ||
-                  verifiedOnly) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setSelectedProvince('All Provinces');
-                      setSelectedSector('All Sectors');
-                      setSelectedBusinessType('All Types');
-                      setVerifiedOnly(false);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset filters</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
-                Showing{' '}
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {isLoading && businesses.length === 0 ? '...' : filteredBusinesses.length}
-                </span>{' '}
-                active business{filteredBusinesses.length === 1 ? '' : 'es'}
               </div>
             </div>
           </div>
 
-          {/* Directory Cards Grid */}
+          {/* -------------------------------------------------------------
+              PROVINCE PILLS & VERIFIED FILTER STRIP (Matching Figma)
+          ------------------------------------------------------------- */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            {/* Quick Province Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {POPULAR_PROVINCES.map((prov) => {
+                const isActive = selectedProvince === prov;
+                return (
+                  <button
+                    key={prov}
+                    type="button"
+                    onClick={() => setSelectedProvince(prov)}
+                    className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
+                      isActive
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {prov}
+                  </button>
+                );
+              })}
+
+              {/* More Provinces Dropdown */}
+              <select
+                value={POPULAR_PROVINCES.includes(selectedProvince) ? '' : selectedProvince}
+                onChange={(e) => e.target.value && setSelectedProvince(e.target.value)}
+                className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+              >
+                <option value="">More ▾</option>
+                {CLEAN_PROVINCES.filter((p) => !POPULAR_PROVINCES.includes(p)).map((prov) => (
+                  <option key={prov} value={prov}>
+                    {prov}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Verified Only Toggle */}
+            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+              <label className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                <span>Verified only</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={verifiedOnly}
+                  onClick={() => setVerifiedOnly(!verifiedOnly)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                    verifiedOnly ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      verifiedOnly ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </label>
+            </div>
+          </div>
+
+          {/* -------------------------------------------------------------
+              SECONDARY FILTER & RESULTS COUNT ROW
+          ------------------------------------------------------------- */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <span>Showing</span>
+              <strong className="text-slate-900 dark:text-white font-bold">
+                {isLoading && businesses.length === 0 ? '...' : filteredBusinesses.length}
+              </strong>
+              <span>verified business{filteredBusinesses.length === 1 ? '' : 'es'}</span>
+
+              {(searchTerm ||
+                selectedProvince !== 'All Provinces' ||
+                selectedSector !== 'All Sectors' ||
+                verifiedOnly) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedProvince('All Provinces');
+                    setSelectedSector('All Sectors');
+                    setVerifiedOnly(false);
+                  }}
+                  className="inline-flex items-center gap-1 ml-2 text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Sector selector */}
+              <select
+                value={selectedSector}
+                onChange={(e) => setSelectedSector(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs font-medium focus:outline-none"
+              >
+                <option value="All Sectors">All Commercial Sectors</option>
+                {COMMERCIAL_SECTORS.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Sort by dropdown */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">Sort by:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-xs font-semibold focus:outline-none"
+                >
+                  <option value="relevant">Most relevant</option>
+                  <option value="rating">Highest Rated</option>
+                  <option value="name">Alphabetical</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* -------------------------------------------------------------
+              DIRECTORY CARDS GRID (Matching Figma Architecture)
+          ------------------------------------------------------------- */}
           {isLoading && businesses.length === 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div
                   key={i}
                   className="flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs animate-pulse"
                 >
                   <div>
-                    <div className="h-44 w-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="p-5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
-                        <div className="h-4 w-12 bg-slate-200 dark:bg-slate-800 rounded" />
-                      </div>
-                      <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-800 rounded" />
-                      <div className="h-3.5 w-full bg-slate-200 dark:bg-slate-800 rounded" />
+                    <div className="h-44 sm:h-48 w-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="p-5 pt-8 space-y-3">
+                      <div className="h-5 w-3/4 bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="h-3.5 w-1/2 bg-slate-200 dark:bg-slate-800 rounded" />
                       <div className="h-3.5 w-2/3 bg-slate-200 dark:bg-slate-800 rounded" />
-                      <div className="flex gap-1.5 pt-2">
-                        <div className="h-5 w-16 bg-slate-200 dark:bg-slate-800 rounded" />
-                        <div className="h-5 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
-                      </div>
+                      <div className="h-10 w-full bg-slate-200 dark:bg-slate-800 rounded" />
                     </div>
                   </div>
-                  <div className="p-5 pt-0">
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-                      <div className="h-8 w-24 bg-slate-200 dark:bg-slate-800 rounded-xl" />
-                      <div className="h-8 w-32 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                  <div className="p-4 pt-0">
+                    <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div className="h-9 rounded-xl bg-slate-200 dark:bg-slate-800" />
+                      <div className="h-9 rounded-xl bg-slate-200 dark:bg-slate-800" />
                     </div>
                   </div>
                 </div>
@@ -320,7 +363,7 @@ export default function BusinessesDirectoryPage() {
             </div>
           ) : filteredBusinesses.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center">
-              <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+              <Building2 className="w-12 h-12 text-slate-400 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 No businesses match your current filters
               </h3>
@@ -333,71 +376,50 @@ export default function BusinessesDirectoryPage() {
                   setSearchTerm('');
                   setSelectedProvince('All Provinces');
                   setSelectedSector('All Sectors');
-                  setSelectedBusinessType('All Types');
                   setVerifiedOnly(false);
                 }}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold cursor-pointer"
               >
                 Show All Businesses
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
               {filteredBusinesses.map((biz) => {
                 const whatsappLink = createBusinessInquiryLink(biz.name, biz.whatsapp);
                 const isSaved = savedIds.includes(biz.id);
+                const coverPhoto = biz.coverImage || biz.image || getBusinessSectorCover(biz.categoryName);
 
                 return (
                   <div
                     key={biz.id}
-                    className="flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs hover:border-emerald-500/70 transition-all group"
+                    className="flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs hover:border-emerald-500/70 hover:shadow-md transition-all group"
                   >
                     <div>
-                      {/* Image Header */}
-                      <div className="relative h-44 w-full bg-slate-900 overflow-hidden flex items-center justify-center">
-                        {biz.image ? (
-                          <>
-                            <Image
-                              src={biz.image}
-                              alt={biz.name}
-                              fill
-                              sizes="(max-width: 768px) 100vw, 33vw"
-                              className="object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
-                          </>
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-950 p-4 flex flex-col justify-center items-center text-center relative">
-                            <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white text-2xl font-black shadow-inner border border-white/20 mb-1.5">
-                              {biz.name.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="text-xs font-bold text-white/95 line-clamp-1 px-4">{biz.name}</span>
-                            <span className="text-[10px] text-emerald-200/70">{biz.province} • {biz.categoryName}</span>
-                          </div>
-                        )}
+                      {/* Image Banner (16:10 aspect ratio) */}
+                      <div className="relative h-44 sm:h-48 w-full bg-slate-950 overflow-hidden">
+                        <Image
+                          src={coverPhoto}
+                          alt={biz.name}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
-                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                          <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-900/85 text-white backdrop-blur-xs">
+                        {/* Top Category Tag */}
+                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10">
+                          <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-950/80 text-white backdrop-blur-xs">
                             {biz.categoryName}
                           </span>
-                          {biz.cr14Verified ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 text-white shadow-xs">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              {biz.verificationBadge || (biz.verifiedTier === 'tier1_artisan' ? 'Identity Verified (National ID)' : 'Verified Company')}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/90 text-white shadow-xs">
-                              <Clock className="w-3.5 h-3.5" />
-                              Unverified
-                            </span>
-                          )}
                         </div>
 
+                        {/* Bookmark Button */}
                         <button
                           type="button"
                           onClick={() => handleToggleSave(biz.id)}
                           aria-label="Bookmark business"
-                          className={`absolute top-3 right-3 h-8 w-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                          className={`absolute top-3 right-3 h-8 w-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer z-10 ${
                             isSaved
                               ? 'bg-emerald-600 text-white'
                               : 'bg-white/90 text-slate-700 hover:bg-white'
@@ -406,80 +428,80 @@ export default function BusinessesDirectoryPage() {
                           <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
                         </button>
 
-                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
-                          <span className="font-medium bg-slate-900/75 px-2.5 py-0.5 rounded-md">
-                            {biz.businessType}
-                          </span>
-                          <span className="flex items-center gap-1 font-semibold bg-slate-900/75 px-2.5 py-0.5 rounded-md">
-                            <Star className="w-3.5 h-3.5 text-amber-400 fill-current" />
-                            {biz.reviewCount > 0 ? `${biz.rating} (${biz.reviewCount})` : 'New'}
-                          </span>
+                        {/* Overlapping Circular Brand Logo with Verified Badge */}
+                        <div className="absolute -bottom-6 left-5 z-20">
+                          <div className="relative h-14 w-14 rounded-full bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-700 shadow-md flex items-center justify-center overflow-hidden">
+                            {biz.logoUrl ? (
+                              <Image
+                                src={biz.logoUrl}
+                                alt={biz.name}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-400">
+                                {biz.name.substring(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                            {biz.cr14Verified && (
+                              <span className="absolute -bottom-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shadow">
+                                ✓
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Card Content */}
-                      <div className="p-5">
+                      {/* Card Content (pt-8 for overlapping logo clearance) */}
+                      <div className="p-5 pt-8">
                         <Link
                           href={`/businesses/${biz.slug}`}
-                          className="group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+                          className="group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors block"
                         >
-                          <h2 className="text-lg font-bold text-slate-900 dark:text-white leading-snug">
-                            {biz.name}
+                          <h2 className="text-lg font-bold text-slate-900 dark:text-white leading-snug flex items-center gap-1.5">
+                            <span className="truncate">{biz.name}</span>
+                            {biz.cr14Verified && (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 fill-emerald-50 dark:fill-emerald-950" />
+                            )}
                           </h2>
                         </Link>
 
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-600 dark:text-slate-400">
-                          <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
-                            <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            {biz.province} • {biz.address}
-                          </span>
+                        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{biz.categoryName}</span>
                         </div>
 
-                        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{biz.province} • {biz.city || biz.address}</span>
+                        </div>
+
+                        <p className="mt-2.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
                           {biz.description}
                         </p>
-
-                        {/* Services Pills */}
-                        <div className="mt-3.5 flex flex-wrap gap-1.5">
-                          {biz.services.slice(0, 3).map((s, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300"
-                            >
-                              {s}
-                            </span>
-                          ))}
-                        </div>
                       </div>
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="px-5 py-3.5 bg-slate-50/70 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                      <Link
-                        href={`/businesses/${biz.slug}`}
-                        className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400"
-                      >
-                        <span>View Storefront</span>
-                        <ArrowUpRight className="w-4 h-4" />
-                      </Link>
-
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={`tel:${biz.phone}`}
-                          className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition-colors"
-                          title={`Call ${biz.name}`}
-                        >
-                          <Phone className="w-4 h-4" />
-                        </a>
+                    {/* Card Action Footer: WhatsApp & View Storefront */}
+                    <div className="p-4 pt-0">
+                      <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
                         <a
                           href={whatsappLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs"
+                          className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
                         >
                           <MessageCircle className="w-4 h-4" />
                           <span>WhatsApp</span>
                         </a>
+
+                        <Link
+                          href={`/businesses/${biz.slug}`}
+                          className="inline-flex items-center justify-center gap-1 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-semibold transition"
+                        >
+                          <span>View storefront</span>
+                          <span>→</span>
+                        </Link>
                       </div>
                     </div>
                   </div>

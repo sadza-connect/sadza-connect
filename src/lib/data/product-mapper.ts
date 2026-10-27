@@ -38,6 +38,7 @@ export function mapDbProductToMarketplaceProduct(p: any): MarketplaceProduct {
     sellerPlan: p.is_verified ? 'Paid Subscriber' : 'Month 1 Free Grace',
     sellerPhone: p.business_phone || p.business_whatsapp || '',
     sellerVerified: isVerified,
+    sellerLogo: p.business_logo || p.logo_url || undefined,
     image: defaultImage,
     images: allImages,
     description: p.description || '',

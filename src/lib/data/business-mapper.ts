@@ -8,7 +8,9 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
       ? b.operating_hours
       : 'Mon - Sat: 08:00 - 17:00';
 
-  const defaultImage = b.logo_url || b.cover_url || b.image || '';
+  const coverImage = b.cover_url || b.cover_image || b.image || '';
+  const logoUrl = b.logo_url || '';
+  const defaultImage = coverImage || logoUrl || '';
 
   let galleryItems: string[] = [];
   try {
@@ -140,6 +142,8 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
     zimraVerified: isVerified,
     featured: Boolean(b.is_featured),
     image: defaultImage,
+    coverImage: coverImage || defaultImage,
+    logoUrl: logoUrl,
     description: b.description || (isVerified
       ? (isTrackB ? 'Verified Zimbabwean Owner-Operated Enterprise.' : 'Verified Zimbabwean Commercial Supplier & Enterprise.')
       : (isTrackB ? 'Zimbabwean Enterprise (Pending Identity Verification).' : 'Zimbabwean Commercial Supplier & Enterprise (Pending Verification).')),

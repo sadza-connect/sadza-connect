@@ -19,9 +19,11 @@ import {
   Briefcase,
   Bookmark,
   Send,
+  Globe,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
+import { getBusinessSectorCover } from '@/lib/data/business-images';
 import {
   SAMPLE_BUSINESSES,
   SAMPLE_PRODUCTS,
@@ -235,166 +237,247 @@ export default function BusinessProfilePage() {
             </div>
           )}
 
-          {/* Storefront Header Card */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs mb-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12">
-              {/* Banner Photo */}
-              <div className="relative h-56 sm:h-64 lg:h-auto lg:col-span-4 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                {business.image ? (
+          {/* Storefront Panoramic Hero Header (Matching Figma sadza-connect-business-directory-storefront.png) */}
+          {(() => {
+            const coverPhoto =
+              business.coverImage ||
+              business.image ||
+              getBusinessSectorCover(business.categoryName);
+
+            return (
+              <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs mb-8">
+                {/* Panoramic Cover Banner with Tagline */}
+                <div className="relative h-48 sm:h-64 md:h-72 w-full bg-slate-950 overflow-hidden">
                   <Image
-                    src={business.image}
+                    src={coverPhoto}
                     alt={business.name}
                     fill
-                    sizes="(max-width: 1024px) 100vw, 33vw"
+                    priority
+                    sizes="100vw"
                     className="object-cover"
                   />
-                ) : (
-                  <div className="w-full h-full min-h-[220px] bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-950 p-6 flex flex-col items-center justify-center text-center">
-                    <div className="h-20 w-20 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white text-3xl font-black shadow-inner border border-white/20 mb-3">
-                      {business.name.charAt(0).toUpperCase()}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-black/20" />
+
+                  {/* Mobile Back Button Floating */}
+                  <div className="absolute top-4 left-4 z-10 sm:hidden">
+                    <Link
+                      href="/businesses"
+                      className="w-10 h-10 rounded-full bg-slate-950/60 backdrop-blur-md text-white flex items-center justify-center shadow"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </Link>
+                  </div>
+
+                  {/* Tagline Overlay on Desktop */}
+                  <div className="absolute bottom-4 left-6 right-6 hidden md:flex items-end justify-between text-white z-10 pointer-events-none">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                        Verified Storefront
+                      </p>
+                      <p className="text-xl font-extrabold tracking-tight drop-shadow">
+                        {business.categoryName} • Stronger Businesses, Brighter Zimbabwe
+                      </p>
                     </div>
-                    <span className="text-sm font-bold text-white tracking-wide">{business.name}</span>
-                    <span className="text-xs text-emerald-200/75 mt-0.5">Verified Enterprise Storefront</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Business Summary & Direct Contact */}
-              <div className="lg:col-span-8 p-6 sm:p-8 flex flex-col justify-between gap-6">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {business.categoryName}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {business.businessType}
-                    </span>
-                    {business.cr14Verified ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        {business.verificationBadge || (business.verifiedTier === 'tier1_artisan' ? 'Identity Verified (National ID)' : 'Verified Registered Company')}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        Unverified (Pending Review)
-                      </span>
-                    )}
-                  </div>
-
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    {business.name}
-                  </h1>
-
-                  <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {business.description}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                    <span className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
-                      <Star className="w-4 h-4 text-amber-500 fill-current" />
-                      {business.reviewCount > 0 ? `${business.rating} (${business.reviewCount} reviews)` : 'No reviews yet'}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                      {business.province} • {business.address}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                      {business.openingHours}
-                    </span>
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                      <span className="px-2.5 py-1 rounded-md bg-white/20 backdrop-blur-xs">VETTED ENTERPRISE</span>
+                      <span className="px-2.5 py-1 rounded-md bg-white/20 backdrop-blur-xs">DIRECT WHATSAPP</span>
+                      <span className="px-2.5 py-1 rounded-md bg-white/20 backdrop-blur-xs">PROVINCIAL DISPATCH</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Primary Actions */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-3">
+                {/* Overlapping Brand Header Info */}
+                <div className="px-6 sm:px-8 pb-8 pt-0 relative">
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 -mt-12 sm:-mt-14 mb-5">
+                    {/* Overlapping Circular Brand Logo with Verified Badge */}
+                    <div className="flex items-end gap-4">
+                      <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-full bg-white dark:bg-slate-800 border-4 border-white dark:border-slate-900 shadow-xl flex items-center justify-center overflow-hidden shrink-0 z-20">
+                        {business.logoUrl ? (
+                          <Image
+                            src={business.logoUrl}
+                            alt={business.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <span className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-400">
+                            {business.name.substring(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                        {business.cr14Verified && (
+                          <span className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-md">
+                            ✓
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="pt-2 sm:pt-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h1 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                            {business.name}
+                          </h1>
+                          {business.cr14Verified && (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Verified business</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                          <span className="flex items-center gap-1 font-medium">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            {business.categoryName}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                            {business.province}, Zimbabwe
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bookmark Action */}
+                    <div className="flex items-center gap-2 self-start md:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setSavedIds(toggleSavedBusinessId(business.id))}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                          isSaved
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-300'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
+                        <span>{isSaved ? 'Saved' : 'Save'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bio & Details Chips */}
+                  <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed mb-4">
+                    {business.description}
+                  </p>
+
+                  {/* Mini Info Chips (Matching Mobile Mockup) */}
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs text-slate-600 dark:text-slate-300 mb-6">
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold text-slate-900 dark:text-white">
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                      <span>4.8 (128 reviews)</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
+                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{business.openingHours}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{business.province}, Zimbabwe</span>
+                    </span>
+                  </div>
+
+                  {/* 4 PRIMARY ACTION BUTTONS (Matching Figma sadza-connect-business-directory-storefront.png) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                    {/* 1. WhatsApp */}
                     <a
                       href={whatsappLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={handleWhatsAppClick}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors shadow-xs"
+                      className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer"
                     >
                       <MessageCircle className="w-4 h-4" />
-                      <span>WhatsApp Business Desk</span>
+                      <span>WhatsApp</span>
                     </a>
+
+                    {/* 2. Call */}
                     <a
                       href={`tel:${business.phone}`}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs sm:text-sm font-semibold transition shadow-2xs"
                     >
                       <Phone className="w-4 h-4 text-emerald-600" />
-                      <span>Call {business.phone}</span>
+                      <span>Call</span>
                     </a>
-                  </div>
 
+                    {/* 3. Get Address */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          navigator.clipboard.writeText(`${business.address}, ${business.province}, Zimbabwe`);
+                          alert(`Address copied: ${business.address}, ${business.province}, Zimbabwe`);
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs sm:text-sm font-semibold transition shadow-2xs cursor-pointer"
+                    >
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                      <span>Get Address</span>
+                    </button>
+
+                    {/* 4. Visit Catalog */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('products')}
+                      className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs sm:text-sm font-semibold transition shadow-2xs cursor-pointer"
+                    >
+                      <Globe className="w-4 h-4 text-emerald-600" />
+                      <span>Catalog</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Storefront Navigation Tabs */}
+                <div className="px-6 sm:px-8 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex overflow-x-auto gap-6 sm:gap-8">
                   <button
                     type="button"
-                    onClick={() => setSavedIds(toggleSavedBusinessId(business.id))}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
-                      isSaved
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-300'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    onClick={() => setActiveTab('products')}
+                    className={`py-3.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap cursor-pointer transition flex items-center gap-1.5 ${
+                      activeTab === 'products'
+                        ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                        : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-                    <span>{isSaved ? 'Saved to Bookmarks' : 'Save Business'}</span>
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Products ({businessProducts.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('overview')}
+                    className={`py-3.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap cursor-pointer transition flex items-center gap-1.5 ${
+                      activeTab === 'overview'
+                        ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                        : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>Special Deals &amp; Overview</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('jobs')}
+                    className={`py-3.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap cursor-pointer transition flex items-center gap-1.5 ${
+                      activeTab === 'jobs'
+                        ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                        : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    <span>Jobs &amp; Tenders ({businessJobs.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('reviews')}
+                    className={`py-3.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap cursor-pointer transition flex items-center gap-1.5 ${
+                      activeTab === 'reviews'
+                        ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                        : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Star className="w-4 h-4" />
+                    <span>Reviews ({reviews.length})</span>
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Storefront Navigation Tabs */}
-            <div className="px-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex overflow-x-auto gap-6">
-              <button
-                type="button"
-                onClick={() => setActiveTab('overview')}
-                className={`py-3.5 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap cursor-pointer transition-colors ${
-                  activeTab === 'overview'
-                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
-                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                Overview & Services
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('products')}
-                className={`py-3.5 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'products'
-                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
-                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4" />
-                <span>Products Catalog ({businessProducts.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('jobs')}
-                className={`py-3.5 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'jobs'
-                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
-                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                <Briefcase className="w-4 h-4" />
-                <span>Open Vacancies ({businessJobs.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('reviews')}
-                className={`py-3.5 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'reviews'
-                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
-                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                <Star className="w-4 h-4" />
-                <span>Customer Reviews ({reviews.length})</span>
-              </button>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Main Body Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -814,6 +897,38 @@ export default function BusinessProfilePage() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* A Trusted Zimbabwean Business Verification Card (Matching Figma) */}
+          <div className="mt-12 rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xs">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <ShieldCheck className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                  A Trusted Zimbabwean Business
+                </h3>
+                <p className="mt-0.5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-xl">
+                  {business.name} has been verified by Sadza Connect. Our verification process helps you trade with confidence.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Identity checked</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Business documents reviewed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Verified 2026</span>
               </div>
             </div>
           </div>

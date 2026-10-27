@@ -6,6 +6,7 @@ import { CelebrationProvider } from '@/context/CelebrationContext';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { CelestialSky } from '@/components/animations/CelestialSky';
 import { AuthCelebrationModal } from '@/components/ui/AuthCelebrationModal';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 
 export const metadata: Metadata = {
   title: 'Sadza Connect — Zimbabwe’s Digital Platform for Business, Marketplace, Jobs & Utilities',
@@ -70,8 +71,11 @@ export default function RootLayout({
             <CelebrationProvider>
               <ToastProvider>
                 <CelestialSky />
-                {children}
+                <div className="flex-1 flex flex-col pb-16 md:pb-0">
+                  {children}
+                </div>
                 <AuthCelebrationModal />
+                <MobileBottomNav />
               </ToastProvider>
             </CelebrationProvider>
           </AuthProvider>

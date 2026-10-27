@@ -259,6 +259,8 @@ export interface BusinessListing {
   zimraVerified: boolean;
   featured: boolean;
   image: string;
+  coverImage?: string;
+  logoUrl?: string;
   description: string;
   services: string[];
   tags: string[];
@@ -295,6 +297,7 @@ export interface MarketplaceProduct {
   sellerPlan: 'Paid Subscriber' | 'Month 1 Free Grace';
   sellerPhone: string;
   sellerVerified: boolean;
+  sellerLogo?: string;
   image: string;
   images?: string[];
   description: string;
