@@ -13,6 +13,7 @@ import {
   NotFoundError,
   AuthorizationError,
 } from '@/shared/errors/AppError';
+import { invalidateProductsCache } from '../route';
 
 export const runtime = 'nodejs';
 
@@ -78,6 +79,7 @@ export async function PATCH(
 
     const body = await parseAndValidateBody(req, updateProductSchema);
     const updated = await productRepository.update(existing.id, body);
+    invalidateProductsCache();
 
     return jsonResponse(
       {
@@ -119,6 +121,7 @@ export async function DELETE(
     }
 
     await productRepository.delete(existing.id);
+    invalidateProductsCache();
 
     return jsonResponse(
       {

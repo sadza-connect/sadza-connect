@@ -24,6 +24,8 @@ import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getSavedBusinessIds,
   toggleSavedBusinessId,
+  getStoredBusinesses,
+  saveStoredBusinesses,
 } from '@/data/platformStore';
 import { createBusinessInquiryLink } from '@/lib/utils/whatsapp';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
@@ -44,13 +46,22 @@ export default function BusinessesDirectoryPage() {
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [selectedBusinessType, setSelectedBusinessType] = useState('All Types');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadDirectory() {
+    // Instant paint from local cache if previously fetched
+    const cached = getStoredBusinesses();
+    if (cached && cached.length > 0) {
+      setBusinesses(cached);
+      setIsLoading(false);
+    } else {
       setIsLoading(true);
+    }
+
+    async function loadDirectory(showLoading = false) {
+      if (showLoading) setIsLoading(true);
       try {
         const res = await fetch('/api/v1/businesses?limit=100');
         const json = await res.json();
@@ -58,22 +69,23 @@ export default function BusinessesDirectoryPage() {
           if (isMounted) {
             const mapped = json.data.businesses.map(mapDbBusinessToListing);
             setBusinesses(mapped);
+            if (mapped.length > 0) {
+              saveStoredBusinesses(mapped);
+            }
           }
-        } else {
-          if (isMounted) setBusinesses([]);
         }
-      } catch {
-        if (isMounted) setBusinesses([]);
+      } catch (err) {
+        console.warn('Failed to load businesses directory:', err);
       } finally {
         if (isMounted) setIsLoading(false);
       }
     }
 
-    loadDirectory();
+    loadDirectory(cached.length === 0);
     setSavedIds(getSavedBusinessIds());
 
     const sync = () => {
-      loadDirectory();
+      loadDirectory(false);
       setSavedIds(getSavedBusinessIds());
     };
     window.addEventListener('sadza-platform-updated', sync);
@@ -266,7 +278,7 @@ export default function BusinessesDirectoryPage() {
               <div className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
                 Showing{' '}
                 <span className="font-bold text-slate-900 dark:text-white">
-                  {filteredBusinesses.length}
+                  {isLoading && businesses.length === 0 ? '...' : filteredBusinesses.length}
                 </span>{' '}
                 active business{filteredBusinesses.length === 1 ? '' : 'es'}
               </div>
@@ -274,7 +286,39 @@ export default function BusinessesDirectoryPage() {
           </div>
 
           {/* Directory Cards Grid */}
-          {filteredBusinesses.length === 0 ? (
+          {isLoading && businesses.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs animate-pulse"
+                >
+                  <div>
+                    <div className="h-44 w-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+                        <div className="h-4 w-12 bg-slate-200 dark:bg-slate-800 rounded" />
+                      </div>
+                      <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="h-3.5 w-full bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="h-3.5 w-2/3 bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="flex gap-1.5 pt-2">
+                        <div className="h-5 w-16 bg-slate-200 dark:bg-slate-800 rounded" />
+                        <div className="h-5 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-5 pt-0">
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+                      <div className="h-8 w-24 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                      <div className="h-8 w-32 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredBusinesses.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center">
               <Building2 className="w-10 h-10 text-slate-400 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">

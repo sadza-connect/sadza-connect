@@ -34,6 +34,16 @@ const createProductSchema = z.object({
   is_featured: z.boolean().optional(),
 });
 
+interface ProductsCacheEntry {
+  data: any;
+  expiresAt: number;
+}
+const productsCache = new Map<string, ProductsCacheEntry>();
+
+export function invalidateProductsCache(): void {
+  productsCache.clear();
+}
+
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
@@ -53,6 +63,14 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '12', 10);
     const sort = (searchParams.get('sort') as any) || 'featured';
 
+    const cacheKey = `${search || ''}|${category || ''}|${province || ''}|${condition || ''}|${businessId || ''}|${isFeaturedParam || ''}|${isActiveParam || ''}|${page}|${limit}|${sort}`;
+    const cached = productsCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return jsonResponse(cached.data, requestId, 200, {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      });
+    }
+
     const result = await productRepository.findProducts({
       search,
       category,
@@ -66,7 +84,14 @@ export async function GET(req: NextRequest) {
       sort,
     });
 
-    return jsonResponse(result, requestId, 200);
+    productsCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + 20_000,
+    });
+
+    return jsonResponse(result, requestId, 200, {
+      'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+    });
   } catch (err) {
     return errorResponse(err, requestId);
   }
@@ -148,6 +173,8 @@ export async function POST(req: NextRequest) {
       is_featured: body.is_featured ?? false,
       is_active: true,
     });
+
+    invalidateProductsCache();
 
     return jsonResponse(
       {

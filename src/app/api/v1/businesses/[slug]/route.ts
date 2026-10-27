@@ -13,6 +13,7 @@ import {
   AuthorizationError,
   ValidationError,
 } from '@/shared/errors/AppError';
+import { invalidateBusinessDirectoryCache } from '../route';
 
 export const runtime = 'nodejs';
 
@@ -148,6 +149,7 @@ export async function PATCH(
     }
 
     const updated = await businessRepository.update(existing.id, body);
+    invalidateBusinessDirectoryCache();
 
     return jsonResponse(
       {
@@ -188,6 +190,7 @@ export async function DELETE(
     }
 
     await businessRepository.delete(existing.id);
+    invalidateBusinessDirectoryCache();
 
     return jsonResponse(
       {

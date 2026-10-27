@@ -52,6 +52,9 @@ import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettings,
+  getStoredBusinesses,
+  saveStoredBusinesses,
+  getStoredProducts,
 } from '@/data/platformStore';
 import { BusinessListing } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
@@ -438,9 +441,25 @@ export function CommercialPortalWorkspace() {
 
   // Directory Businesses State (Live DB + Stored)
   const [businesses, setBusinesses] = useState<DirectoryBusiness[]>(DIRECTORY_BUSINESSES);
+  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState<boolean>(true);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
+
+    // Instant local cache hydration for zero-second initial paint
+    const cachedBiz = getStoredBusinesses();
+    if (cachedBiz && cachedBiz.length > 0) {
+      setBusinesses(cachedBiz.map(mapListingToDirectoryBusiness));
+      setIsLoadingBusinesses(false);
+    }
+
+    const cachedProds = getStoredProducts();
+    if (cachedProds && cachedProds.length > 0) {
+      setProducts(cachedProds.map(mapDbProductToProductListing));
+      setIsLoadingProducts(false);
+    }
 
     const loadAllBusinesses = async () => {
       try {
@@ -462,10 +481,17 @@ export function CommercialPortalWorkspace() {
 
         if (isMounted) {
           setBusinesses(liveListings.map(mapListingToDirectoryBusiness));
+          setIsLoadingBusinesses(false);
+          if (liveListings.length > 0) {
+            saveStoredBusinesses(liveListings);
+          }
         }
       } catch (err) {
         console.error('Failed to load businesses for landing page:', err);
-        if (isMounted) setBusinesses([]);
+        if (isMounted) {
+          setBusinesses([]);
+          setIsLoadingBusinesses(false);
+        }
       }
     };
 
@@ -487,10 +513,14 @@ export function CommercialPortalWorkspace() {
 
         if (isMounted) {
           setProducts(liveProds);
+          setIsLoadingProducts(false);
         }
       } catch (err) {
         console.error('Failed to load products for landing page:', err);
-        if (isMounted) setProducts([]);
+        if (isMounted) {
+          setProducts([]);
+          setIsLoadingProducts(false);
+        }
       }
     };
 
@@ -512,10 +542,14 @@ export function CommercialPortalWorkspace() {
 
         if (isMounted) {
           setJobs(liveJobs);
+          setIsLoadingJobs(false);
         }
       } catch (err) {
         console.error('Failed to load jobs for landing page:', err);
-        if (isMounted) setJobs([]);
+        if (isMounted) {
+          setJobs([]);
+          setIsLoadingJobs(false);
+        }
       }
     };
 
@@ -1335,12 +1369,28 @@ export function CommercialPortalWorkspace() {
                     ))}
                   </div>
                   <span className="text-xs font-semibold text-slate-400 shrink-0 hidden sm:inline">
-                    {filteredProducts.length} items matching
+                    {isLoadingProducts && products.length === 0 ? '...' : filteredProducts.length} items matching
                   </span>
                 </div>
 
                 {/* Products Grid */}
-                {filteredProducts.length === 0 ? (
+                {isLoadingProducts && products.length === 0 ? (
+                  <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className="animate-pulse flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+                      >
+                        <div className="aspect-[16/10] w-full bg-slate-200 dark:bg-slate-800" />
+                        <div className="p-4 sm:p-5 space-y-3">
+                          <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-5 w-48 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-6 w-24 bg-slate-200 dark:bg-slate-800 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredProducts.length === 0 ? (
                   <div className="p-10 text-center space-y-3">
                     <Package className="h-9 w-9 text-slate-400 mx-auto" />
                     <p className="text-base font-bold text-slate-800 dark:text-slate-200">
@@ -1542,7 +1592,24 @@ export function CommercialPortalWorkspace() {
                 {/* Directory Content: List View vs Interactive Map View */}
                 {directoryView === 'list' ? (
                   <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                    {filteredBusinesses.length === 0 ? (
+                    {isLoadingBusinesses && businesses.length === 0 ? (
+                      <div className="p-4 sm:p-6 space-y-4">
+                        {[1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className="animate-pulse flex flex-col sm:flex-row gap-4 p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40"
+                          >
+                            <div className="h-28 w-28 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0" />
+                            <div className="flex-1 space-y-2.5">
+                              <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+                              <div className="h-5 w-48 bg-slate-200 dark:bg-slate-800 rounded" />
+                              <div className="h-3 w-3/4 bg-slate-200 dark:bg-slate-800 rounded" />
+                              <div className="h-3 w-1/2 bg-slate-200 dark:bg-slate-800 rounded" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : filteredBusinesses.length === 0 ? (
                       <div className="p-10 text-center space-y-2">
                         <Building2 className="h-9 w-9 text-slate-400 mx-auto" />
                         <p className="text-base font-bold text-slate-800 dark:text-slate-200">
@@ -1851,7 +1918,23 @@ export function CommercialPortalWorkspace() {
                 </div>
 
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filteredJobs.length === 0 ? (
+                  {isLoadingJobs && jobs.length === 0 ? (
+                    <div className="p-5 sm:p-6 space-y-4">
+                      {[1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="animate-pulse flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40"
+                        >
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+                            <div className="h-5 w-44 bg-slate-200 dark:bg-slate-800 rounded" />
+                            <div className="h-3 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+                          </div>
+                          <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredJobs.length === 0 ? (
                     <div className="p-8 text-center space-y-2">
                       <Briefcase className="h-8 w-8 text-slate-400 mx-auto" />
                       <p className="text-sm font-bold text-slate-800 dark:text-slate-200">

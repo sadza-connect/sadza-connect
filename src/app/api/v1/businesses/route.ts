@@ -37,6 +37,16 @@ const createBusinessSchema = z.object({
   kyc_documents: z.array(z.any()).optional(),
 });
 
+interface DirectoryCacheEntry {
+  data: any;
+  expiresAt: number;
+}
+const directoryCache = new Map<string, DirectoryCacheEntry>();
+
+export function invalidateBusinessDirectoryCache(): void {
+  directoryCache.clear();
+}
+
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
@@ -75,10 +85,24 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '12', 10);
     const sort = (searchParams.get('sort') as any) || 'featured';
 
-    const user = await getAuthenticatedUser(req, false);
-    const isAdmin = user?.role === 'admin';
     const includeExpiredParam = searchParams.get('include_expired');
-    const includeExpired = isAdmin || includeExpiredParam === 'true';
+    let isAdmin = false;
+    let includeExpired = false;
+
+    if (includeExpiredParam === 'true') {
+      const user = await getAuthenticatedUser(req, false);
+      isAdmin = user?.role === 'admin';
+      includeExpired = isAdmin;
+    }
+
+    // Check in-memory cache for fast sub-millisecond responses
+    const cacheKey = `${search || ''}|${province || ''}|${sector || ''}|${businessType || ''}|${isVerifiedParam || ''}|${verificationStatus || ''}|${isFeaturedParam || ''}|${page}|${limit}|${sort}|${includeExpired}`;
+    const cached = directoryCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return jsonResponse(cached.data, requestId, 200, {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      });
+    }
 
     const result = await businessRepository.findBusinesses({
       search,
@@ -100,13 +124,23 @@ export async function GET(req: NextRequest) {
       return safeFields;
     });
 
+    const responsePayload = {
+      ...result,
+      businesses: sanitizedBusinesses,
+    };
+
+    directoryCache.set(cacheKey, {
+      data: responsePayload,
+      expiresAt: Date.now() + 20_000, // 20s TTL
+    });
+
     return jsonResponse(
-      {
-        ...result,
-        businesses: sanitizedBusinesses,
-      },
+      responsePayload,
       requestId,
-      200
+      200,
+      {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+      }
     );
   } catch (err) {
     return errorResponse(err, requestId);
@@ -146,6 +180,8 @@ export async function POST(req: NextRequest) {
       is_verified: false,
       verification_status: 'Pending',
     });
+
+    invalidateBusinessDirectoryCache();
 
     return jsonResponse(
       {
