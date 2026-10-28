@@ -192,7 +192,7 @@ export function HomeBannerSlideshow({
       <div className="relative w-full">
         {/* Outgoing or Static Current Slide */}
         <div
-          className={`w-full flex justify-center px-2 sm:px-4 md:px-6 lg:px-8 ${
+          className={`w-full flex justify-center px-4 sm:px-6 lg:px-8 ${
             incomingIndex !== null
               ? 'transition-transform duration-700 ease-out will-change-transform'
               : ''
@@ -204,7 +204,7 @@ export function HomeBannerSlideshow({
                 : 'translateX(0%)',
           }}
         >
-          <div className="w-full max-w-7xl rounded-xl sm:rounded-2xl md:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm bg-slate-950 overflow-hidden">
+          <div className="w-full max-w-7xl rounded-xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden">
             <div className="relative aspect-[2/1] sm:aspect-[2/1] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
               <Link
                 href={currentBanner.href}
@@ -227,14 +227,14 @@ export function HomeBannerSlideshow({
         {/* Incoming Slide: Enters from the extreme right/left edge of the page */}
         {incomingBanner !== null && (
           <div
-            className="absolute inset-0 w-full flex justify-center px-2 sm:px-4 md:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
+            className="absolute inset-0 w-full flex justify-center px-4 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
             style={{
               transform: isAnimating
                 ? 'translateX(0%)'
                 : `translateX(${slideDirection === 'next' ? '100%' : '-100%'})`,
             }}
           >
-            <div className="w-full max-w-7xl rounded-xl sm:rounded-2xl md:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm bg-slate-950 overflow-hidden">
+            <div className="w-full max-w-7xl rounded-xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden">
               <div className="relative aspect-[2/1] sm:aspect-[2/1] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
                 <Link
                   href={incomingBanner.href}
@@ -257,7 +257,7 @@ export function HomeBannerSlideshow({
 
       {/* Fixed Controls Overlay: Anchored steadily so controls don't slide away */}
       <div className="pointer-events-none absolute inset-0 z-30">
-        <div className="relative w-full max-w-7xl h-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="relative w-full max-w-7xl h-full mx-auto px-4 sm:px-6 lg:px-8">
           {/* Previous Button (<) */}
           <button
             type="button"
@@ -265,7 +265,7 @@ export function HomeBannerSlideshow({
               e.stopPropagation();
               goToPrev();
             }}
-            className="pointer-events-auto hidden sm:flex absolute left-4 sm:left-6 md:left-10 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md items-center justify-center border border-white/20 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100 hover:scale-110 cursor-pointer"
+            className="pointer-events-auto hidden sm:flex absolute left-4 sm:left-6 md:left-8 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md items-center justify-center border border-white/20 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100 hover:scale-110 cursor-pointer"
             aria-label="Previous slide"
           >
             <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -278,7 +278,7 @@ export function HomeBannerSlideshow({
               e.stopPropagation();
               goToNext();
             }}
-            className="pointer-events-auto hidden sm:flex absolute right-4 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md items-center justify-center border border-white/20 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100 hover:scale-110 cursor-pointer"
+            className="pointer-events-auto hidden sm:flex absolute right-4 sm:right-6 md:right-8 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md items-center justify-center border border-white/20 shadow-lg transition-all duration-200 opacity-0 group-hover:opacity-100 hover:scale-110 cursor-pointer"
             aria-label="Next slide"
           >
             <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
