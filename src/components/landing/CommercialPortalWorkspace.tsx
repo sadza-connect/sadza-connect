@@ -56,7 +56,7 @@ import {
   saveStoredBusinesses,
   getStoredProducts,
 } from '@/data/platformStore';
-import { BusinessListing } from '@/lib/data/zimbabwe';
+import { BusinessListing, SAMPLE_BUSINESSES, SAMPLE_PRODUCTS } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -94,8 +94,6 @@ interface ProductListing {
   image: string;
   description: string;
 }
-
-const INITIAL_PRODUCTS: ProductListing[] = [];
 
 // ---------------------------------------------------------------------------
 // ACTIVE DIRECTORY BUSINESSES (Paid Subscribers + Month 1 Free Grace)
@@ -227,7 +225,26 @@ function mapDbJobToJobItem(j: any): JobItem {
   };
 }
 
-const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [];
+const INITIAL_PRODUCTS: ProductListing[] = SAMPLE_PRODUCTS.map((sp) => ({
+  id: sp.id,
+  title: sp.title,
+  category: sp.category,
+  province: sp.province,
+  priceUSD: sp.priceUsd,
+  priceZiG: Math.round(sp.priceUsd * 26.5),
+  unit: sp.unit,
+  movementBadge: sp.movementBadge,
+  postedAgo: sp.postedAgo,
+  stockNote: sp.stockNote,
+  sellerName: sp.sellerName,
+  sellerType: sp.sellerType as any,
+  sellerPlan: 'Paid Subscriber',
+  whatsapp: sp.sellerPhone.replace(/\D/g, ''),
+  image: sp.image,
+  description: sp.description,
+}));
+
+const DIRECTORY_BUSINESSES: DirectoryBusiness[] = SAMPLE_BUSINESSES.map(mapListingToDirectoryBusiness);
 
 // ---------------------------------------------------------------------------
 // LATEST JOBS & COMMERCIAL TENDERS
@@ -441,9 +458,9 @@ export function CommercialPortalWorkspace() {
 
   // Directory Businesses State (Live DB + Stored)
   const [businesses, setBusinesses] = useState<DirectoryBusiness[]>(DIRECTORY_BUSINESSES);
-  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState<boolean>(true);
-  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
-  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(true);
+  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState<boolean>(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(false);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -452,13 +469,11 @@ export function CommercialPortalWorkspace() {
     const cachedBiz = getStoredBusinesses();
     if (cachedBiz && cachedBiz.length > 0) {
       setBusinesses(cachedBiz.map(mapListingToDirectoryBusiness));
-      setIsLoadingBusinesses(false);
     }
 
     const cachedProds = getStoredProducts();
     if (cachedProds && cachedProds.length > 0) {
       setProducts(cachedProds.map(mapDbProductToProductListing));
-      setIsLoadingProducts(false);
     }
 
     const loadAllBusinesses = async () => {
@@ -480,7 +495,13 @@ export function CommercialPortalWorkspace() {
         }
 
         if (isMounted) {
-          setBusinesses(liveListings.map(mapListingToDirectoryBusiness));
+          const mappedDb = liveListings.map(mapListingToDirectoryBusiness);
+          const existingSlugs = new Set(mappedDb.map((b) => b.slug));
+          const merged = [
+            ...mappedDb,
+            ...DIRECTORY_BUSINESSES.filter((db) => !existingSlugs.has(db.slug)),
+          ];
+          setBusinesses(merged);
           setIsLoadingBusinesses(false);
           if (liveListings.length > 0) {
             saveStoredBusinesses(liveListings);
@@ -489,7 +510,6 @@ export function CommercialPortalWorkspace() {
       } catch (err) {
         console.error('Failed to load businesses for landing page:', err);
         if (isMounted) {
-          setBusinesses([]);
           setIsLoadingBusinesses(false);
         }
       }
@@ -512,13 +532,17 @@ export function CommercialPortalWorkspace() {
         }
 
         if (isMounted) {
-          setProducts(liveProds);
+          const existingIds = new Set(liveProds.map((p) => p.id));
+          const merged = [
+            ...liveProds,
+            ...INITIAL_PRODUCTS.filter((ip) => !existingIds.has(ip.id)),
+          ];
+          setProducts(merged);
           setIsLoadingProducts(false);
         }
       } catch (err) {
         console.error('Failed to load products for landing page:', err);
         if (isMounted) {
-          setProducts([]);
           setIsLoadingProducts(false);
         }
       }

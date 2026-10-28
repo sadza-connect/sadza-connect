@@ -102,7 +102,8 @@ export default function BusinessProfilePage() {
     }
   }, [slug]);
 
-  const business = liveBusiness;
+  const fallbackBusiness = SAMPLE_BUSINESSES.find((b) => b.slug === slug);
+  const business = liveBusiness || fallbackBusiness;
 
   if (!business) {
     return (
@@ -130,14 +131,16 @@ export default function BusinessProfilePage() {
     );
   }
 
-  const businessProducts = products.filter(
+  const allProducts = products.length > 0 ? products : SAMPLE_PRODUCTS;
+  const businessProducts = allProducts.filter(
     (p) =>
       p.sellerSlug === business.slug ||
       p.sellerId === business.id ||
       p.sellerName.toLowerCase() === business.name.toLowerCase()
   );
 
-  const businessJobs = jobs.filter(
+  const allJobs = jobs.length > 0 ? jobs : SAMPLE_JOBS;
+  const businessJobs = allJobs.filter(
     (j) =>
       j.companySlug === business.slug ||
       j.company.toLowerCase() === business.name.toLowerCase()
