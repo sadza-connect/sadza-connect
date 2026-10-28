@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { BusinessListing, SAMPLE_BUSINESSES } from '@/lib/data/zimbabwe';
+import { BusinessListing } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getSavedBusinessIds,
@@ -34,37 +34,36 @@ const POPULAR_PROVINCES = [
 ];
 
 export default function BusinessesDirectoryPage() {
-  // Initialize with SAMPLE_BUSINESSES for instant paint matching Figma
-  const [businesses, setBusinesses] = useState<BusinessListing[]>(SAMPLE_BUSINESSES);
+  const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'relevant' | 'rating' | 'name'>('relevant');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadDirectory() {
+      setIsLoading(true);
       try {
         const res = await fetch('/api/v1/businesses?limit=100');
         const json = await res.json();
         if (json.success && Array.isArray(json.data?.businesses)) {
           if (isMounted) {
             const mapped = json.data.businesses.map(mapDbBusinessToListing);
-            // Merge DB businesses with sample businesses
-            const existingSlugs = new Set(mapped.map((b: BusinessListing) => b.slug));
-            const merged = [
-              ...mapped,
-              ...SAMPLE_BUSINESSES.filter((sb) => !existingSlugs.has(sb.slug)),
-            ];
-            setBusinesses(merged);
+            setBusinesses(mapped);
           }
+        } else if (isMounted) {
+          setBusinesses([]);
         }
       } catch (err) {
-        console.warn('Using default business directory showcase', err);
+        console.error('Failed to load businesses from database:', err);
+        if (isMounted) setBusinesses([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -331,7 +330,23 @@ export default function BusinessesDirectoryPage() {
           {/* -------------------------------------------------------------
               BUSINESS DIRECTORY CARDS (3 columns, Matching Figma sadza-connect-business-directory-storefront.png)
           ------------------------------------------------------------- */}
-          {filteredBusinesses.length === 0 ? (
+          {isLoading && businesses.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden animate-pulse"
+                >
+                  <div className="aspect-[16/10] w-full bg-slate-200 dark:bg-slate-800" />
+                  <div className="p-5 pt-12 space-y-3">
+                    <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
+                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/2" />
+                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-2/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredBusinesses.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center">
               <Briefcase className="w-12 h-12 text-slate-400 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">

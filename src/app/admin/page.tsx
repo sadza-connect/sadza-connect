@@ -36,7 +36,7 @@ import {
   getStoredUsers,
 } from '@/data/platformStore';
 import { loadStoredAdverts } from '@/data/advertsStore';
-import { BusinessListing, SAMPLE_BUSINESSES, SAMPLE_PRODUCTS, SAMPLE_JOBS } from '@/lib/data/zimbabwe';
+import { BusinessListing } from '@/lib/data/zimbabwe';
 
 type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
 
@@ -72,11 +72,11 @@ const RECENT_ENQUIRIES: Array<{
 export default function AdminOverviewPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
-  const [businesses, setBusinesses] = useState<BusinessListing[]>(SAMPLE_BUSINESSES);
-  const [productsCount, setProductsCount] = useState(SAMPLE_PRODUCTS.length);
-  const [advertsCount, setAdvertsCount] = useState(3);
-  const [jobsCount, setJobsCount] = useState(SAMPLE_JOBS.length);
-  const [usersCount, setUsersCount] = useState(12);
+  const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
+  const [productsCount, setProductsCount] = useState(0);
+  const [advertsCount, setAdvertsCount] = useState(0);
+  const [jobsCount, setJobsCount] = useState(0);
+  const [usersCount, setUsersCount] = useState(0);
   const [revenueUsd, setRevenueUsd] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -124,21 +124,21 @@ export default function AdminOverviewPage() {
               images: [],
             })));
           } else {
-            setBusinesses(SAMPLE_BUSINESSES);
+            setBusinesses([]);
           }
 
-          setProductsCount(Array.isArray(prodData?.products) && prodData.products.length > 0 ? prodData.products.length : SAMPLE_PRODUCTS.length);
-          setAdvertsCount(Array.isArray(advData?.adverts) && advData.adverts.length > 0 ? advData.adverts.length : 3);
-          setJobsCount(Array.isArray(jobData?.jobs) && jobData.jobs.length > 0 ? jobData.jobs.length : SAMPLE_JOBS.length);
-          setUsersCount(Array.isArray(usrData?.users) && usrData.users.length > 0 ? usrData.users.length : 12);
+          setProductsCount(Array.isArray(prodData?.products) ? prodData.products.length : 0);
+          setAdvertsCount(Array.isArray(advData?.adverts) ? advData.adverts.length : 0);
+          setJobsCount(Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
+          setUsersCount(Array.isArray(usrData?.users) ? usrData.users.length : 0);
         }
       } catch (err) {
         if (isMounted) {
-          setBusinesses(SAMPLE_BUSINESSES);
-          setProductsCount(SAMPLE_PRODUCTS.length);
-          setAdvertsCount(3);
-          setJobsCount(SAMPLE_JOBS.length);
-          setUsersCount(12);
+          setBusinesses([]);
+          setProductsCount(0);
+          setAdvertsCount(0);
+          setJobsCount(0);
+          setUsersCount(0);
         }
       } finally {
         if (isMounted) {

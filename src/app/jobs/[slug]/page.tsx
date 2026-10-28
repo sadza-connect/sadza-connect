@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { SAMPLE_JOBS, JobOpening } from '@/lib/data/zimbabwe';
+import { JobOpening } from '@/lib/data/zimbabwe';
 import {
   getStoredJobApplications,
   saveStoredJobApplications,
@@ -40,7 +40,8 @@ export default function JobDetailPage() {
   const slug = params?.slug || '';
   const { toast } = useToast();
 
-  const [allJobs, setAllJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
+  const [allJobs, setAllJobs] = useState<JobOpening[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Application Modal state
@@ -55,43 +56,49 @@ export default function JobDetailPage() {
   useEffect(() => {
     let isMounted = true;
     async function loadJobData() {
-
-      // Fetch specific job
+      setIsLoading(true);
       try {
-        const res = await fetch(`/api/v1/jobs/${encodeURIComponent(slug)}`);
-        const json = await res.json();
-        if (isMounted && json.success && json.data?.job) {
-          const mapped = mapDbJobToOpening(json.data.job);
-          setAllJobs((prev) => {
-            const exists = prev.some((j) => j.id === mapped.id || j.slug === mapped.slug);
-            return exists
-              ? prev.map((j) => (j.id === mapped.id || j.slug === mapped.slug ? mapped : j))
-              : [mapped, ...prev];
-          });
-        }
-      } catch {}
+        // Fetch specific job from database API
+        try {
+          const res = await fetch(`/api/v1/jobs/${encodeURIComponent(slug)}`);
+          const json = await res.json();
+          if (isMounted && json.success && json.data?.job) {
+            const mapped = mapDbJobToOpening(json.data.job);
+            setAllJobs((prev) => {
+              const exists = prev.some((j) => j.id === mapped.id || j.slug === mapped.slug);
+              return exists
+                ? prev.map((j) => (j.id === mapped.id || j.slug === mapped.slug ? mapped : j))
+                : [mapped, ...prev];
+            });
+          }
+        } catch {}
 
-      // Fetch similar jobs
-      try {
-        const listRes = await fetch('/api/v1/jobs?limit=20');
-        const listJson = await listRes.json();
-        if (isMounted && listJson.success && Array.isArray(listJson.data?.jobs)) {
-          const listMapped = listJson.data.jobs.map(mapDbJobToOpening);
-          setAllJobs((prev) => {
-            const combined = [...prev];
-            for (const item of listMapped) {
-              if (!combined.some((j) => j.id === item.id)) {
-                combined.push(item);
+        // Fetch similar jobs from database API
+        try {
+          const listRes = await fetch('/api/v1/jobs?limit=20');
+          const listJson = await listRes.json();
+          if (isMounted && listJson.success && Array.isArray(listJson.data?.jobs)) {
+            const listMapped = listJson.data.jobs.map(mapDbJobToOpening);
+            setAllJobs((prev) => {
+              const combined = [...prev];
+              for (const item of listMapped) {
+                if (!combined.some((j) => j.id === item.id)) {
+                  combined.push(item);
+                }
               }
-            }
-            return combined;
-          });
-        }
-      } catch {}
+              return combined;
+            });
+          }
+        } catch {}
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
     }
 
     if (slug) {
       loadJobData();
+    } else {
+      setIsLoading(false);
     }
     return () => {
       isMounted = false;
@@ -109,6 +116,20 @@ export default function JobDetailPage() {
       .slice(0, 3);
   }, [allJobs, job]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
+        <Navbar />
+        <main className="max-w-4xl mx-auto px-4 py-20 flex-1 w-full animate-pulse space-y-6">
+          <div className="h-8 bg-slate-200 dark:bg-slate-800 rounded-xl w-1/3" />
+          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+          <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!job) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
@@ -119,7 +140,7 @@ export default function JobDetailPage() {
             Job Vacancy Not Found
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            The job opening you are looking for may have been filled or expired.
+            The job opening you are looking for may have been filled or does not exist in our database.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link

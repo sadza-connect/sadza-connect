@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { SAMPLE_JOBS, JobOpening } from '@/lib/data/zimbabwe';
+import { JobOpening } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getStoredJobApplications,
@@ -28,7 +28,8 @@ import { createJobInquiryLink } from '@/lib/utils/whatsapp';
 import { Modal, PublicModalBody, PublicModalFooter } from '@/components/ui/Modal';
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
+  const [jobs, setJobs] = useState<JobOpening[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
@@ -46,19 +47,21 @@ export default function JobsPage() {
   useEffect(() => {
     let isMounted = true;
     async function loadLiveJobs() {
+      setIsLoading(true);
       try {
         const res = await fetch('/api/v1/jobs?limit=100');
         const json = await res.json();
-        if (isMounted && json.success && Array.isArray(json.data?.jobs) && json.data.jobs.length > 0) {
+        if (isMounted && json.success && Array.isArray(json.data?.jobs)) {
           const mapped = json.data.jobs.map(mapDbJobToOpening);
-          const liveIds = new Set(mapped.map((j: JobOpening) => j.id));
-          const combined = [...mapped, ...SAMPLE_JOBS.filter((j) => !liveIds.has(j.id))];
-          setJobs(combined);
+          setJobs(mapped);
         } else if (isMounted) {
-          setJobs(SAMPLE_JOBS);
+          setJobs([]);
         }
-      } catch {
-        if (isMounted) setJobs(SAMPLE_JOBS);
+      } catch (err) {
+        console.error('Failed to load jobs from database:', err);
+        if (isMounted) setJobs([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -284,7 +287,29 @@ export default function JobsPage() {
 
           {/* Job Listings List */}
           <div className="space-y-4">
-            {filteredJobs.map((job) => (
+            {isLoading && jobs.length === 0 ? (
+              [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 animate-pulse space-y-3"
+                >
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4" />
+                  <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-1/2" />
+                  <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
+                </div>
+              ))
+            ) : filteredJobs.length === 0 ? (
+              <div className="p-12 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+                <Briefcase className="w-10 h-10 text-slate-400 mx-auto" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  No job vacancies match your search
+                </h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Try clearing your search filters to explore all available employment vacancies and tenders.
+                </p>
+              </div>
+            ) : (
+              filteredJobs.map((job) => (
               <div
                 key={job.id}
                 className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:border-emerald-500/70 transition-colors"
@@ -384,7 +409,7 @@ export default function JobsPage() {
                   </button>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
         </div>
       </main>

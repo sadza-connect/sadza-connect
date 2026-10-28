@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { MarketplaceProduct, SAMPLE_PRODUCTS } from '@/lib/data/zimbabwe';
+import { MarketplaceProduct } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getSavedProductIds,
@@ -56,24 +56,24 @@ const SECTORS_WITH_COUNTS = [
 ];
 
 export default function MarketplacePage() {
-  // Initialize with SAMPLE_PRODUCTS for instant paint
-  const [products, setProducts] = useState<MarketplaceProduct[]>(SAMPLE_PRODUCTS);
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [usdToZig, setUsdToZig] = useState<number>(26.5);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvinces, setSelectedProvinces] = useState<string>('All Provinces');
-  const [selectedSectors, setSelectedSectors] = useState<string[]>(['Energy & Solar']);
-  const [selectedConditions, setSelectedConditions] = useState<string[]>(['Brand New']);
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [minPriceUsd, setMinPriceUsd] = useState('');
   const [maxPriceUsd, setMaxPriceUsd] = useState('');
   const [minPriceZig, setMinPriceZig] = useState('');
   const [maxPriceZig, setMaxPriceZig] = useState('');
-  const [inStockOnly, setInStockOnly] = useState(true);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'newest'>('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(SAMPLE_PRODUCTS[0] || null);
+  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -81,26 +81,24 @@ export default function MarketplacePage() {
     let isMounted = true;
 
     async function loadMarketplace() {
+      setIsLoading(true);
       try {
         const res = await fetch('/api/v1/products?limit=100');
         const json = await res.json();
-        if (json.success && Array.isArray(json.data?.products)) {
-          if (isMounted) {
-            const mapped = json.data.products.map(mapDbProductToMarketplaceProduct);
-            // Merge DB products with sample products (avoid duplicate slugs)
-            const existingSlugs = new Set(mapped.map((p: MarketplaceProduct) => p.slug));
-            const merged = [
-              ...mapped,
-              ...SAMPLE_PRODUCTS.filter((sp) => !existingSlugs.has(sp.slug)),
-            ];
-            setProducts(merged);
-            if (!selectedProduct && merged.length > 0) {
-              setSelectedProduct(merged[0]);
-            }
+        if (isMounted && json.success && Array.isArray(json.data?.products)) {
+          const mapped = json.data.products.map(mapDbProductToMarketplaceProduct);
+          setProducts(mapped);
+          if (mapped.length > 0) {
+            setSelectedProduct((prev) => prev || mapped[0]);
           }
+        } else if (isMounted) {
+          setProducts([]);
         }
       } catch (err) {
-        console.warn('Using default marketplace showcase products', err);
+        console.error('Failed to load marketplace products from database:', err);
+        if (isMounted) setProducts([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -571,7 +569,29 @@ export default function MarketplacePage() {
                   : 'lg:col-span-9'
               } space-y-4 transition-all duration-300`}
             >
-              {filteredProducts.length === 0 ? (
+              {isLoading && products.length === 0 ? (
+                <div
+                  className={`grid ${
+                    isDrawerOpen && selectedProduct
+                      ? 'grid-cols-1 sm:grid-cols-2 gap-4'
+                      : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5'
+                  }`}
+                >
+                  {[1, 2, 3, 4, 5, 6].map((idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden animate-pulse"
+                    >
+                      <div className="aspect-[4/3] w-full bg-slate-200 dark:bg-slate-800" />
+                      <div className="p-4 space-y-3">
+                        <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
+                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/2" />
+                        <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-2/3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center space-y-4">
                   <ShoppingBag className="w-10 h-10 text-slate-400 mx-auto" />
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">

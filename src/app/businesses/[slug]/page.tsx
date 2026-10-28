@@ -25,9 +25,6 @@ import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { getBusinessSectorCover } from '@/lib/data/business-images';
 import {
-  SAMPLE_BUSINESSES,
-  SAMPLE_PRODUCTS,
-  SAMPLE_JOBS,
   BusinessListing,
   MarketplaceProduct,
   JobOpening,
@@ -41,6 +38,8 @@ import {
 } from '@/data/platformStore';
 import { createBusinessInquiryLink, createProductInquiryLink } from '@/lib/utils/whatsapp';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
+import { mapDbJobToOpening } from '@/lib/data/job-mapper';
 import { getOnboardingDraft } from '@/lib/utils/onboarding-state';
 
 export default function BusinessProfilePage() {
@@ -53,6 +52,7 @@ export default function BusinessProfilePage() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [usdToZig, setUsdToZig] = useState<number>(26.5);
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'jobs' | 'reviews'>('overview');
+  const [isLoading, setIsLoading] = useState(true);
 
   // Review Form State
   const [reviewerName, setReviewerName] = useState('');
@@ -75,8 +75,9 @@ export default function BusinessProfilePage() {
     setSavedIds(getSavedBusinessIds());
     setUsdToZig(getPlatformSettings().usdToZigRate);
 
-    // Fetch live business dossier from API
+    // Fetch live business dossier directly from database API
     if (slug) {
+      setIsLoading(true);
       fetch(`/api/v1/businesses/${encodeURIComponent(slug)}`)
         .then((res) => res.json())
         .then((json) => {
@@ -84,14 +85,21 @@ export default function BusinessProfilePage() {
             const mapped = mapDbBusinessToListing(json.data.business);
             setLiveBusiness(mapped);
             if (Array.isArray(json.data.products)) {
-              setProducts(json.data.products);
+              setProducts(json.data.products.map(mapDbProductToMarketplaceProduct));
             }
             if (Array.isArray(json.data.jobs)) {
-              setJobs(json.data.jobs);
+              setJobs(json.data.jobs.map(mapDbJobToOpening));
             }
+          } else {
+            setLiveBusiness(null);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setLiveBusiness(null);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
 
       // Fire silent view count tracking
       fetch(`/api/v1/businesses/${encodeURIComponent(slug)}/track`, {
@@ -102,10 +110,21 @@ export default function BusinessProfilePage() {
     }
   }, [slug]);
 
-  const fallbackBusiness = SAMPLE_BUSINESSES.find((b) => b.slug === slug);
-  const business = liveBusiness || fallbackBusiness;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 py-16 flex-1 w-full animate-pulse space-y-6">
+          <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-3xl" />
+          <div className="h-12 bg-slate-200 dark:bg-slate-800 rounded-xl w-1/3" />
+          <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  if (!business) {
+  if (!liveBusiness) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
         <Navbar />
@@ -115,7 +134,7 @@ export default function BusinessProfilePage() {
             Business Not Found
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            The business profile you are looking for may have been removed or does not exist.
+            The business profile you are looking for may have been removed or does not exist in our database.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link
@@ -131,20 +150,9 @@ export default function BusinessProfilePage() {
     );
   }
 
-  const allProducts = products.length > 0 ? products : SAMPLE_PRODUCTS;
-  const businessProducts = allProducts.filter(
-    (p) =>
-      p.sellerSlug === business.slug ||
-      p.sellerId === business.id ||
-      p.sellerName.toLowerCase() === business.name.toLowerCase()
-  );
-
-  const allJobs = jobs.length > 0 ? jobs : SAMPLE_JOBS;
-  const businessJobs = allJobs.filter(
-    (j) =>
-      j.companySlug === business.slug ||
-      j.company.toLowerCase() === business.name.toLowerCase()
-  );
+  const business = liveBusiness;
+  const businessProducts = products;
+  const businessJobs = jobs;
 
   const reviews: BusinessReview[] = business.reviews || [];
   const isSaved = savedIds.includes(business.id);

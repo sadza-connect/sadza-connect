@@ -30,7 +30,6 @@ import {
   BUSINESS_CATEGORIES,
   ZIMBABWE_PROVINCES,
   MarketplaceProduct,
-  SAMPLE_PRODUCTS,
 } from '@/lib/data/zimbabwe';
 import {
   getStoredProducts,
@@ -41,7 +40,7 @@ import {
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 
 export default function AdminMarketplacePage() {
-  const [productsList, setProductsList] = useState<MarketplaceProduct[]>(SAMPLE_PRODUCTS);
+  const [productsList, setProductsList] = useState<MarketplaceProduct[]>([]);
   const [availableBusinesses, setAvailableBusinesses] = useState<
     Array<{ id: string; name: string; slug: string; province: string }>
   >([]);
@@ -78,13 +77,13 @@ export default function AdminMarketplacePage() {
       try {
         const res = await fetch('/api/v1/products?limit=100', { credentials: 'include' });
         const json = await res.json();
-        if (json.success && Array.isArray(json.data?.products) && json.data.products.length > 0) {
+        if (json.success && Array.isArray(json.data?.products)) {
           if (isMounted) {
             const mapped = json.data.products.map(mapDbProductToMarketplaceProduct);
-            const liveSlugs = new Set(mapped.map((p: MarketplaceProduct) => p.slug || p.id));
-            const merged = [...mapped, ...SAMPLE_PRODUCTS.filter((p) => !liveSlugs.has(p.slug || p.id))];
-            setProductsList(merged);
+            setProductsList(mapped);
           }
+        } else if (isMounted) {
+          setProductsList([]);
         }
       } catch (err) {
         console.warn('Failed to load products from database:', err);

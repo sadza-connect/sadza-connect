@@ -57,7 +57,7 @@ import {
   saveStoredBusinesses,
   getStoredProducts,
 } from '@/data/platformStore';
-import { BusinessListing, SAMPLE_BUSINESSES, SAMPLE_PRODUCTS, SAMPLE_JOBS } from '@/lib/data/zimbabwe';
+import { BusinessListing } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -226,26 +226,9 @@ function mapDbJobToJobItem(j: any): JobItem {
   };
 }
 
-const INITIAL_PRODUCTS: ProductListing[] = SAMPLE_PRODUCTS.map((sp) => ({
-  id: sp.id,
-  title: sp.title,
-  category: sp.category,
-  province: sp.province,
-  priceUSD: sp.priceUsd,
-  priceZiG: Math.round(sp.priceUsd * 26.5),
-  unit: sp.unit,
-  movementBadge: sp.movementBadge,
-  postedAgo: sp.postedAgo,
-  stockNote: sp.stockNote,
-  sellerName: sp.sellerName,
-  sellerType: sp.sellerType as any,
-  sellerPlan: 'Paid Subscriber',
-  whatsapp: sp.sellerPhone.replace(/\D/g, ''),
-  image: sp.image,
-  description: sp.description,
-}));
+const INITIAL_PRODUCTS: ProductListing[] = [];
 
-const DIRECTORY_BUSINESSES: DirectoryBusiness[] = SAMPLE_BUSINESSES.map(mapListingToDirectoryBusiness);
+const DIRECTORY_BUSINESSES: DirectoryBusiness[] = [];
 
 // ---------------------------------------------------------------------------
 // LATEST JOBS & COMMERCIAL TENDERS
@@ -261,16 +244,7 @@ interface JobItem {
   category: string;
 }
 
-const LATEST_JOBS: JobItem[] = SAMPLE_JOBS.map((sj) => ({
-  id: sj.id,
-  title: sj.title,
-  company: sj.company,
-  province: sj.province,
-  type: sj.type,
-  salary: sj.salaryUsd,
-  posted: sj.postedDate,
-  category: sj.category,
-}));
+const LATEST_JOBS: JobItem[] = [];
 
 type AccountViewMode =
   | 'visitor'
@@ -446,7 +420,7 @@ export function CommercialPortalWorkspace() {
 
   // Upload Product Modal State
   const [uploadProductOpen, setUploadProductOpen] = useState(false);
-  const [products, setProducts] = useState<ProductListing[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<ProductListing[]>([]);
   const [newProdTitle, setNewProdTitle] = useState('');
   const [newProdCategory, setNewProdCategory] = useState('Solar & Clean Energy');
   const [newProdProvince, setNewProdProvince] = useState('Harare');
@@ -457,7 +431,7 @@ export function CommercialPortalWorkspace() {
 
   // Quick Apply Job Modal State
   const [selectedJob, setSelectedJob] = useState<JobItem | null>(null);
-  const [jobs, setJobs] = useState<JobItem[]>(LATEST_JOBS);
+  const [jobs, setJobs] = useState<JobItem[]>([]);
   const [applicantName, setApplicantName] = useState('');
   const [applicantEmail, setApplicantEmail] = useState('');
   const [applicantPhone, setApplicantPhone] = useState('');
@@ -466,11 +440,11 @@ export function CommercialPortalWorkspace() {
   // Product Quick View Modal
   const [quickViewProduct, setQuickViewProduct] = useState<ProductListing | null>(null);
 
-  // Directory Businesses State (Live DB + Stored)
-  const [businesses, setBusinesses] = useState<DirectoryBusiness[]>(DIRECTORY_BUSINESSES);
-  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState<boolean>(false);
-  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(false);
-  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
+  // Directory Businesses State (Live DB)
+  const [businesses, setBusinesses] = useState<DirectoryBusiness[]>([]);
+  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState<boolean>(true);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -506,12 +480,7 @@ export function CommercialPortalWorkspace() {
 
         if (isMounted) {
           const mappedDb = liveListings.map(mapListingToDirectoryBusiness);
-          const existingSlugs = new Set(mappedDb.map((b) => b.slug));
-          const merged = [
-            ...mappedDb,
-            ...DIRECTORY_BUSINESSES.filter((db) => !existingSlugs.has(db.slug)),
-          ];
-          setBusinesses(merged);
+          setBusinesses(mappedDb);
           setIsLoadingBusinesses(false);
           if (liveListings.length > 0) {
             saveStoredBusinesses(liveListings);
@@ -520,6 +489,7 @@ export function CommercialPortalWorkspace() {
       } catch (err) {
         console.error('Failed to load businesses for landing page:', err);
         if (isMounted) {
+          setBusinesses([]);
           setIsLoadingBusinesses(false);
         }
       }
@@ -542,17 +512,13 @@ export function CommercialPortalWorkspace() {
         }
 
         if (isMounted) {
-          const existingIds = new Set(liveProds.map((p) => p.id));
-          const merged = [
-            ...liveProds,
-            ...INITIAL_PRODUCTS.filter((ip) => !existingIds.has(ip.id)),
-          ];
-          setProducts(merged);
+          setProducts(liveProds);
           setIsLoadingProducts(false);
         }
       } catch (err) {
         console.error('Failed to load products for landing page:', err);
         if (isMounted) {
+          setProducts([]);
           setIsLoadingProducts(false);
         }
       }
@@ -575,18 +541,13 @@ export function CommercialPortalWorkspace() {
         }
 
         if (isMounted) {
-          const existingIds = new Set(liveJobs.map((j) => j.id));
-          const merged = [
-            ...liveJobs,
-            ...LATEST_JOBS.filter((lj) => !existingIds.has(lj.id)),
-          ];
-          setJobs(merged);
+          setJobs(liveJobs);
           setIsLoadingJobs(false);
         }
       } catch (err) {
         console.error('Failed to load jobs for landing page:', err);
         if (isMounted) {
-          setJobs(LATEST_JOBS);
+          setJobs([]);
           setIsLoadingJobs(false);
         }
       }
