@@ -19,7 +19,6 @@ import { Button } from '@/components/ui/Button';
 import { SpotlightCard } from '@/components/animations/SpotlightCard';
 import { ShinyText } from '@/components/animations/ShinyText';
 import { OrbitalRing } from '@/components/animations/OrbitalRing';
-import { HomeBannerSlideshow } from '@/components/landing/HomeBannerSlideshow';
 import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
@@ -99,7 +98,7 @@ export function Hero() {
     : [];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-transparent via-white/70 to-slate-50/80 dark:from-transparent dark:via-slate-950/60 dark:to-[#07090e]/90 pt-10 pb-14 sm:pt-14 sm:pb-20 transition-colors">
+    <section className="relative overflow-hidden bg-gradient-to-b from-transparent via-white/70 to-slate-50/80 dark:from-transparent dark:via-slate-950/60 dark:to-[#07090e]/90 pt-4 pb-12 sm:pt-7 sm:pb-16 transition-colors">
       {/* The Majestic Celestial Orbital Ring */}
       <OrbitalRing size={940} />
 
@@ -219,11 +218,6 @@ export function Hero() {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Homepage Hero Banner Slideshow (Representing the 5 Commercial Showcase Banners) */}
-        <div className="mt-8 sm:mt-10 max-w-5xl xl:max-w-6xl mx-auto text-left">
-          <HomeBannerSlideshow />
         </div>
 
         {/* Feature & Trust Highlights Pill Strip */}

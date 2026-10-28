@@ -1,5 +1,6 @@
 import { AnnouncementBar } from '@/components/landing/AnnouncementBar';
 import { Navbar } from '@/components/landing/Navbar';
+import { HomeBannerSlideshow } from '@/components/landing/HomeBannerSlideshow';
 import { Hero } from '@/components/landing/Hero';
 import { CommercialPortalWorkspace } from '@/components/landing/CommercialPortalWorkspace';
 import { Footer } from '@/components/landing/Footer';
@@ -15,6 +16,14 @@ export default function HomePage() {
         <AnnouncementBar />
         <Navbar />
         <main className="flex-1">
+          {/* 1. SLIDESHOW COMES FIRST IMMEDIATELY AFTER NAVBAR BEFORE ANY OTHER DESIGN OR TEXT */}
+          <section
+            aria-label="Homepage Featured Banners Slideshow"
+            className="w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1"
+          >
+            <HomeBannerSlideshow />
+          </section>
+
           <Hero />
           <CommercialPortalWorkspace />
         </main>
