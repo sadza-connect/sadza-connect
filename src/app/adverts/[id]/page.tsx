@@ -253,16 +253,16 @@ export default function AdvertDetailPage() {
               </div>
 
               {/* Dual-Currency Commercial Pricing Card */}
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="rounded-2xl border-2 border-amber-400/80 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/20 dark:from-amber-950/25 dark:via-slate-900 dark:to-slate-900 p-5 sm:p-6 shadow-md shadow-amber-500/10 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-amber-200/60 dark:border-amber-800/40">
                   <div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                       Promotional Rate
                     </span>
                     <div className="flex items-baseline gap-3 mt-1">
                       {advert.promoPriceUSD ? (
                         <>
-                          <span className="text-3xl sm:text-4xl font-extrabold text-[#1e57eb] dark:text-blue-400">
+                          <span className="text-3xl sm:text-4xl font-extrabold text-amber-700 dark:text-amber-400">
                             ${advert.promoPriceUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                           </span>
                           <span className="text-xs sm:text-sm font-semibold text-slate-500">
@@ -414,7 +414,7 @@ export default function AdvertDetailPage() {
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 shadow-sm transition active:scale-[0.99]"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-sm shadow-md shadow-orange-500/20 transition active:scale-[0.99]"
                   >
                     <MessageCircle className="w-4 h-4" />
                     Enquire on WhatsApp

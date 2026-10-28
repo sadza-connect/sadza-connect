@@ -349,6 +349,7 @@ export function CommercialPortalWorkspace() {
   // Adverts State & Filtering Mode
   const [paidAdverts, setPaidAdverts] = useState<PaidAdvertItem[]>(DEFAULT_PAID_ADVERTS);
   const [advertFilterMode, setAdvertFilterMode] = useState<'matching' | 'all'>('matching');
+  const [isLoadingAdverts, setIsLoadingAdverts] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -374,10 +375,14 @@ export function CommercialPortalWorkspace() {
 
         if (isMounted) {
           setPaidAdverts(validAds);
+          setIsLoadingAdverts(false);
         }
       } catch (err) {
         console.error('Failed to load adverts for landing page:', err);
-        if (isMounted) setPaidAdverts([]);
+        if (isMounted) {
+          setPaidAdverts([]);
+          setIsLoadingAdverts(false);
+        }
       }
     }
 
@@ -490,9 +495,6 @@ export function CommercialPortalWorkspace() {
           const mappedDb = liveListings.map(mapListingToDirectoryBusiness);
           setBusinesses(mappedDb);
           setIsLoadingBusinesses(false);
-          if (liveListings.length > 0) {
-            saveStoredBusinesses(liveListings);
-          }
         }
       } catch (err) {
         console.error('Failed to load businesses for landing page:', err);
@@ -627,10 +629,10 @@ export function CommercialPortalWorkspace() {
     });
   }, [jobs, selectedSector, selectedProvince, searchQuery]);
 
-  // Filtered Paid Adverts in Right Sidebar
+  // Filtered Paid Adverts in Right Sidebar & Spotlight
   const displayedAdverts = useMemo(() => {
     if (advertFilterMode === 'all') {
-      return paidAdverts.slice(0, 4);
+      return paidAdverts.slice(0, 6);
     }
     const matching = paidAdverts.filter((ad) => {
       const matchSector = selectedSector === 'All' || ad.category === selectedSector;
@@ -641,7 +643,7 @@ export function CommercialPortalWorkspace() {
         ad.businessName.toLowerCase().includes(searchQuery.toLowerCase());
       return matchSector && matchProv && matchQuery;
     });
-    return matching.length > 0 ? matching.slice(0, 4) : paidAdverts.slice(0, 4);
+    return matching.length > 0 ? matching.slice(0, 6) : paidAdverts.slice(0, 6);
   }, [paidAdverts, advertFilterMode, selectedSector, selectedProvince, searchQuery]);
 
   const hasExactMatchingAdverts = useMemo(() => {
@@ -1294,11 +1296,7 @@ export function CommercialPortalWorkspace() {
           {/* =================================================================
               CENTER MAIN COMMERCIAL FEED (6 cols on Desktop, Full width on <lg)
           ================================================================= */}
-          <div
-            className={`${
-              feedFocus === 'adverts' ? 'hidden lg:block' : 'block'
-            } lg:col-span-6 space-y-7 min-w-0`}
-          >
+          <div className="block lg:col-span-6 space-y-7 min-w-0">
             {/* Top Feed Control Bar */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-3.5">
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
@@ -1310,6 +1308,7 @@ export function CommercialPortalWorkspace() {
                       { id: 'products', label: `Products (${filteredProducts.length})` },
                       { id: 'businesses', label: `Businesses (${filteredBusinesses.length})` },
                       { id: 'jobs', label: `Jobs (${filteredJobs.length})` },
+                      { id: 'adverts', label: `Sponsored Adverts (${paidAdverts.length})` },
                     ] as const
                   ).map((tab) => (
                     <button
@@ -1318,8 +1317,12 @@ export function CommercialPortalWorkspace() {
                       onClick={() => setFeedFocus(tab.id)}
                       className={`rounded-lg px-3.5 py-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                         feedFocus === tab.id
-                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          ? tab.id === 'adverts'
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm'
+                            : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                          : tab.id === 'adverts'
+                            ? 'text-amber-600 dark:text-amber-400 font-extrabold hover:text-amber-700 dark:hover:text-amber-300'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {tab.label}
@@ -1377,7 +1380,194 @@ export function CommercialPortalWorkspace() {
               </div>
             </div>
 
+            {/* ---------------------------------------------------------------
+                FEED SECTION: FEATURED SPONSORED ADVERTS & DEALS (DATABASE DRIVEN)
+                Styled with an attention-grabbing amber/gold/orange sunset palette
+            --------------------------------------------------------------- */}
+            {(feedFocus === 'all' || feedFocus === 'adverts') && (
+              <div className="rounded-2xl border-2 border-amber-400/80 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/90 via-white to-amber-50/40 dark:from-amber-950/25 dark:via-slate-900 dark:to-slate-900 shadow-md shadow-amber-500/10 overflow-hidden">
+                {/* Attention-Grabbing Top Accent Stripe */}
+                <div className="h-2 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400" />
 
+                {/* Section Header */}
+                <div className="border-b border-amber-200/80 dark:border-amber-800/60 px-5 sm:px-6 py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-100/60 via-amber-50/40 to-orange-50/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-orange-950/30">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm">
+                        <Megaphone className="h-4 w-4" />
+                      </span>
+                      <h2 className="font-display text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span>Featured Sponsored Adverts &amp; Deals</span>
+                        <span className="rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider">
+                          Attention Deals
+                        </span>
+                      </h2>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                      Direct promotional specials, wholesale deals &amp; seasonal discounts from verified Zimbabwean businesses
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setCreateAdvertOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-3.5 py-2 text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Place Advert ($20)</span>
+                    </button>
+                    <Link
+                      href="/adverts"
+                      className="inline-flex items-center gap-1 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-white/80 dark:bg-slate-800/80 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 px-3 py-2 text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200 transition-colors"
+                    >
+                      <span>All Adverts ({paidAdverts.length})</span>
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Section Content */}
+                <div className="p-4 sm:p-5">
+                  {isLoadingAdverts ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="animate-pulse rounded-2xl border-2 border-amber-300/40 dark:border-amber-600/30 p-4 bg-amber-50/50 dark:bg-amber-950/20 space-y-3"
+                        >
+                          <div className="h-36 bg-amber-200/50 dark:bg-amber-900/40 rounded-xl" />
+                          <div className="h-4 bg-amber-200/60 dark:bg-amber-900/50 rounded w-3/4" />
+                          <div className="h-3 bg-amber-100 dark:bg-amber-950/40 rounded w-1/2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : displayedAdverts.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-amber-300 dark:border-amber-700/60 p-8 text-center space-y-2 bg-amber-50/40 dark:bg-amber-950/20">
+                      <Megaphone className="h-8 w-8 text-amber-500 mx-auto" />
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        No adverts match your current filter
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Try changing province or category to see more promotions.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(feedFocus === 'adverts' ? displayedAdverts : displayedAdverts.slice(0, 3)).map((ad) => (
+                        <div
+                          key={ad.id}
+                          className="group flex flex-col justify-between rounded-2xl border-2 border-amber-400/80 dark:border-amber-500/70 bg-white dark:bg-slate-900 overflow-hidden shadow-md shadow-amber-500/10 hover:shadow-xl hover:shadow-amber-500/20 hover:border-amber-500 transition-all duration-300"
+                        >
+                          <div>
+                            {/* Image Header with Badges */}
+                            <div className="relative h-44 w-full bg-slate-900 overflow-hidden">
+                              <Image
+                                src={ad.image}
+                                alt={ad.headline}
+                                fill
+                                sizes="(max-width: 768px) 100vw, 33vw"
+                                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
+
+                              {/* Top Badges */}
+                              <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
+                                <span className="rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-2.5 py-1 text-[11px] font-black uppercase shadow-xs flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" />
+                                  <span>{ad.promoBadge}</span>
+                                </span>
+                                <span className="rounded-lg bg-slate-950/80 text-white border border-white/20 px-2 py-0.5 text-[10px] font-bold">
+                                  {ad.province}
+                                </span>
+                              </div>
+
+                              {/* Business Name overlay */}
+                              <div className="absolute bottom-2.5 left-3 right-3">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                                  {ad.category}
+                                </span>
+                                <p className="text-xs font-bold text-white truncate">
+                                  {ad.businessName}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Card Body */}
+                            <div className="p-4 space-y-2.5">
+                              <Link
+                                href={`/adverts/${ad.id}`}
+                                className="block font-display text-sm font-bold text-slate-900 dark:text-white leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2"
+                              >
+                                {ad.headline}
+                              </Link>
+
+                              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2">
+                                {ad.offerText}
+                              </p>
+
+                              {/* Deal Pricing Box */}
+                              {ad.promoPriceUSD && (
+                                <div className="rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/60 p-2.5 flex items-center justify-between">
+                                  <div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 block">
+                                      Deal Price
+                                    </span>
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-base font-black text-amber-700 dark:text-amber-400">
+                                        USD ${ad.promoPriceUSD.toLocaleString()}
+                                      </span>
+                                      {ad.originalPriceUSD && (
+                                        <span className="text-xs text-slate-400 line-through">
+                                          ${ad.originalPriceUSD.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {ad.priceZiG && (
+                                    <span className="rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-200 px-2 py-0.5 text-[11px] font-bold">
+                                      {ad.priceZiG.toLocaleString()} ZiG
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Footer Actions */}
+                          <div className="px-4 pb-4 pt-2 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                              {ad.validUntil}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/adverts/${ad.id}`}
+                                className="rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 text-xs font-bold transition-colors"
+                              >
+                                View
+                              </Link>
+                              <a
+                                href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
+                                  ad.businessName
+                                )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
+                                  ad.headline
+                                )}"%20on%20Sadza%20Connect.`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-3 py-1.5 text-xs font-bold shadow-sm shadow-orange-500/20 transition-all active:scale-95"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                <span>Claim Deal</span>
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ---------------------------------------------------------------
                 FEED SECTION A: PRODUCTS COMING & GOING (LIVE MARKETPLACE)
@@ -1976,18 +2166,19 @@ export function CommercialPortalWorkspace() {
             } lg:col-span-3 lg:sticky lg:top-24 space-y-6`}
           >
             {/* Card 1: PAID BUSINESS ADVERTS (Filterable + Dedicated Page Link) */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
-              <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-900 text-white px-5 py-4 space-y-2.5">
+            <div className="rounded-2xl border-2 border-amber-400/80 dark:border-amber-500/70 bg-gradient-to-b from-amber-50/90 via-white to-amber-50/40 dark:from-amber-950/25 dark:via-slate-900/90 dark:to-slate-900 overflow-hidden shadow-md shadow-amber-500/10">
+              <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400" />
+              <div className="border-b border-amber-500/30 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-5 py-4 space-y-2.5 shadow-xs">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Megaphone className="h-4.5 w-4.5 text-amber-400" />
-                    <h2 className="text-sm font-bold uppercase tracking-wider">
+                    <Megaphone className="h-4.5 w-4.5 text-amber-200" />
+                    <h2 className="text-sm font-black uppercase tracking-wider text-white">
                       Sponsored Adverts
                     </h2>
                   </div>
                   <Link
                     href="/adverts"
-                    className="inline-flex items-center gap-1 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 px-2.5 py-1 text-xs font-bold text-amber-300 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-lg bg-black/25 hover:bg-black/40 border border-white/20 px-2.5 py-1 text-xs font-bold text-amber-100 transition-colors"
                   >
                     <span>All Adverts ({paidAdverts.length})</span>
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -1996,7 +2187,7 @@ export function CommercialPortalWorkspace() {
 
                 {/* Filter Mode Toggle inside Sidebar */}
                 <div className="flex items-center justify-between gap-2 pt-1 text-xs">
-                  <span className="text-slate-300 truncate">
+                  <span className="text-amber-100 font-medium truncate">
                     {advertFilterMode === 'matching' &&
                     (selectedSector !== 'All' || selectedProvince !== 'All Provinces')
                       ? hasExactMatchingAdverts
@@ -2004,17 +2195,17 @@ export function CommercialPortalWorkspace() {
                             selectedProvince !== 'All Provinces' ? selectedProvince : selectedSector
                           }`
                         : 'Showing National Featured Ads'
-                      : 'Showing Active Paid Promotions'}
+                      : 'Active Promotional Deals'}
                   </span>
 
-                  <div className="inline-flex rounded-lg bg-slate-800 p-0.5 shrink-0">
+                  <div className="inline-flex rounded-lg bg-black/30 p-0.5 shrink-0 border border-white/10">
                     <button
                       type="button"
                       onClick={() => setAdvertFilterMode('matching')}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer transition-colors ${
                         advertFilterMode === 'matching'
-                          ? 'bg-emerald-600 text-white'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-amber-400 text-slate-950'
+                          : 'text-amber-100 hover:text-white'
                       }`}
                     >
                       Match Filter
@@ -2022,10 +2213,10 @@ export function CommercialPortalWorkspace() {
                     <button
                       type="button"
                       onClick={() => setAdvertFilterMode('all')}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer transition-colors ${
                         advertFilterMode === 'all'
-                          ? 'bg-emerald-600 text-white'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-amber-400 text-slate-950'
+                          : 'text-amber-100 hover:text-white'
                       }`}
                     >
                       All Ads
@@ -2035,9 +2226,22 @@ export function CommercialPortalWorkspace() {
               </div>
 
               <div className="p-4 space-y-4">
-                {displayedAdverts.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-6 text-center space-y-2">
-                    <Megaphone className="h-7 w-7 text-slate-400 mx-auto" />
+                {isLoadingAdverts ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="animate-pulse rounded-xl border-2 border-amber-300/40 dark:border-amber-600/30 p-3 bg-amber-50/50 dark:bg-amber-950/20 space-y-2.5"
+                      >
+                        <div className="h-28 bg-amber-200/50 dark:bg-amber-900/40 rounded-lg" />
+                        <div className="h-3.5 bg-amber-200/60 dark:bg-amber-900/50 rounded w-3/4" />
+                        <div className="h-2.5 bg-amber-100 dark:bg-amber-950/40 rounded w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                ) : displayedAdverts.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-amber-300 dark:border-amber-700/60 p-6 text-center space-y-2 bg-amber-50/40 dark:bg-amber-950/20">
+                    <Megaphone className="h-7 w-7 text-amber-500 mx-auto" />
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                       No featured adverts active yet
                     </p>
@@ -2050,66 +2254,99 @@ export function CommercialPortalWorkspace() {
                     {displayedAdverts.map((ad) => (
                       <div
                         key={ad.id}
-                        className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 overflow-hidden hover:border-amber-500/60 transition-colors"
+                        className="group flex flex-col justify-between rounded-xl border-2 border-amber-400/80 dark:border-amber-500/70 bg-white dark:bg-slate-900 overflow-hidden shadow-sm hover:shadow-lg hover:border-amber-500 transition-all duration-200"
                       >
                         <div>
-                          <div className="relative h-36 w-full bg-slate-200 dark:bg-slate-800">
+                          <div className="relative h-36 w-full bg-slate-900 overflow-hidden">
                             <Image
                               src={ad.image}
                               alt={ad.headline}
                               fill
                               sizes="(max-width: 1024px) 100vw, 25vw"
-                              className="object-cover"
+                              className="object-cover transition-transform duration-300 group-hover:scale-105"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
                             <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                              <span className="rounded-md bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[11px] font-extrabold uppercase">
+                              <span className="rounded-md bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white px-2 py-0.5 text-[10px] font-black uppercase shadow-xs flex items-center gap-1">
+                                <Sparkles className="h-3 w-3" />
                                 {ad.promoBadge}
                               </span>
-                              <span className="rounded-md bg-slate-900/90 text-white px-2.5 py-0.5 text-[11px] font-semibold">
+                              <span className="rounded-md bg-slate-900/90 text-white px-2 py-0.5 text-[10px] font-semibold border border-white/20">
                                 {ad.province}
                               </span>
                             </div>
                             <div className="absolute bottom-2.5 left-3 right-3">
-                              <p className="text-xs font-bold text-amber-300 truncate">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 block">
+                                {ad.category}
+                              </span>
+                              <p className="text-xs font-bold text-white truncate">
                                 {ad.businessName}
                               </p>
                             </div>
                           </div>
 
                           <div className="p-3.5 space-y-2">
-                            <h3 className="font-display text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                            <Link
+                              href={`/adverts/${ad.id}`}
+                              className="block font-display text-sm font-bold text-slate-900 dark:text-white leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-2"
+                            >
                               {ad.headline}
-                            </h3>
-                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
+                            </Link>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2">
                               {ad.offerText}
                             </p>
                             {ad.promoPriceUSD && (
-                              <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
-                                Promo: USD ${ad.promoPriceUSD.toLocaleString()}{' '}
-                                {ad.priceZiG ? `/ ${ad.priceZiG.toLocaleString()} ZiG` : ''}
-                              </p>
+                              <div className="rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/60 p-2 flex items-center justify-between">
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 block">
+                                    Deal Price
+                                  </span>
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="text-sm font-black text-amber-700 dark:text-amber-400">
+                                      USD ${ad.promoPriceUSD.toLocaleString()}
+                                    </span>
+                                    {ad.originalPriceUSD && (
+                                      <span className="text-xs text-slate-400 line-through">
+                                        ${ad.originalPriceUSD.toLocaleString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {ad.priceZiG && (
+                                  <span className="rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-[10px] font-bold">
+                                    {ad.priceZiG.toLocaleString()} ZiG
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-200/80 dark:border-slate-700/70 flex items-center justify-between gap-2">
+                        <div className="px-3.5 pb-3.5 pt-2 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between gap-2">
                           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                             {ad.validUntil}
                           </span>
-                          <a
-                            href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
-                              ad.businessName
-                            )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
-                              ad.headline
-                            )}"%20on%20Sadza%20Connect.`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition-colors"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            <span>Claim Offer</span>
-                          </a>
+                          <div className="flex items-center gap-1">
+                            <Link
+                              href={`/adverts/${ad.id}`}
+                              className="rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 px-2 py-1 text-xs font-bold transition-colors"
+                            >
+                              View
+                            </Link>
+                            <a
+                              href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
+                                ad.businessName
+                              )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
+                                ad.headline
+                              )}"%20on%20Sadza%20Connect.`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-2.5 py-1 text-xs font-bold shadow-sm shadow-orange-500/20 transition-all active:scale-95"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              <span>Claim</span>
+                            </a>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -2121,7 +2358,7 @@ export function CommercialPortalWorkspace() {
                   <button
                     type="button"
                     onClick={() => setCreateAdvertOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-amber-500/70 bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-100/80 py-3 px-3.5 text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-300 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-amber-500/80 bg-gradient-to-r from-amber-100/70 to-orange-100/60 dark:from-amber-950/30 dark:to-orange-950/20 hover:from-amber-200/80 hover:to-orange-200/70 py-3 px-3.5 text-xs sm:text-sm font-extrabold text-amber-900 dark:text-amber-200 transition-all cursor-pointer shadow-xs"
                   >
                     <Megaphone className="h-4 w-4 text-amber-600" />
                     <span>Advertise Your Product Here ($20)</span>
@@ -2129,7 +2366,7 @@ export function CommercialPortalWorkspace() {
 
                   <Link
                     href="/adverts"
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2.5 px-3 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 hover:bg-amber-500/20 border border-amber-500/30 py-2.5 px-3 text-xs font-bold text-amber-800 dark:text-amber-300 transition-colors"
                   >
                     <span>Browse All {paidAdverts.length} Business Adverts &amp; Filter</span>
                     <ArrowUpRight className="h-3.5 w-3.5" />
