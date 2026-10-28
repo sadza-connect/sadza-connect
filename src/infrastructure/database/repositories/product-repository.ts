@@ -22,6 +22,9 @@ export interface ProductRow {
   business_name?: string;
   business_slug?: string;
   business_province?: string;
+  business_city?: string;
+  business_address?: string;
+  business_logo_url?: string;
   business_type?: string;
   business_phone?: string;
   business_whatsapp?: string;
@@ -104,6 +107,9 @@ export class ProductRepository {
         'businesses.name as business_name',
         'businesses.slug as business_slug',
         'businesses.province as business_province',
+        'businesses.city as business_city',
+        'businesses.address as business_address',
+        'businesses.logo_url as business_logo_url',
         'businesses.business_type as business_type',
         'businesses.phone as business_phone',
         'businesses.whatsapp as business_whatsapp',
@@ -240,6 +246,9 @@ export class ProductRepository {
         'businesses.name as business_name',
         'businesses.slug as business_slug',
         'businesses.province as business_province',
+        'businesses.city as business_city',
+        'businesses.address as business_address',
+        'businesses.logo_url as business_logo_url',
         'businesses.business_type as business_type',
         'businesses.phone as business_phone',
         'businesses.whatsapp as business_whatsapp',
@@ -265,6 +274,9 @@ export class ProductRepository {
         'businesses.name as business_name',
         'businesses.slug as business_slug',
         'businesses.province as business_province',
+        'businesses.city as business_city',
+        'businesses.address as business_address',
+        'businesses.logo_url as business_logo_url',
         'businesses.business_type as business_type',
         'businesses.phone as business_phone',
         'businesses.whatsapp as business_whatsapp',

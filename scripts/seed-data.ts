@@ -112,41 +112,42 @@ async function seed() {
     }
 
     // 3. Seed Businesses (Map to clean province names & format)
-    const existingBiz = await db('businesses').select('slug');
-    const existingBizSlugs = new Set(existingBiz.map((b: any) => b.slug));
+    for (const b of SAMPLE_BUSINESSES) {
+      const existing = await db('businesses').where({ slug: b.slug }).first();
+      const bizPayload = {
+        name: b.name,
+        slug: b.slug,
+        description: b.description,
+        province: b.province,
+        city: b.city || 'Harare',
+        address: b.address || `${b.city || 'Harare'}, Zimbabwe`,
+        sector: b.categoryName || (b as any).category,
+        business_type: b.businessType || 'Registered Company (Pvt Ltd)',
+        phone: b.phone,
+        email: b.email || `contact@${b.slug}.co.zw`,
+        whatsapp: b.whatsapp,
+        website: (b as any).website || null,
+        logo_url: b.logoUrl || b.image || (b as any).logo,
+        cover_url: b.coverImage || b.image || (b as any).cover_url,
+        gallery: JSON.stringify((b as any).photos || []),
+        operating_hours: JSON.stringify((b as any).hours || { summary: b.openingHours || 'Mon - Fri 08:00 - 17:00' }),
+        is_verified: b.cr14Verified ?? (b as any).verified ?? true,
+        verification_status: 'Verified',
+        is_featured: b.featured ?? true,
+        rating_avg: b.rating || 4.9,
+        reviews_count: b.reviewCount || (b as any).reviewsCount || 100,
+      };
 
-    const businessesToInsert = SAMPLE_BUSINESSES.filter(
-      (b) => !existingBizSlugs.has(b.slug)
-    ).map((b: any) => ({
-      id: b.id.length === 36 ? b.id : undefined, // only use if valid UUID, otherwise db generates UUID
-      name: b.name,
-      slug: b.slug,
-      description: b.description,
-      province: b.province,
-      city: b.city,
-      address: b.address,
-      sector: b.categoryName || b.category,
-      business_type: b.businessType || 'Registered Company (Pvt Ltd)',
-      phone: b.phone,
-      email: b.email || `contact@${b.slug}.co.zw`,
-      whatsapp: b.whatsapp,
-      website: b.website,
-      logo_url: b.image || b.logo,
-      cover_url: b.image || b.coverImage,
-      gallery: JSON.stringify(b.photos || []),
-      operating_hours: JSON.stringify(b.hours || { summary: b.openingHours || '' }),
-      is_verified: b.cr14Verified ?? b.verified ?? false,
-      verification_status: (b.cr14Verified ?? b.verified) ? 'Verified' : 'Pending',
-      is_featured: b.featured || false,
-      rating_avg: b.rating || 4.5,
-      reviews_count: b.reviewsCount || b.reviewCount || 10,
-    }));
-
-    if (businessesToInsert.length > 0) {
-      await db('businesses').insert(businessesToInsert);
-      console.log(`   ✓ ${businessesToInsert.length} showcase businesses seeded.`);
-    } else {
-      console.log('   - businesses already seeded, skipping.');
+      if (!existing) {
+        await db('businesses').insert({
+          id: b.id.length === 36 ? b.id : undefined,
+          ...bizPayload,
+        });
+        console.log(`   ✓ Business ${b.name} (${b.slug}) created.`);
+      } else {
+        await db('businesses').where({ id: existing.id }).update(bizPayload);
+        console.log(`   ✓ Business ${b.name} (${b.slug}) updated.`);
+      }
     }
 
     // Retrieve inserted businesses to map products and jobs to foreign keys
@@ -154,36 +155,33 @@ async function seed() {
     const bizBySlug = new Map(liveBusinesses.map((b: any) => [b.slug, b.id]));
 
     // 4. Seed Products
-    const existingProducts = await db('products').select('slug');
-    const existingProdSlugs = new Set(existingProducts.map((p: any) => p.slug));
+    for (const p of SAMPLE_PRODUCTS) {
+      const targetBizId = bizBySlug.get(p.sellerSlug || '') || liveBusinesses[0]?.id;
+      if (!targetBizId) continue;
 
-    const defaultBizId = liveBusinesses[0]?.id;
-    if (defaultBizId) {
-      const productsToInsert = SAMPLE_PRODUCTS.filter(
-        (p) => !existingProdSlugs.has(p.slug)
-      ).map((p: any) => {
-        const matchingBizId = bizBySlug.get(p.sellerSlug || p.companySlug || '') || defaultBizId;
-        return {
-          business_id: matchingBizId,
-          name: p.title || (p as any).name,
-          slug: p.slug,
-          description: p.description,
-          category: p.category,
-          price_usd: p.priceUsd,
-          price_zig: Math.round(p.priceUsd * 26.5),
-          images: JSON.stringify(p.images || []),
-          in_stock: p.inStock,
-          condition: p.condition || 'Brand New',
-          is_featured: p.featured || false,
-          is_active: true,
-        };
-      });
+      const existingProd = await db('products').where({ slug: p.slug }).first();
+      const prodPayload = {
+        business_id: targetBizId,
+        name: p.title || (p as any).name,
+        slug: p.slug,
+        description: p.description,
+        category: p.category,
+        price_usd: p.priceUsd,
+        price_zig: p.priceZig || Math.round(p.priceUsd * 26.5),
+        images: JSON.stringify(p.images || [p.image]),
+        in_stock: p.stockNote ? !p.stockNote.toLowerCase().includes('out of stock') : true,
+        stock_quantity: 25,
+        condition: p.condition || 'Brand New',
+        is_featured: p.featured || false,
+        is_active: true,
+      };
 
-      if (productsToInsert.length > 0) {
-        await db('products').insert(productsToInsert);
-        console.log(`   ✓ ${productsToInsert.length} marketplace products seeded.`);
+      if (!existingProd) {
+        await db('products').insert(prodPayload);
+        console.log(`   ✓ Product ${p.title} (${p.slug}) created under ${p.sellerName || targetBizId}.`);
       } else {
-        console.log('   - products already seeded, skipping.');
+        await db('products').where({ id: existingProd.id }).update(prodPayload);
+        console.log(`   ✓ Product ${p.title} (${p.slug}) updated under business ${targetBizId}.`);
       }
     }
 
@@ -191,6 +189,7 @@ async function seed() {
     const existingJobs = await db('jobs').select('slug');
     const existingJobSlugs = new Set(existingJobs.map((j: any) => j.slug));
 
+    const defaultBizId = liveBusinesses[0]?.id;
     if (defaultBizId) {
       const jobsToInsert = SAMPLE_JOBS.filter(
         (j) => !existingJobSlugs.has(j.slug)

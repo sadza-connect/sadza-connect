@@ -42,6 +42,7 @@ import {
 } from '@/data/platformStore';
 import { createProductInquiryLink } from '@/lib/utils/whatsapp';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
+import { ProductCard } from '@/components/marketplace/ProductCard';
 
 const SECTORS_WITH_COUNTS = [
   { name: 'Agriculture', count: 65 },
@@ -617,115 +618,18 @@ export default function MarketplacePage() {
                   }`}
                 >
                   {filteredProducts.map((prod) => {
-                    const zigPrice = Math.round(prod.priceUsd * usdToZig);
                     const isSaved = savedIds.includes(prod.id);
                     const isSelected = selectedProduct?.id === prod.id && isDrawerOpen;
 
                     return (
-                      <div
+                      <ProductCard
                         key={prod.id}
-                        onClick={() => handleSelectProduct(prod)}
-                        className={`group relative flex flex-col justify-between rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-[#007a3d] ring-2 ring-[#007a3d]/20 shadow-md'
-                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md'
-                        }`}
-                      >
-                        <div>
-                          {/* 4:3 Aspect Ratio Product Photo */}
-                          <div className="relative aspect-[4/3] w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            <Image
-                              src={prod.image}
-                              alt={prod.title}
-                              fill
-                              sizes="(max-width: 640px) 100vw, 50vw"
-                              className="object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-
-                            {/* Top Badges: Category Pill (Left) & Heart Wishlist (Right) */}
-                            <div className="absolute top-2.5 left-2.5 z-10">
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#e1f5ec] text-[#0f5132]">
-                                {prod.category}
-                              </span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSavedIds(toggleSavedProductId(prod.id));
-                              }}
-                              aria-label="Save to Wishlist"
-                              className={`absolute top-2.5 right-2.5 h-7 w-7 rounded-full flex items-center justify-center transition-colors shadow-xs z-10 cursor-pointer ${
-                                isSaved
-                                  ? 'bg-rose-600 text-white'
-                                  : 'bg-white/80 dark:bg-slate-900/80 hover:bg-white text-slate-700 dark:text-slate-200 backdrop-blur-xs'
-                              }`}
-                            >
-                              <Heart
-                                className={`w-3.5 h-3.5 ${
-                                  isSaved ? 'fill-current text-white' : ''
-                                }`}
-                              />
-                            </button>
-                          </div>
-
-                          {/* Card Content */}
-                          <div className="p-4 space-y-2">
-                            {/* Product Title */}
-                            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-1">
-                              {prod.title}
-                            </h2>
-
-                            {/* Location */}
-                            <div className="flex items-center gap-1 text-xs text-slate-500">
-                              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span>{prod.province}</span>
-                            </div>
-
-                            {/* Dual Currency Price: US$1,250 | ZiG 33,125 */}
-                            <div className="pt-1 flex items-baseline gap-2">
-                              <span className="font-extrabold text-slate-900 dark:text-white text-base">
-                                US${prod.priceUsd.toLocaleString()}
-                              </span>
-                              <span className="text-slate-300 dark:text-slate-600">|</span>
-                              <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-                                ZiG {zigPrice.toLocaleString()}
-                              </span>
-                            </div>
-
-                            {/* Merchant Attribution Row */}
-                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <div className="relative h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[10px] font-bold text-[#007a3d]">
-                                  {prod.sellerLogo ? (
-                                    <Image
-                                      src={prod.sellerLogo}
-                                      alt={prod.sellerName}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                  ) : (
-                                    <span>{prod.sellerName.substring(0, 2).toUpperCase()}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-semibold text-slate-900 dark:text-white text-xs">
-                                    {prod.sellerName}
-                                  </span>
-                                  {prod.sellerVerified && (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-[#007a3d] shrink-0 fill-[#007a3d] text-white" />
-                                  )}
-                                </div>
-                              </div>
-
-                              <span className="text-[#007a3d] font-semibold text-xs">
-                                {prod.stockNote || 'In Stock'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        product={prod}
+                        onViewProduct={handleSelectProduct}
+                        isSaved={isSaved}
+                        onToggleSave={(id) => setSavedIds(toggleSavedProductId(id))}
+                        isSelected={isSelected}
+                      />
                     );
                   })}
                 </div>

@@ -57,9 +57,11 @@ import {
   saveStoredBusinesses,
   getStoredProducts,
 } from '@/data/platformStore';
-import { BusinessListing } from '@/lib/data/zimbabwe';
+import { BusinessListing, MarketplaceProduct } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
+import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
+import { ProductCard } from '@/components/marketplace/ProductCard';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const BUSINESS_SCALES = [
@@ -420,7 +422,7 @@ export function CommercialPortalWorkspace() {
 
   // Upload Product Modal State
   const [uploadProductOpen, setUploadProductOpen] = useState(false);
-  const [products, setProducts] = useState<ProductListing[]>([]);
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [newProdTitle, setNewProdTitle] = useState('');
   const [newProdCategory, setNewProdCategory] = useState('Solar & Clean Energy');
   const [newProdProvince, setNewProdProvince] = useState('Harare');
@@ -438,7 +440,7 @@ export function CommercialPortalWorkspace() {
   const [appliedSuccess, setAppliedSuccess] = useState(false);
 
   // Product Quick View Modal
-  const [quickViewProduct, setQuickViewProduct] = useState<ProductListing | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<MarketplaceProduct | null>(null);
 
   // Directory Businesses State (Live DB)
   const [businesses, setBusinesses] = useState<DirectoryBusiness[]>([]);
@@ -457,7 +459,7 @@ export function CommercialPortalWorkspace() {
 
     const cachedProds = getStoredProducts();
     if (cachedProds && cachedProds.length > 0) {
-      setProducts(cachedProds.map(mapDbProductToProductListing));
+      setProducts(cachedProds.map(mapDbProductToMarketplaceProduct));
     }
 
     const loadAllBusinesses = async () => {
@@ -497,14 +499,14 @@ export function CommercialPortalWorkspace() {
 
     const loadAllProducts = async () => {
       try {
-        let liveProds: ProductListing[] = [];
+        let liveProds: MarketplaceProduct[] = [];
         try {
           const res = await fetch('/api/v1/products?limit=50');
           if (res.ok) {
             const data = await res.json();
             const dbProdList = data.data?.products || data.products || [];
             if (Array.isArray(dbProdList)) {
-              liveProds = dbProdList.map(mapDbProductToProductListing);
+              liveProds = dbProdList.map(mapDbProductToMarketplaceProduct);
             }
           }
         } catch (apiErr) {
@@ -675,24 +677,36 @@ export function CommercialPortalWorkspace() {
   const handleCreateProduct = (e: React.FormEvent) => {
     e.preventDefault();
     const usd = parseFloat(newProdPriceUSD) || 25;
-    const created: ProductListing = {
+    const created: MarketplaceProduct = {
       id: `p-${Date.now()}`,
+      slug: `prod-${Date.now()}`,
       title: newProdTitle.trim() || 'Commercial Supply Item',
       category: newProdCategory,
       province: newProdProvince,
-      priceUSD: usd,
-      priceZiG: Math.round(usd * 26.5),
+      priceUsd: usd,
+      priceZig: Math.round(usd * 26.5),
       unit: newProdUnit || 'Each',
       movementBadge: 'Just Arrived',
       postedAgo: 'Just now',
       stockNote: newProdStock || 'In stock',
+      location: `${newProdProvince}, Zimbabwe`,
+      condition: 'Brand New',
+      sellerId: 'biz-current',
+      sellerSlug: 'user-business',
       sellerName: user?.fullName || 'Your Registered Business',
       sellerType: 'Registered Company (Pvt Ltd)',
       sellerPlan: accountMode === 'paid_subscriber' ? 'Paid Subscriber' : 'Month 1 Free Grace',
-      whatsapp: '263772111222',
+      sellerPhone: '263772111222',
+      sellerWhatsapp: '263772111222',
+      sellerVerified: true,
       image:
         'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=700&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=700&q=80',
+      ],
       description: newProdDesc.trim() || 'Uploaded directly via Sadza Connect Commercial Portal.',
+      highlights: ['Uploaded directly via Sadza Connect Commercial Portal.'],
+      featured: false,
     };
     setProducts([created, ...products]);
     setUploadProductOpen(false);
@@ -1435,118 +1449,13 @@ export function CommercialPortalWorkspace() {
                 ) : (
                   <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
                     {filteredProducts.map((item) => (
-                      <article
+                      <ProductCard
                         key={item.id}
-                        className="group flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500/60 dark:hover:border-emerald-500/50 transition-all duration-200 overflow-hidden shadow-2xs hover:shadow-md"
-                      >
-                        <div>
-                          {/* Product Image & Top Badges */}
-                          <div className="relative aspect-[16/10] w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            <Image
-                              src={item.image}
-                              alt={item.title}
-                              fill
-                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                              className="object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                            {/* Left Badge: Movement Status */}
-                            <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
-                              <span
-                                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide shadow-xs ${
-                                  item.movementBadge === 'Fast Moving'
-                                    ? 'bg-amber-500 text-slate-950'
-                                    : item.movementBadge === 'Just Arrived'
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-slate-900/90 text-white'
-                                }`}
-                              >
-                                {item.movementBadge}
-                              </span>
-                              <span className="rounded-lg bg-white/95 dark:bg-slate-900/95 px-2.5 py-1 text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-xs">
-                                {item.province}
-                              </span>
-                            </div>
-
-                            {/* Right Badge: Time Posted */}
-                            <div className="absolute bottom-2.5 right-2.5">
-                              <span className="inline-flex items-center gap-1 rounded-lg bg-slate-950/80 backdrop-blur-xs px-2.5 py-1 text-[11px] font-medium text-white">
-                                <Clock className="h-3 w-3 text-emerald-400" />
-                                {item.postedAgo}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Product Content */}
-                          <div className="p-4 sm:p-5">
-                            <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-                              <span className="font-bold text-emerald-700 dark:text-emerald-400 truncate">
-                                {item.category}
-                              </span>
-                              <span className="shrink-0 font-semibold text-slate-500">
-                                {item.unit}
-                              </span>
-                            </div>
-
-                            <h3 className="font-display text-base font-bold text-slate-900 dark:text-white mt-1.5 line-clamp-2 leading-snug group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
-                              {item.title}
-                            </h3>
-
-                            {/* Dual Currency Price Box */}
-                            <div className="mt-3 flex items-baseline justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 px-3 py-2 border border-slate-100 dark:border-slate-800">
-                              <div>
-                                <span className="font-display text-lg font-extrabold text-slate-900 dark:text-white">
-                                  USD ${item.priceUSD.toLocaleString()}
-                                </span>
-                                <span className="ml-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                  / {item.priceZiG.toLocaleString()} ZiG
-                                </span>
-                              </div>
-                            </div>
-
-                            <p className="mt-2.5 text-xs text-emerald-700 dark:text-emerald-400 font-semibold truncate">
-                              • {item.stockNote}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Seller Info & Action Footer */}
-                        <div className="px-4 sm:px-5 py-3 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
-                              {item.sellerName}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                                {item.sellerType}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setQuickViewProduct(item)}
-                              title="Quick view details"
-                              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 cursor-pointer"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <a
-                              href={`https://wa.me/${sanitizePhoneNumber(item.whatsapp)}?text=Hi%20${encodeURIComponent(
-                                item.sellerName
-                              )},%20I%20saw%20your%20product%20"${encodeURIComponent(
-                                item.title
-                              )}"%20(USD%20$${item.priceUSD})%20on%20Sadza%20Connect.`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold transition-colors"
-                            >
-                              <MessageCircle className="h-3.5 w-3.5" />
-                              <span>Inquire</span>
-                            </a>
-                          </div>
-                        </div>
-                      </article>
+                        product={item}
+                        onViewProduct={() => {
+                          window.location.href = `/marketplace?product=${encodeURIComponent(item.slug || item.id)}`;
+                        }}
+                      />
                     ))}
                   </div>
                 )}
@@ -2812,9 +2721,9 @@ export function CommercialPortalWorkspace() {
               <div>
                 <p className="text-xs text-slate-500">Commercial Price</p>
                 <p className="font-display text-lg font-extrabold text-slate-900 dark:text-white">
-                  USD ${quickViewProduct.priceUSD.toLocaleString()}{' '}
+                  USD ${quickViewProduct.priceUsd.toLocaleString()}{' '}
                   <span className="text-xs font-semibold text-slate-500">
-                    / {quickViewProduct.priceZiG.toLocaleString()} ZiG ({quickViewProduct.unit})
+                    / {(quickViewProduct.priceZig || Math.round(quickViewProduct.priceUsd * 26.5)).toLocaleString()} ZiG ({quickViewProduct.unit})
                   </span>
                 </p>
               </div>
@@ -2837,7 +2746,7 @@ export function CommercialPortalWorkspace() {
                 </p>
               </div>
               <a
-                href={`https://wa.me/${sanitizePhoneNumber(quickViewProduct.whatsapp)}?text=Hi%20${encodeURIComponent(
+                href={`https://wa.me/${sanitizePhoneNumber(quickViewProduct.sellerWhatsapp || quickViewProduct.sellerPhone || '263772111222')}?text=Hi%20${encodeURIComponent(
                   quickViewProduct.sellerName
                 )},%20I%20would%20like%20to%20order%20"${encodeURIComponent(
                   quickViewProduct.title
