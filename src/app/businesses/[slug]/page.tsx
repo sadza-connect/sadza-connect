@@ -42,6 +42,7 @@ import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { mapDbJobToOpening } from '@/lib/data/job-mapper';
 import { getOnboardingDraft } from '@/lib/utils/onboarding-state';
 import { ProductCard } from '@/components/marketplace/ProductCard';
+import { ProductDetailModal } from '@/components/marketplace/ProductDetailModal';
 
 export default function BusinessProfilePage() {
   const params = useParams<{ slug: string }>();
@@ -54,6 +55,7 @@ export default function BusinessProfilePage() {
   const [usdToZig, setUsdToZig] = useState<number>(26.5);
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'jobs' | 'reviews'>('overview');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
 
   // Review Form State
   const [reviewerName, setReviewerName] = useState('');
@@ -597,9 +599,7 @@ export default function BusinessProfilePage() {
                         <ProductCard
                           key={prod.id}
                           product={prod}
-                          onViewProduct={() => {
-                            window.location.href = `/marketplace?product=${encodeURIComponent(prod.slug)}`;
-                          }}
+                          onViewProduct={(p) => setSelectedProduct(p)}
                         />
                       ))}
                     </div>
@@ -888,6 +888,15 @@ export default function BusinessProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Product Detail Pop-Up Modal */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        onSelectProduct={(p) => setSelectedProduct(p)}
+        allProducts={products}
+      />
 
       <Footer />
     </div>

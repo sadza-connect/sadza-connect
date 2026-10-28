@@ -62,6 +62,7 @@ import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { ProductCard } from '@/components/marketplace/ProductCard';
+import { ProductDetailModal } from '@/components/marketplace/ProductDetailModal';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const BUSINESS_SCALES = [
@@ -2877,108 +2878,16 @@ export function CommercialPortalWorkspace() {
       )}
 
       {/* =====================================================================
-          MODAL 4: PRODUCT QUICK VIEW
+          MODAL 4: PRODUCT QUICK VIEW / DETAILS MODAL
+          (Figma Replica pop-up with specs, verified seller, related products)
       ===================================================================== */}
-      {quickViewProduct && (
-        <Modal
-          isOpen={!!quickViewProduct}
-          onClose={() => setQuickViewProduct(null)}
-          title={quickViewProduct.title}
-          description={`${quickViewProduct.category} • Listed by ${quickViewProduct.sellerName} (${quickViewProduct.province})`}
-        >
-          <div className="space-y-4">
-            {/* Multi-Image Gallery with up to 5 images */}
-            {(() => {
-              const qvImages = (
-                quickViewProduct.images && quickViewProduct.images.length > 0
-                  ? quickViewProduct.images
-                  : quickViewProduct.image
-                  ? [quickViewProduct.image]
-                  : []
-              ).filter(Boolean).slice(0, 5);
-              const activeQvImg = qvImages[quickViewImageIndex] || quickViewProduct.image;
-
-              return (
-                <div className="space-y-2.5">
-                  <div className="relative h-56 sm:h-64 w-full rounded-xl overflow-hidden bg-slate-900 shadow-inner">
-                    <Image
-                      src={activeQvImg}
-                      alt={quickViewProduct.title}
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute bottom-2.5 right-2.5 bg-black/70 text-white text-[11px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
-                      {quickViewImageIndex + 1} / {qvImages.length}
-                    </div>
-                  </div>
-
-                  {qvImages.length > 1 && (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                      {qvImages.map((img, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setQuickViewImageIndex(idx)}
-                          className={`relative h-14 w-18 rounded-lg overflow-hidden border-2 cursor-pointer transition shrink-0 ${
-                            quickViewImageIndex === idx
-                              ? 'border-emerald-600 ring-2 ring-emerald-500/20'
-                              : 'border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100'
-                          }`}
-                        >
-                          <Image src={img} alt={`thumb ${idx + 1}`} fill className="object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800 p-3.5 border border-slate-200 dark:border-slate-700">
-              <div>
-                <p className="text-xs text-slate-500">Commercial Price</p>
-                <p className="font-display text-lg font-extrabold text-slate-900 dark:text-white">
-                  USD ${quickViewProduct.priceUsd.toLocaleString()}{' '}
-                  <span className="text-xs font-semibold text-slate-500">
-                    / {(quickViewProduct.priceZig || Math.round(quickViewProduct.priceUsd * 26.5)).toLocaleString()} ZiG ({quickViewProduct.unit})
-                  </span>
-                </p>
-              </div>
-              <span className="rounded-lg bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold">
-                {quickViewProduct.province}
-              </span>
-            </div>
-
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              {quickViewProduct.description}
-            </p>
-
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
-              <div className="text-xs">
-                <p className="font-bold text-slate-900 dark:text-white">
-                  {quickViewProduct.sellerName}
-                </p>
-                <p className="text-slate-500">
-                  {quickViewProduct.sellerType} • {quickViewProduct.sellerPlan}
-                </p>
-              </div>
-              <a
-                href={`https://wa.me/${sanitizePhoneNumber(quickViewProduct.sellerWhatsapp || quickViewProduct.sellerPhone || '263772111222')}?text=Hi%20${encodeURIComponent(
-                  quickViewProduct.sellerName
-                )},%20I%20would%20like%20to%20order%20"${encodeURIComponent(
-                  quickViewProduct.title
-                )}"%20listed%20on%20Sadza%20Connect.`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs font-bold"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span>Order via WhatsApp</span>
-              </a>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <ProductDetailModal
+        product={quickViewProduct}
+        isOpen={!!quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
+        onSelectProduct={(p) => setQuickViewProduct(p)}
+        allProducts={products}
+      />
 
       {/* =====================================================================
           MODAL 5: JOB QUICK APPLY
