@@ -9,21 +9,31 @@ import {
   MessageCircle,
   CheckCircle2,
   MapPin,
-  Bookmark,
-  RotateCcw,
-  Plus,
+  Heart,
+  ChevronRight,
   SlidersHorizontal,
   ArrowUpDown,
   ShieldCheck,
   Check,
   Sparkles,
-  Heart,
-  ChevronRight,
   Filter,
+  RotateCcw,
+  X,
+  Share2,
+  LayoutGrid,
+  Grid,
+  List,
+  Tag,
+  Clock,
+  Phone,
+  ExternalLink,
+  ShieldAlert,
+  Headphones,
+  Lock,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { MarketplaceProduct } from '@/lib/data/zimbabwe';
+import { MarketplaceProduct, SAMPLE_PRODUCTS } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getSavedProductIds,
@@ -33,41 +43,64 @@ import {
 import { createProductInquiryLink } from '@/lib/utils/whatsapp';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 
+const SECTORS_WITH_COUNTS = [
+  { name: 'Agriculture', count: 65 },
+  { name: 'Construction', count: 48 },
+  { name: 'Energy & Solar', count: 37 },
+  { name: 'Manufacturing', count: 28 },
+  { name: 'Vehicles & Transport', count: 31 },
+  { name: 'Tools & Equipment', count: 22 },
+  { name: 'Business Services', count: 19 },
+  { name: 'Home & Office', count: 26 },
+  { name: 'Other', count: 18 },
+];
+
 export default function MarketplacePage() {
-  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
+  // Initialize with SAMPLE_PRODUCTS for instant paint
+  const [products, setProducts] = useState<MarketplaceProduct[]>(SAMPLE_PRODUCTS);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [usdToZig, setUsdToZig] = useState<number>(26.5);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSector, setSelectedSector] = useState('All Sectors');
-  const [selectedProvince, setSelectedProvince] = useState('All Provinces');
-  const [selectedCondition, setSelectedCondition] = useState('All Conditions');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [selectedProvinces, setSelectedProvinces] = useState<string>('All Provinces');
+  const [selectedSectors, setSelectedSectors] = useState<string[]>(['Energy & Solar']);
+  const [selectedConditions, setSelectedConditions] = useState<string[]>(['Brand New']);
+  const [minPriceUsd, setMinPriceUsd] = useState('');
+  const [maxPriceUsd, setMaxPriceUsd] = useState('');
+  const [minPriceZig, setMinPriceZig] = useState('');
+  const [maxPriceZig, setMaxPriceZig] = useState('');
+  const [inStockOnly, setInStockOnly] = useState(true);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'newest'>('featured');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(SAMPLE_PRODUCTS[0] || null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadMarketplace() {
-      setIsLoading(true);
       try {
         const res = await fetch('/api/v1/products?limit=100');
         const json = await res.json();
         if (json.success && Array.isArray(json.data?.products)) {
           if (isMounted) {
             const mapped = json.data.products.map(mapDbProductToMarketplaceProduct);
-            setProducts(mapped);
+            // Merge DB products with sample products (avoid duplicate slugs)
+            const existingSlugs = new Set(mapped.map((p: MarketplaceProduct) => p.slug));
+            const merged = [
+              ...mapped,
+              ...SAMPLE_PRODUCTS.filter((sp) => !existingSlugs.has(sp.slug)),
+            ];
+            setProducts(merged);
+            if (!selectedProduct && merged.length > 0) {
+              setSelectedProduct(merged[0]);
+            }
           }
-        } else if (isMounted) {
-          setProducts([]);
         }
-      } catch {
-        if (isMounted) setProducts([]);
-      } finally {
-        if (isMounted) setIsLoading(false);
+      } catch (err) {
+        console.warn('Using default marketplace showcase products', err);
       }
     }
 
@@ -76,9 +109,9 @@ export default function MarketplacePage() {
       const q = urlParams.get('q');
       if (q) setSearchTerm(q);
       const prov = urlParams.get('province');
-      if (prov) setSelectedProvince(prov);
+      if (prov) setSelectedProvinces(prov);
       const sec = urlParams.get('sector');
-      if (sec) setSelectedSector(sec);
+      if (sec) setSelectedSectors([sec]);
     }
 
     loadMarketplace();
@@ -97,20 +130,62 @@ export default function MarketplacePage() {
     };
   }, []);
 
-  // Compute sector counts
-  const sectorCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const p of products) {
-      counts[p.category] = (counts[p.category] || 0) + 1;
+  // Sync USD and ZiG price inputs
+  const handleMinUsdChange = (val: string) => {
+    setMinPriceUsd(val);
+    if (val && !isNaN(Number(val))) {
+      setMinPriceZig(Math.round(Number(val) * usdToZig).toString());
+    } else {
+      setMinPriceZig('');
     }
-    return counts;
-  }, [products]);
+  };
+
+  const handleMaxUsdChange = (val: string) => {
+    setMaxPriceUsd(val);
+    if (val && !isNaN(Number(val))) {
+      setMaxPriceZig(Math.round(Number(val) * usdToZig).toString());
+    } else {
+      setMaxPriceZig('');
+    }
+  };
+
+  const handleMinZigChange = (val: string) => {
+    setMinPriceZig(val);
+    if (val && !isNaN(Number(val))) {
+      setMinPriceUsd((Number(val) / usdToZig).toFixed(1));
+    } else {
+      setMinPriceUsd('');
+    }
+  };
+
+  const handleMaxZigChange = (val: string) => {
+    setMaxPriceZig(val);
+    if (val && !isNaN(Number(val))) {
+      setMaxPriceUsd((Number(val) / usdToZig).toFixed(1));
+    } else {
+      setMaxPriceUsd('');
+    }
+  };
+
+  const toggleSector = (sectorName: string) => {
+    setSelectedSectors((prev) =>
+      prev.includes(sectorName)
+        ? prev.filter((s) => s !== sectorName)
+        : [...prev, sectorName]
+    );
+  };
+
+  const toggleCondition = (cond: string) => {
+    setSelectedConditions((prev) =>
+      prev.includes(cond) ? prev.filter((c) => c !== cond) : [...prev, cond]
+    );
+  };
 
   // Filtered & Sorted products
   const filteredProducts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const min = minPrice ? parseFloat(minPrice) : null;
-    const max = maxPrice ? parseFloat(maxPrice) : null;
+    const min = minPriceUsd ? parseFloat(minPriceUsd) : null;
+    const max = maxPriceUsd ? parseFloat(maxPriceUsd) : null;
 
     const filtered = products.filter((prod) => {
       const matchesSearch =
@@ -121,15 +196,21 @@ export default function MarketplacePage() {
         prod.description.toLowerCase().includes(q);
 
       const matchesSector =
-        selectedSector === 'All Sectors' ||
-        prod.category.toLowerCase() === selectedSector.toLowerCase();
+        selectedSectors.length === 0 ||
+        selectedSectors.some(
+          (s) =>
+            prod.category.toLowerCase().includes(s.toLowerCase()) ||
+            s.toLowerCase().includes(prod.category.toLowerCase())
+        );
 
       const matchesProvince =
-        selectedProvince === 'All Provinces' || prod.province === selectedProvince;
+        selectedProvinces === 'All Provinces' || prod.province === selectedProvinces;
 
       const matchesCondition =
-        selectedCondition === 'All Conditions' ||
-        prod.condition === selectedCondition;
+        selectedConditions.length === 0 ||
+        selectedConditions.includes(prod.condition);
+
+      const matchesStock = !inStockOnly || prod.stockNote.toLowerCase().includes('stock');
 
       const matchesMin = min === null || isNaN(min) || prod.priceUsd >= min;
       const matchesMax = max === null || isNaN(max) || prod.priceUsd <= max;
@@ -140,6 +221,7 @@ export default function MarketplacePage() {
         matchesSector &&
         matchesProvince &&
         matchesCondition &&
+        matchesStock &&
         matchesMin &&
         matchesMax &&
         matchesVerified
@@ -150,546 +232,452 @@ export default function MarketplacePage() {
       if (sortBy === 'price-asc') return a.priceUsd - b.priceUsd;
       if (sortBy === 'price-desc') return b.priceUsd - a.priceUsd;
       if (sortBy === 'newest') return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
-      // default: featured first
       if (a.featured && !b.featured) return -1;
       if (!a.featured && b.featured) return 1;
-      if (a.sellerVerified && !b.sellerVerified) return -1;
-      if (!a.sellerVerified && b.sellerVerified) return 1;
       return 0;
     });
   }, [
     products,
     searchTerm,
-    selectedSector,
-    selectedProvince,
-    selectedCondition,
-    minPrice,
-    maxPrice,
+    selectedSectors,
+    selectedProvinces,
+    selectedConditions,
+    inStockOnly,
+    minPriceUsd,
+    maxPriceUsd,
     verifiedOnly,
     sortBy,
   ]);
 
   const hasActiveFilters =
     Boolean(searchTerm) ||
-    selectedSector !== 'All Sectors' ||
-    selectedProvince !== 'All Provinces' ||
-    selectedCondition !== 'All Conditions' ||
-    Boolean(minPrice) ||
-    Boolean(maxPrice) ||
+    selectedSectors.length > 0 ||
+    selectedProvinces !== 'All Provinces' ||
+    selectedConditions.length > 0 ||
+    Boolean(minPriceUsd) ||
+    Boolean(maxPriceUsd) ||
+    !inStockOnly ||
     verifiedOnly;
 
   const handleResetFilters = () => {
     setSearchTerm('');
-    setSelectedSector('All Sectors');
-    setSelectedProvince('All Provinces');
-    setSelectedCondition('All Conditions');
-    setMinPrice('');
-    setMaxPrice('');
+    setSelectedSectors([]);
+    setSelectedProvinces('All Provinces');
+    setSelectedConditions([]);
+    setMinPriceUsd('');
+    setMaxPriceUsd('');
+    setMinPriceZig('');
+    setMaxPriceZig('');
+    setInStockOnly(false);
     setVerifiedOnly(false);
   };
 
+  const handleSelectProduct = (prod: MarketplaceProduct) => {
+    setSelectedProduct(prod);
+    setIsDrawerOpen(true);
+    setSelectedImageIndex(0);
+  };
+
+  const productImages = useMemo(() => {
+    if (!selectedProduct) return [];
+    if (selectedProduct.images && selectedProduct.images.length > 0) {
+      return selectedProduct.images;
+    }
+    return [selectedProduct.image];
+  }, [selectedProduct]);
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 py-6 sm:py-10">
-        <div className="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header Banner */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 sm:mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
+      <main className="flex-1 py-6 sm:py-8">
+        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header Row: Products & Services + Subtitle + Count/Sort/Views */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 mb-2.5">
-                <ShoppingBag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>National Commercial Marketplace • Direct Wholesale &amp; Retail</span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                Commercial Stock &amp; Equipment Catalog
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Products &amp; Services
               </h1>
-              <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-3xl">
-                Browse verified stock uploaded by registered Zimbabwean businesses. Direct WhatsApp negotiation with real-time USD &amp; ZiG dual-currency pricing.
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Verified businesses. Real opportunities. A stronger Zimbabwe.
               </p>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <Link
-                href="/dashboard/business?tab=products"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition shadow-xs"
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                1 – {filteredProducts.length} of {products.length} results
+              </span>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 hidden sm:inline">Sort by:</span>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="featured">Most Relevant</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                    <option value="newest">Newest</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Grid / List View Toggle */}
+              <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 transition ${
+                    viewMode === 'grid'
+                      ? 'bg-[#005a36] text-white'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                  aria-label="Grid View"
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 transition ${
+                    viewMode === 'list'
+                      ? 'bg-[#005a36] text-white'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                  aria-label="List View"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Mobile Filter Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setShowMobileFilters(true)}
+                className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200"
               >
-                <Plus className="w-4 h-4" />
-                <span>Upload Product SKU</span>
-              </Link>
+                <Filter className="w-4 h-4 text-[#007a3d]" />
+                <span>Filters</span>
+              </button>
             </div>
           </div>
 
-          {/* Quick Category Pills on Mobile (Horizontal Scrollable) */}
-          <div className="lg:hidden mb-5 -mx-4 px-4 overflow-x-auto scrollbar-none flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedSector('All Sectors')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 ${
-                selectedSector === 'All Sectors'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              All Sectors ({products.length})
-            </button>
-            {COMMERCIAL_SECTORS.map((sec) => {
-              const count = sectorCounts[sec.name] || 0;
-              const isSelected = selectedSector === sec.name;
-              return (
-                <button
-                  key={sec.name}
-                  type="button"
-                  onClick={() => setSelectedSector(sec.name)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition shrink-0 flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <span>{sec.name}</span>
-                  {count > 0 && (
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                        isSelected
-                          ? 'bg-emerald-800 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Dual-Column Layout: Sidebar Filters + Main Product Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Desktop Left Sidebar Filters (Matching sadza-connect-marketplace-product.png) */}
-            <aside className="hidden lg:block lg:col-span-3 space-y-6 sticky top-24">
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-6">
+          {/* 3-Column Layout: Left Filters + Center Products Grid + Right Specs Drawer */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* -------------------------------------------------------------
+                LEFT SIDEBAR: FILTERS (Matching Figma sadza-connect-marketplace-product.png)
+            ------------------------------------------------------------- */}
+            <aside className="hidden lg:block lg:col-span-3 space-y-5 sticky top-20">
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-5">
+                {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-emerald-600" />
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                      Filter Catalog
-                    </h2>
-                  </div>
-                  {hasActiveFilters && (
-                    <button
-                      type="button"
-                      onClick={handleResetFilters}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reset</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Filter 1: Commercial Sectors */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
-                    Commercial Sector
-                  </h3>
-                  <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSector('All Sectors')}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
-                        selectedSector === 'All Sectors'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <span>All Sectors</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {products.length}
-                      </span>
-                    </button>
-
-                    {COMMERCIAL_SECTORS.map((sec) => {
-                      const count = sectorCounts[sec.name] || 0;
-                      const isSelected = selectedSector === sec.name;
-                      return (
-                        <button
-                          key={sec.name}
-                          type="button"
-                          onClick={() => setSelectedSector(sec.name)}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
-                            isSelected
-                              ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800'
-                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                          }`}
-                        >
-                          <span className="truncate pr-2">{sec.name}</span>
-                          <span
-                            className={`text-[11px] px-1.5 py-0.5 rounded-full shrink-0 ${
-                              isSelected
-                                ? 'bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-900 dark:text-emerald-100'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                            }`}
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Filter 2: Dual Price Range */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5">
-                    Price Range (USD $)
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-medium">Min ($)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={minPrice}
-                        onChange={(e) => setMinPrice(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:outline-none focus:border-emerald-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-medium">Max ($)</label>
-                      <input
-                        type="number"
-                        placeholder="Any"
-                        value={maxPrice}
-                        onChange={(e) => setMaxPrice(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:outline-none focus:border-emerald-600"
-                      />
-                    </div>
-                  </div>
-                  {(minPrice || maxPrice) && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
-                      ≈ {minPrice ? (Number(minPrice) * usdToZig).toLocaleString() : '0'} to{' '}
-                      {maxPrice ? (Number(maxPrice) * usdToZig).toLocaleString() : 'Any'} ZiG
-                    </p>
-                  )}
-                </div>
-
-                {/* Filter 3: Province / Location */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                    Province
-                  </h3>
-                  <select
-                    value={selectedProvince}
-                    onChange={(e) => setSelectedProvince(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:border-emerald-600"
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                    Filters
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs font-semibold text-[#007a3d] hover:text-[#005a2b] hover:underline cursor-pointer"
                   >
-                    {CLEAN_PROVINCES.map((prov) => (
-                      <option key={prov} value={prov}>
-                        {prov}
+                    Reset all
+                  </button>
+                </div>
+
+                {/* 1. Province Dropdown */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 mb-2">
+                    <MapPin className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                    <span>Province</span>
+                  </label>
+                  <select
+                    value={selectedProvinces}
+                    onChange={(e) => setSelectedProvinces(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 text-xs font-medium focus:outline-none focus:border-[#007a3d]"
+                  >
+                    {CLEAN_PROVINCES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Filter 4: Condition */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                    Item Condition
-                  </h3>
-                  <select
-                    value={selectedCondition}
-                    onChange={(e) => setSelectedCondition(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:border-emerald-600"
-                  >
-                    <option value="All Conditions">All Conditions</option>
-                    <option value="Brand New">Brand New</option>
-                    <option value="Certified Used">Certified Used</option>
-                    <option value="Locally Fabricated">Locally Fabricated</option>
-                  </select>
+                {/* 2. Sector Checkboxes with Counts */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 mb-2.5">
+                    <LayoutGrid className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                    <span>Sector</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                    {SECTORS_WITH_COUNTS.map((sec) => {
+                      const isChecked = selectedSectors.includes(sec.name);
+                      return (
+                        <label
+                          key={sec.name}
+                          className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleSector(sec.name)}
+                              className="h-4 w-4 rounded border-slate-300 text-[#007a3d] focus:ring-[#007a3d] cursor-pointer"
+                            />
+                            <span
+                              className={`${
+                                isChecked
+                                  ? 'font-bold text-slate-900 dark:text-white'
+                                  : 'text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              {sec.name}
+                            </span>
+                          </div>
+                          <span className="text-slate-400 dark:text-slate-500 text-[11px] font-medium">
+                            {sec.count}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Filter 5: Verified & In-Stock Only Toggle */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>Verified Sellers Only</span>
-                    </span>
+                {/* 3. Dual Currency Price Inputs */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 mb-2.5">
+                    <Tag className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                    <span>Price</span>
+                  </div>
+
+                  {/* USD row */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-8 text-[11px] font-bold text-slate-500">USD</span>
                     <input
-                      type="checkbox"
-                      checked={verifiedOnly}
-                      onChange={(e) => setVerifiedOnly(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      type="number"
+                      placeholder="Min"
+                      value={minPriceUsd}
+                      onChange={(e) => handleMinUsdChange(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs focus:outline-none focus:border-[#007a3d]"
                     />
-                  </label>
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={maxPriceUsd}
+                      onChange={(e) => handleMaxUsdChange(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs focus:outline-none focus:border-[#007a3d]"
+                    />
+                  </div>
+
+                  {/* ZiG row */}
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 text-[11px] font-bold text-slate-500">ZiG</span>
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={minPriceZig}
+                      onChange={(e) => handleMinZigChange(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs focus:outline-none focus:border-[#007a3d]"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={maxPriceZig}
+                      onChange={(e) => handleMaxZigChange(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs focus:outline-none focus:border-[#007a3d]"
+                    />
+                  </div>
                 </div>
 
-                {/* Dual Currency Exchange Rate Indicator */}
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
-                  <p className="font-semibold text-slate-700 dark:text-slate-300 mb-0.5">
-                    Real-time Benchmark
-                  </p>
-                  <p>
-                    1 USD = <strong className="text-slate-900 dark:text-white">{usdToZig} ZiG</strong>
-                  </p>
+                {/* 4. Condition Checkboxes */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100 mb-2.5">
+                    <Sparkles className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                    <span>Condition</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {['Brand New', 'Certified Used', 'Locally Fabricated'].map((cond) => {
+                      const isChecked = selectedConditions.includes(cond);
+                      return (
+                        <label
+                          key={cond}
+                          className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleCondition(cond)}
+                            className="h-4 w-4 rounded border-slate-300 text-[#007a3d] focus:ring-[#007a3d] cursor-pointer"
+                          />
+                          <span
+                            className={`${
+                              isChecked
+                                ? 'font-bold text-slate-900 dark:text-white'
+                                : 'text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {cond}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 5. In Stock Only Toggle */}
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
+                    <Clock className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                    <span>In Stock Only</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={inStockOnly}
+                    onClick={() => setInStockOnly(!inStockOnly)}
+                    className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors cursor-pointer ${
+                      inStockOnly ? 'bg-[#007a3d]' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        inStockOnly ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Apply Filters Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {}}
+                    className="w-full py-3 rounded-xl bg-[#005a36] hover:bg-[#00472b] text-white font-bold text-xs sm:text-sm shadow-xs transition cursor-pointer"
+                  >
+                    Apply Filters
+                  </button>
                 </div>
               </div>
             </aside>
 
-            {/* Right Main Product Listing Area */}
-            <div className="lg:col-span-9 space-y-6">
-              {/* Search Bar & Sort Bar */}
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search solar panels, inverters, cement, fertilizer, laptops, commercial parts..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Mobile filter toggle button */}
-                    <button
-                      type="button"
-                      onClick={() => setShowMobileFilters(!showMobileFilters)}
-                      className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-semibold text-slate-800 dark:text-slate-200"
-                    >
-                      <Filter className="w-4 h-4 text-emerald-600" />
-                      <span>Filters</span>
-                    </button>
-
-                    <div className="relative flex items-center">
-                      <ArrowUpDown className="absolute left-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
-                        className="pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-emerald-600 appearance-none cursor-pointer"
-                      >
-                        <option value="featured">Featured First</option>
-                        <option value="price-asc">Price: Low to High</option>
-                        <option value="price-desc">Price: High to Low</option>
-                        <option value="newest">Newest Uploads</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Results count & active tags bar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <span>
-                      Showing <strong className="text-slate-900 dark:text-white">{filteredProducts.length}</strong> verified commercial items
-                    </span>
-                    {hasActiveFilters && (
-                      <span className="text-emerald-600 font-semibold">• Filters Active</span>
-                    )}
-                  </div>
-                  {hasActiveFilters && (
-                    <button
-                      type="button"
-                      onClick={handleResetFilters}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Clear all filters</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Mobile Expanded Filters Drawer */}
-                {showMobileFilters && (
-                  <div className="lg:hidden pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <select
-                        value={selectedSector}
-                        onChange={(e) => setSelectedSector(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium"
-                      >
-                        <option value="All Sectors">All Sectors</option>
-                        {COMMERCIAL_SECTORS.map((sec) => (
-                          <option key={sec.name} value={sec.name}>
-                            {sec.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={selectedProvince}
-                        onChange={(e) => setSelectedProvince(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium"
-                      >
-                        {CLEAN_PROVINCES.map((prov) => (
-                          <option key={prov} value={prov}>
-                            {prov}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={verifiedOnly}
-                          onChange={(e) => setVerifiedOnly(e.target.checked)}
-                          className="h-4 w-4 rounded text-emerald-600"
-                        />
-                        <span>Verified Sellers Only</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowMobileFilters(false)}
-                        className="px-3 py-1 rounded-md bg-emerald-600 text-white text-xs font-bold"
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Product Cards Grid (Matching Figma sadza-connect-marketplace-product.png) */}
-              {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {[...Array(6)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden p-4 space-y-3 animate-pulse"
-                    >
-                      <div className="aspect-[4/3] rounded-xl bg-slate-200 dark:bg-slate-800 w-full" />
-                      <div className="h-6 w-3/4 rounded bg-slate-200 dark:bg-slate-800" />
-                      <div className="h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-800" />
-                    </div>
-                  ))}
-                </div>
-              ) : filteredProducts.length === 0 ? (
+            {/* -------------------------------------------------------------
+                CENTER: PRODUCT GRID (Matching Figma sadza-connect-marketplace-product.png)
+            ------------------------------------------------------------- */}
+            <div
+              className={`${
+                isDrawerOpen && selectedProduct
+                  ? 'lg:col-span-5 2xl:col-span-5'
+                  : 'lg:col-span-9'
+              } space-y-4 transition-all duration-300`}
+            >
+              {filteredProducts.length === 0 ? (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center space-y-4">
-                  <div className="h-16 w-16 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                    <ShoppingBag className="w-8 h-8" />
-                  </div>
+                  <ShoppingBag className="w-10 h-10 text-slate-400 mx-auto" />
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    No products matched your search filters
+                    No products matched your filters
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-                    Try broadening your keywords, clearing the sector filter, or expanding the price range to explore all Zimbabwean commercial stock.
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Try broadening your selection or clicking reset to explore all Zimbabwean commercial stock.
                   </p>
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition"
+                    className="px-4 py-2 rounded-xl bg-[#005a36] text-white text-xs font-bold"
                   >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Clear All Filters</span>
+                    Reset Filters
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
+                <div
+                  className={`grid ${
+                    isDrawerOpen && selectedProduct
+                      ? 'grid-cols-1 sm:grid-cols-2 gap-4'
+                      : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5'
+                  }`}
+                >
                   {filteredProducts.map((prod) => {
                     const zigPrice = Math.round(prod.priceUsd * usdToZig);
-                    const whatsappLink = createProductInquiryLink(
-                      prod.title,
-                      prod.priceUsd,
-                      prod.sellerPhone
-                    );
                     const isSaved = savedIds.includes(prod.id);
+                    const isSelected = selectedProduct?.id === prod.id && isDrawerOpen;
 
                     return (
                       <div
                         key={prod.id}
-                        className="group flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs hover:border-emerald-500/70 hover:shadow-md transition-all"
+                        onClick={() => handleSelectProduct(prod)}
+                        className={`group relative flex flex-col justify-between rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-[#007a3d] ring-2 ring-[#007a3d]/20 shadow-md'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md'
+                        }`}
                       >
                         <div>
                           {/* 4:3 Aspect Ratio Product Photo */}
                           <div className="relative aspect-[4/3] w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            {prod.image ? (
-                              <Image
-                                src={prod.image}
-                                alt={prod.title}
-                                fill
-                                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full flex-col items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                                <ShoppingBag className="h-10 w-10 stroke-[1.5] text-slate-300 dark:text-slate-600" />
-                                <span className="mt-1 text-xs font-semibold text-slate-400">
-                                  Catalog Photo
-                                </span>
-                              </div>
-                            )}
+                            <Image
+                              src={prod.image}
+                              alt={prod.title}
+                              fill
+                              sizes="(max-width: 640px) 100vw, 50vw"
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
 
-                            {/* Top Badges: Category & Wishlist */}
-                            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-950/80 text-emerald-400 backdrop-blur-md shadow-xs border border-white/10">
+                            {/* Top Badges: Category Pill (Left) & Heart Wishlist (Right) */}
+                            <div className="absolute top-2.5 left-2.5 z-10">
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#e1f5ec] text-[#0f5132]">
                                 {prod.category}
                               </span>
+                            </div>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setSavedIds(toggleSavedProductId(prod.id));
-                                }}
-                                aria-label="Save to Wishlist"
-                                className={`pointer-events-auto h-8 w-8 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-md ${
-                                  isSaved
-                                    ? 'bg-rose-600 text-white'
-                                    : 'bg-slate-950/60 hover:bg-slate-950/90 text-white backdrop-blur-md'
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSavedIds(toggleSavedProductId(prod.id));
+                              }}
+                              aria-label="Save to Wishlist"
+                              className={`absolute top-2.5 right-2.5 h-7 w-7 rounded-full flex items-center justify-center transition-colors shadow-xs z-10 cursor-pointer ${
+                                isSaved
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-white/80 dark:bg-slate-900/80 hover:bg-white text-slate-700 dark:text-slate-200 backdrop-blur-xs'
+                              }`}
+                            >
+                              <Heart
+                                className={`w-3.5 h-3.5 ${
+                                  isSaved ? 'fill-current text-white' : ''
                                 }`}
-                              >
-                                <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-                              </button>
-                            </div>
-
-                            {/* Bottom-left Photo Badge: In Stock / Ready to Dispatch */}
-                            <div className="absolute bottom-3 left-3 z-10">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-white/95 dark:bg-slate-950/90 text-slate-900 dark:text-slate-100 backdrop-blur-xs shadow-xs border border-slate-200/50 dark:border-slate-800">
-                                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <span>{prod.stockNote || 'In Stock • Ready'}</span>
-                              </span>
-                            </div>
+                              />
+                            </button>
                           </div>
 
-                          {/* Card Content Body */}
-                          <div className="p-4 sm:p-5 space-y-3">
-                            {/* Dual Currency Price (Matching Figma) */}
-                            <div>
-                              <div className="flex flex-wrap items-baseline gap-2">
-                                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                                  USD ${prod.priceUsd.toLocaleString()}
-                                </span>
-                                <span className="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-                                  ≈ {zigPrice.toLocaleString()} ZiG
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                {prod.unit || 'Per Unit'} • {prod.condition}
-                              </p>
+                          {/* Card Content */}
+                          <div className="p-4 space-y-2">
+                            {/* Product Title */}
+                            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-1">
+                              {prod.title}
+                            </h2>
+
+                            {/* Location */}
+                            <div className="flex items-center gap-1 text-xs text-slate-500">
+                              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>{prod.province}</span>
                             </div>
 
-                            {/* Product Title */}
-                            <Link
-                              href={`/marketplace/${prod.slug}`}
-                              className="block group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                            >
-                              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">
-                                {prod.title}
-                              </h2>
-                            </Link>
+                            {/* Dual Currency Price: US$1,250 | ZiG 33,125 */}
+                            <div className="pt-1 flex items-baseline gap-2">
+                              <span className="font-extrabold text-slate-900 dark:text-white text-base">
+                                US${prod.priceUsd.toLocaleString()}
+                              </span>
+                              <span className="text-slate-300 dark:text-slate-600">|</span>
+                              <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                                ZiG {zigPrice.toLocaleString()}
+                              </span>
+                            </div>
 
-                            {/* Seller Attribution with circular logo / verified badge */}
+                            {/* Merchant Attribution Row */}
                             <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                              <Link
-                                href={`/businesses/${prod.sellerSlug}`}
-                                className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-600 transition truncate group/seller"
-                              >
-                                <div className="relative h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden text-[10px] font-black text-emerald-700 dark:text-emerald-400">
+                              <div className="flex items-center gap-2">
+                                <div className="relative h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[10px] font-bold text-[#007a3d]">
                                   {prod.sellerLogo ? (
                                     <Image
                                       src={prod.sellerLogo}
@@ -701,41 +689,21 @@ export default function MarketplacePage() {
                                     <span>{prod.sellerName.substring(0, 2).toUpperCase()}</span>
                                   )}
                                 </div>
-                                <span className="truncate group-hover/seller:underline">
-                                  {prod.sellerName}
-                                </span>
-                                {prod.sellerVerified && (
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                )}
-                              </Link>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-semibold text-slate-900 dark:text-white text-xs">
+                                    {prod.sellerName}
+                                  </span>
+                                  {prod.sellerVerified && (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-[#007a3d] shrink-0 fill-[#007a3d] text-white" />
+                                  )}
+                                </div>
+                              </div>
 
-                              <span className="text-slate-500 dark:text-slate-400 text-[11px] shrink-0 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-slate-400" />
-                                {prod.province}
+                              <span className="text-[#007a3d] font-semibold text-xs">
+                                {prod.stockNote || 'In Stock'}
                               </span>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Dual Action Buttons Footer */}
-                        <div className="px-4 py-3 bg-slate-50/80 dark:bg-slate-950/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                          <Link
-                            href={`/marketplace/${prod.slug}`}
-                            className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1"
-                          >
-                            <span>View Specs</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </Link>
-
-                          <a
-                            href={whatsappLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>WhatsApp</span>
-                          </a>
                         </div>
                       </div>
                     );
@@ -743,9 +711,353 @@ export default function MarketplacePage() {
                 </div>
               )}
             </div>
+
+            {/* -------------------------------------------------------------
+                RIGHT PANEL: SELECTED PRODUCT QUICK VIEW & SPECS
+                (Matching Figma sadza-connect-marketplace-product.png Right Drawer)
+            ------------------------------------------------------------- */}
+            {isDrawerOpen && selectedProduct && (
+              <div className="lg:col-span-4 2xl:col-span-4 sticky top-20">
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-4">
+                  {/* Top Close Button & Gallery */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsDrawerOpen(false)}
+                      className="absolute top-2 right-2 z-20 h-7 w-7 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white text-slate-600 dark:text-slate-300 flex items-center justify-center shadow-xs cursor-pointer"
+                      aria-label="Close specifications panel"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+
+                    {/* Main Photo with 1/5 Counter */}
+                    <div className="flex gap-2.5">
+                      <div className="relative aspect-[4/3] flex-1 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <Image
+                          src={productImages[selectedImageIndex] || selectedProduct.image}
+                          alt={selectedProduct.title}
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute bottom-2.5 right-2.5 bg-black/70 text-white text-[11px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          {selectedImageIndex + 1} / {productImages.length}
+                        </div>
+                      </div>
+
+                      {/* Vertical Thumbnail Strip */}
+                      {productImages.length > 1 && (
+                        <div className="flex flex-col gap-2 shrink-0">
+                          {productImages.slice(0, 4).map((img, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setSelectedImageIndex(idx)}
+                              className={`relative h-12 w-14 rounded-lg overflow-hidden border-2 cursor-pointer transition ${
+                                selectedImageIndex === idx
+                                  ? 'border-[#007a3d]'
+                                  : 'border-transparent opacity-70 hover:opacity-100'
+                              }`}
+                            >
+                              <Image src={img} alt="thumb" fill className="object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Category Pill, Heart, Share */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[#e1f5ec] text-[#0f5132]">
+                      {selectedProduct.category}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSavedIds(toggleSavedProductId(selectedProduct.id))}
+                        className={`h-8 w-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer ${
+                          savedIds.includes(selectedProduct.id)
+                            ? 'bg-rose-50 border-rose-200 text-rose-600'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                        aria-label="Wishlist"
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            savedIds.includes(selectedProduct.id) ? 'fill-current' : ''
+                          }`}
+                        />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (navigator.share) {
+                            navigator.share({
+                              title: selectedProduct.title,
+                              url: window.location.href,
+                            });
+                          }
+                        }}
+                        className="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                        aria-label="Share"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Title & Price */}
+                  <div>
+                    <h3 className="text-xl font-extrabold text-slate-900 dark:text-white leading-tight">
+                      {selectedProduct.title}
+                    </h3>
+
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xl font-black text-[#007a3d]">
+                          US${selectedProduct.priceUsd.toLocaleString()}
+                        </span>
+                        <span className="text-sm font-semibold text-slate-500">
+                          / ZiG {Math.round(selectedProduct.priceUsd * usdToZig).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#e1f5ec] text-[#0f5132]">
+                        • In Stock
+                      </span>
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{selectedProduct.province}</span>
+                    </div>
+                  </div>
+
+                  {/* Key Specifications Table (Matching Figma) */}
+                  <div className="pt-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 mb-2">
+                      Key Specifications
+                    </h4>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {selectedProduct.highlights && selectedProduct.highlights.length > 0 ? (
+                        selectedProduct.highlights.map((h, i) => {
+                          const parts = h.split(':');
+                          const label = parts[0]?.trim() || '';
+                          const val = parts.slice(1).join(':').trim() || '';
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-center justify-between px-3 py-2 ${
+                                i % 2 === 0
+                                  ? 'bg-slate-50/70 dark:bg-slate-950/40'
+                                  : 'bg-white dark:bg-slate-900'
+                              }`}
+                            >
+                              <span className="text-slate-500 dark:text-slate-400">{label}</span>
+                              <span
+                                className={`font-semibold text-right ${
+                                  label.toLowerCase().includes('condition')
+                                    ? 'text-[#007a3d]'
+                                    : 'text-slate-900 dark:text-white'
+                                }`}
+                              >
+                                {val}
+                              </span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between px-3 py-2 bg-slate-50/70 dark:bg-slate-950/40">
+                            <span className="text-slate-500">Condition</span>
+                            <span className="font-semibold text-[#007a3d]">
+                              {selectedProduct.condition}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between px-3 py-2 bg-white dark:bg-slate-900">
+                            <span className="text-slate-500">Location</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              {selectedProduct.province}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sold by Card */}
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 space-y-3 bg-slate-50/50 dark:bg-slate-950/30">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Sold by
+                    </span>
+
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative h-10 w-10 rounded-full bg-slate-900 overflow-hidden border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-[#007a3d] shrink-0">
+                        {selectedProduct.sellerLogo ? (
+                          <Image
+                            src={selectedProduct.sellerLogo}
+                            alt={selectedProduct.sellerName}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <span>{selectedProduct.sellerName.substring(0, 2).toUpperCase()}</span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h5 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                            {selectedProduct.sellerName}
+                          </h5>
+                          {selectedProduct.sellerVerified && (
+                            <CheckCircle2 className="w-4 h-4 text-[#007a3d] shrink-0 fill-[#007a3d] text-white" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          <span className="text-[#007a3d] font-semibold">Verified Business</span> •
+                          Energy Solutions for a Brighter Zimbabwe
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{selectedProduct.province}</span>
+                    </div>
+
+                    {/* Stats columns: 120 Products | 98% Positive Feedback | 2+ Years */}
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-800 text-center text-xs">
+                      <div>
+                        <strong className="block font-bold text-slate-900 dark:text-white">
+                          120
+                        </strong>
+                        <span className="text-[10px] text-slate-400">Products</span>
+                      </div>
+                      <div>
+                        <strong className="block font-bold text-slate-900 dark:text-white">
+                          98%
+                        </strong>
+                        <span className="text-[10px] text-slate-400">Positive Feedback</span>
+                      </div>
+                      <div>
+                        <strong className="block font-bold text-slate-900 dark:text-white">
+                          2+ Years
+                        </strong>
+                        <span className="text-[10px] text-slate-400">On Sadza Connect</span>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/businesses/${selectedProduct.sellerSlug}`}
+                      className="block w-full py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold text-xs text-center transition"
+                    >
+                      View Business Profile
+                    </Link>
+                  </div>
+
+                  {/* Primary CTA: Message seller on WhatsApp */}
+                  <a
+                    href={createProductInquiryLink(
+                      selectedProduct.title,
+                      selectedProduct.priceUsd,
+                      selectedProduct.sellerPhone
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 px-4 rounded-xl bg-[#007a3d] hover:bg-[#006331] text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Message seller on WhatsApp →</span>
+                  </a>
+
+                  {/* Bottom Trust Assurance Strip */}
+                  <div className="pt-2 text-center space-y-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <CheckCircle2 className="w-4 h-4 text-[#007a3d]" />
+                      <span>Trade safely on Sadza Connect</span>
+                    </div>
+                    <div className="flex items-center justify-around text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Check className="w-3 h-3 text-[#007a3d]" /> Verified businesses
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Lock className="w-3 h-3 text-[#007a3d]" /> Secure conversations
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Headphones className="w-3 h-3 text-[#007a3d]" /> Support when you need it
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
+
+      {/* Mobile Filters Modal */}
+      {showMobileFilters && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="w-full sm:max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Filters</h3>
+              <button
+                type="button"
+                onClick={() => setShowMobileFilters(false)}
+                className="p-1 rounded-full text-slate-500 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold mb-1.5 block">Province</label>
+              <select
+                value={selectedProvinces}
+                onChange={(e) => setSelectedProvinces(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+              >
+                {CLEAN_PROVINCES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold mb-1.5 block">Sector</label>
+              <div className="grid grid-cols-2 gap-2">
+                {SECTORS_WITH_COUNTS.map((s) => (
+                  <button
+                    key={s.name}
+                    type="button"
+                    onClick={() => toggleSector(s.name)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold text-left border ${
+                      selectedSectors.includes(s.name)
+                        ? 'bg-[#e1f5ec] border-[#007a3d] text-[#0f5132]'
+                        : 'border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {s.name} ({s.count})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(false)}
+              className="w-full py-3 rounded-xl bg-[#005a36] text-white font-bold text-sm"
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
