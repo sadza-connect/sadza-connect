@@ -142,15 +142,14 @@ export function HomeBannerSlideshow({
       role="region"
       aria-label="Zimbabwe Commercial Highlights Carousel"
     >
-      {/* Aspect Ratio Container for pristine responsive sizing on all devices */}
-      <div className="relative aspect-[16/9] sm:aspect-[2/1] md:aspect-[2.2/1] lg:aspect-[2.35/1] xl:aspect-[2.45/1] w-full overflow-hidden">
+      {/* Aspect Ratio Container: perfectly balanced so height stays at ~450px while width expands */}
+      <div className="relative aspect-[16/9] sm:aspect-[2/1] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
         {/* Slides Track */}
         <div
           className="flex h-full w-full transition-transform duration-500 ease-out will-change-transform"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
           {HOME_BANNERS.map((banner, index) => {
-            const BadgeIcon = banner.badgeIcon;
             return (
               <div
                 key={banner.id}
@@ -166,28 +165,9 @@ export function HomeBannerSlideshow({
                     alt={banner.title}
                     fill
                     priority={index === 0}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 95vw, 1400px"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 95vw, 1500px"
                     className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
                   />
-
-                  {/* Gradient shadow for text & controls contrast on bright slides */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/20 pointer-events-none" />
-
-                  {/* Top-Left Section Tag Pill */}
-                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white text-[11px] sm:text-xs font-bold shadow-md border border-white/20 transition-all">
-                      <BadgeIcon className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{banner.badge}</span>
-                    </span>
-                  </div>
-
-                  {/* Bottom-Right Interactive CTA Pill */}
-                  <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10">
-                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-lg transition-transform duration-200 group-hover:scale-105">
-                      <span>{banner.ctaText}</span>
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </span>
-                  </div>
                 </Link>
               </div>
             );
