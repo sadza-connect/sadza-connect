@@ -37,7 +37,7 @@ export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) 
       aria-checked={isDark}
       onClick={toggleTheme}
       className={cn(
-        'group relative inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold shadow-xs backdrop-blur-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 active:scale-95',
+        'group relative inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold shadow-xs backdrop-blur-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 active:scale-95 cursor-pointer',
         isDark
           ? 'border-slate-700/80 bg-slate-900/85 text-slate-200 hover:border-emerald-500/50 hover:bg-slate-800/90 shadow-[0_2px_12px_rgba(0,0,0,0.6)]'
           : 'border-slate-200/90 bg-white/90 text-slate-800 hover:border-amber-500/50 hover:bg-amber-50/40 shadow-[0_2px_10px_rgba(245,158,11,0.12)]',
@@ -50,7 +50,7 @@ export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) 
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute inset-0 rounded-full transition-opacity duration-700 blur-[6px]',
+          'pointer-events-none absolute inset-0 rounded-full transition-opacity duration-200 blur-[6px]',
           isDark
             ? 'bg-emerald-500/10 group-hover:bg-emerald-500/20'
             : 'bg-amber-500/15 group-hover:bg-amber-500/25'
@@ -62,8 +62,8 @@ export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) 
         {/* Animated 360 Flip wrapper */}
         <div
           className={cn(
-            'relative flex h-5 w-5 items-center justify-center transition-transform duration-700 ease-out',
-            isTransitioning ? 'rotate-[360deg] scale-110' : 'group-hover:rotate-12'
+            'relative flex h-5 w-5 items-center justify-center transition-transform duration-200 ease-out',
+            isTransitioning ? 'rotate-[180deg] scale-105' : 'group-hover:rotate-12'
           )}
         >
           {isDark ? (
@@ -123,7 +123,7 @@ export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) 
       <span
         aria-hidden="true"
         className={cn(
-          'size-1.5 rounded-full transition-colors duration-500',
+          'size-1.5 rounded-full transition-colors duration-150',
           isDark ? 'bg-emerald-400 shadow-[0_0_4px_#34d399]' : 'bg-amber-400 shadow-[0_0_4px_#fbbf24]'
         )}
       />

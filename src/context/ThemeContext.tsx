@@ -66,10 +66,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty('--moon-turn', String(moonTurnRef.current));
     root.style.setProperty('--sky-dur', '0s');
 
-    // Enable smooth duration after initial paint
+    // Enable snappy duration after initial paint
     const t = setTimeout(() => {
-      root.style.setProperty('--sky-dur', '1.4s');
-    }, 100);
+      root.style.setProperty('--sky-dur', '0.2s');
+    }, 50);
 
     setMounted(true);
     return () => clearTimeout(t);
@@ -77,7 +77,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const triggerThemeTransition = (targetTheme: ResolvedTheme) => {
     const root = document.documentElement;
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const direction: TransitionDirection = targetTheme === 'dark' ? 'to-dark' : 'to-light';
 
     // Clear any pending timer
@@ -85,76 +84,34 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(transitionTimerRef.current);
     }
 
-    setIsTransitioning(true);
-    setTransitionDirection(direction);
-
-    if (prefersReducedMotion) {
-      // Immediate switch for accessibility
-      root.style.setProperty('--sky-dur', '0.01s');
-      if (targetTheme === 'dark') {
-        sunTurnRef.current = 195;
-        moonTurnRef.current = 40;
-        root.classList.add('dark');
-        root.style.colorScheme = 'dark';
-        root.dataset.sky = 'night';
-      } else {
-        sunTurnRef.current = 30;
-        moonTurnRef.current = -110;
-        root.classList.remove('dark');
-        root.style.colorScheme = 'light';
-        root.dataset.sky = 'day';
-      }
-      root.style.setProperty('--sky-turn', String(sunTurnRef.current));
-      root.style.setProperty('--moon-turn', String(moonTurnRef.current));
-      setResolvedTheme(targetTheme);
-      setIsTransitioning(false);
-      setTransitionDirection(null);
-      return;
-    }
-
-    // Continuous natural rotation (sun rises in east, sets in west)
-    const targetSunBase = targetTheme === 'dark' ? 195 : 30;
-    const targetMoonBase = targetTheme === 'dark' ? 40 : -110;
-
-    const nextSun = advanceAngle(sunTurnRef.current, targetSunBase);
-    const nextMoon = advanceAngle(moonTurnRef.current, targetMoonBase);
-
-    sunTurnRef.current = nextSun;
-    moonTurnRef.current = nextMoon;
-
-    root.style.setProperty('--sky-dur', '1.4s');
-    root.style.setProperty('--sky-turn', String(nextSun));
-    root.style.setProperty('--moon-turn', String(nextMoon));
-
-    // Apply global transition classes
-    root.classList.add('theme-transitioning');
-    if (direction === 'to-dark') {
-      root.classList.add('theme-to-dark');
-      root.classList.remove('theme-to-light');
-    } else {
-      root.classList.add('theme-to-light');
-      root.classList.remove('theme-to-dark');
-    }
-
-    // Toggle theme attributes
+    // Immediately toggle theme attributes on <html> synchronously for instant response
     if (targetTheme === 'dark') {
       root.classList.add('dark');
       root.style.colorScheme = 'dark';
       root.dataset.sky = 'night';
+      sunTurnRef.current = 195;
+      moonTurnRef.current = 40;
     } else {
       root.classList.remove('dark');
       root.style.colorScheme = 'light';
       root.dataset.sky = 'day';
+      sunTurnRef.current = 30;
+      moonTurnRef.current = -110;
     }
 
-    setResolvedTheme(targetTheme);
+    root.style.setProperty('--sky-dur', '0.2s');
+    root.style.setProperty('--sky-turn', String(sunTurnRef.current));
+    root.style.setProperty('--moon-turn', String(moonTurnRef.current));
 
-    // Clean up transition classes after animation completes
+    setResolvedTheme(targetTheme);
+    setIsTransitioning(true);
+    setTransitionDirection(direction);
+
+    // Snappy micro-animation cleanup
     transitionTimerRef.current = setTimeout(() => {
-      root.classList.remove('theme-transitioning', 'theme-to-dark', 'theme-to-light');
       setIsTransitioning(false);
       setTransitionDirection(null);
-    }, 1400);
+    }, 150);
   };
 
   const setTheme = (newTheme: Theme) => {

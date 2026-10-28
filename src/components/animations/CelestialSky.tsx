@@ -18,7 +18,7 @@ export function CelestialSky() {
 
       {/* 1A. DAYLIGHT ATMOSPHERE (Zimbabwe Golden Highveld Sky) */}
       <div
-        className={`absolute inset-0 transition-opacity duration-[1400ms] ease-in-out ${
+        className={`absolute inset-0 transition-opacity duration-200 ease-in-out ${
           isDark ? 'opacity-0' : 'opacity-100'
         }`}
       >
@@ -30,7 +30,7 @@ export function CelestialSky() {
 
       {/* 1B. DAWN / SUNRISE FLARE (Active when switching to Light Mode - "New Day Emerging") */}
       <div
-        className={`absolute inset-0 transition-opacity duration-[1200ms] ease-out pointer-events-none ${
+        className={`absolute inset-0 transition-opacity duration-200 ease-out pointer-events-none ${
           isTransitioning && transitionDirection === 'to-light'
             ? 'opacity-100'
             : 'opacity-0'
@@ -43,7 +43,7 @@ export function CelestialSky() {
 
       {/* 1C. DUSK / TWILIGHT VEIL (Active when switching to Dark Mode - "Gradual Day to Night") */}
       <div
-        className={`absolute inset-0 transition-opacity duration-[1200ms] ease-out pointer-events-none ${
+        className={`absolute inset-0 transition-opacity duration-200 ease-out pointer-events-none ${
           isTransitioning && transitionDirection === 'to-dark'
             ? 'opacity-100'
             : 'opacity-0'
@@ -55,7 +55,7 @@ export function CelestialSky() {
 
       {/* 1D. NIGHT ATMOSPHERE (Cosmic Obsidian & Deep Zimbabwean Slate) */}
       <div
-        className={`absolute inset-0 transition-opacity duration-[1400ms] ease-in-out ${
+        className={`absolute inset-0 transition-opacity duration-200 ease-in-out ${
           isDark ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -76,14 +76,14 @@ export function CelestialSky() {
           <div className="celestial-arm-sun">
             {/* Outer Daylight Radiant Solar Corona */}
             <div
-              className={`absolute top-1/2 left-1/2 size-[42rem] sm:size-[52rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#ffffff_0%,rgba(254,240,138,0.5)_20%,rgba(245,158,11,0.22)_45%,transparent_70%)] blur-[6px] transition-opacity duration-[1400ms] pointer-events-none mix-blend-screen ${
+              className={`absolute top-1/2 left-1/2 size-[42rem] sm:size-[52rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,#ffffff_0%,rgba(254,240,138,0.5)_20%,rgba(245,158,11,0.22)_45%,transparent_70%)] blur-[6px] transition-opacity duration-200 pointer-events-none mix-blend-screen ${
                 isDark ? 'opacity-0' : 'opacity-100'
               }`}
             />
 
             {/* Radiant Sun Core */}
             <div
-              className={`relative size-20 sm:size-24 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-[1400ms] ${
+              className={`relative size-20 sm:size-24 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-200 ${
                 isDark ? 'opacity-20' : 'opacity-100'
               }`}
             >
@@ -119,14 +119,14 @@ export function CelestialSky() {
             <div className="celestial-moon-upright">
               {/* Outer Emerald-Silver Lunar Halo */}
               <div
-                className={`absolute top-1/2 left-1/2 size-[26rem] sm:size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(226,232,240,0.35)_0%,rgba(16,185,129,0.18)_28%,rgba(56,189,248,0.08)_50%,transparent_70%)] blur-[4px] transition-opacity duration-[1400ms] pointer-events-none mix-blend-screen ${
+                className={`absolute top-1/2 left-1/2 size-[26rem] sm:size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(226,232,240,0.35)_0%,rgba(16,185,129,0.18)_28%,rgba(56,189,248,0.08)_50%,transparent_70%)] blur-[4px] transition-opacity duration-200 pointer-events-none mix-blend-screen ${
                   isDark ? 'opacity-100' : 'opacity-0'
                 }`}
               />
 
               {/* Realistic Vector Lunar Orb with Craters & Maria */}
               <div
-                className={`relative size-16 sm:size-20 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-[1400ms] ${
+                className={`relative size-16 sm:size-20 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-200 ${
                   isDark ? 'opacity-100' : 'opacity-20'
                 }`}
               >

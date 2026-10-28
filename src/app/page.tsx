@@ -8,7 +8,7 @@ import { StarfieldCanvas } from '@/components/animations/StarfieldCanvas';
 
 export default function HomePage() {
   return (
-    <div className="relative min-h-screen bg-slate-50/70 dark:bg-[#07090e]/80 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300 overflow-x-clip">
+    <div className="relative min-h-screen bg-slate-50/70 dark:bg-[#07090e]/80 text-slate-900 dark:text-slate-100 flex flex-col overflow-x-clip">
       {/* Interactive Celestial Starfield Background */}
       <StarfieldCanvas className="z-0 opacity-70 dark:opacity-90" />
 

@@ -53,25 +53,10 @@
     font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.6;
     overflow-x: hidden;
-    transition: background-color 0.4s ease, color 0.4s ease;
   }
 
-  /* Global Theme Transition: smoothly animates all surfaces when user switches modes */
-  .theme-transitioning,
-  .theme-transitioning *,
-  .theme-transitioning *::before,
-  .theme-transitioning *::after {
-    transition: background-color 1.2s cubic-bezier(0.4, 0, 0.2, 1),
-                border-color 1.2s cubic-bezier(0.4, 0, 0.2, 1),
-                color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  }
-
+  /* Instant Theme Switching: zero delay on surfaces */
   @media (prefers-reduced-motion: reduce) {
-    .theme-transitioning,
-    .theme-transitioning * {
-      transition: none !important;
-    }
     :root, .dark {
       --sky-dur: 0.01s !important;
     }
@@ -85,7 +70,7 @@
     height: 0;
     position: absolute;
     rotate: calc(var(--sky-turn, 30) * 1deg);
-    transition: rotate var(--sky-dur, 1.4s) cubic-bezier(0.45, 0, 0.55, 1);
+    transition: rotate var(--sky-dur, 0.2s) ease-out;
     pointer-events: none;
   }
 
@@ -105,7 +90,7 @@
 
   .celestial-moon-upright {
     rotate: calc(var(--moon-turn, -110) * -1deg);
-    transition: rotate var(--sky-dur, 1.4s) cubic-bezier(0.45, 0, 0.55, 1);
+    transition: rotate var(--sky-dur, 0.2s) ease-out;
   }
 
   .celestial-horizon-mask {
