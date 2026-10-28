@@ -188,7 +188,12 @@ export default function AdminMarketplacePage() {
       description: prod.description,
       specs: (prod.highlights || []).join('\n'),
       highlights: (prod.highlights || []).join('\n'),
-      image: prod.image ? [{ src: prod.image, caption: prod.title }] : [],
+      image:
+        prod.images && prod.images.length > 0
+          ? prod.images.slice(0, 5).map((img, i) => ({ src: img, caption: `${prod.title} (${i + 1})` }))
+          : prod.image
+          ? [{ src: prod.image, caption: prod.title }]
+          : [],
       featured: Boolean(prod.featured),
     });
     setFormOpen(true);
@@ -201,7 +206,8 @@ export default function AdminMarketplacePage() {
       ...form.specs.split('\n').map((s) => s.trim()),
     ].filter(Boolean);
 
-    const imgSrc = form.image[0]?.src || '';
+    const productImages = (form.image || []).map((img) => img.src).filter(Boolean).slice(0, 5);
+    const imgSrc = productImages[0] || '';
     const usd = Math.max(1, Number(form.priceUsd) || 0);
 
     if (editingSlug) {
@@ -216,7 +222,7 @@ export default function AdminMarketplacePage() {
             price_usd: usd,
             description: form.description,
             is_featured: form.featured,
-            images: [imgSrc],
+            images: productImages,
           }),
         });
       } catch (err) {
@@ -237,6 +243,7 @@ export default function AdminMarketplacePage() {
               description: form.description,
               highlights: parsedHighlights,
               image: imgSrc,
+              images: productImages,
               featured: form.featured,
             }
           : p
@@ -261,7 +268,7 @@ export default function AdminMarketplacePage() {
             category: form.category,
             price_usd: usd,
             description: form.description,
-            images: [imgSrc],
+            images: productImages,
             in_stock: true,
             is_featured: form.featured,
           }),
@@ -555,8 +562,9 @@ export default function AdminMarketplacePage() {
             <ModalSection title="Product photos">
               <ImageUploader
                 label="Product images"
-                hint="Upload 1 or more photos from your device."
+                hint="Upload up to 5 photos from your device. The first photo is the primary showcase image."
                 multiple={true}
+                maxImages={5}
                 images={form.image}
                 onChange={(imgs) => setForm((f) => ({ ...f, image: imgs }))}
               />

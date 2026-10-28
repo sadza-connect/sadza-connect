@@ -157,7 +157,7 @@ export default function BusinessDashboardPage() {
       setProdUnit(prodToEdit.unit || 'Per Unit');
       const existingImages =
         prodToEdit.images && prodToEdit.images.length > 0
-          ? prodToEdit.images.map((img, i) => ({
+          ? prodToEdit.images.slice(0, 5).map((img, i) => ({
               src: img,
               caption: `${prodToEdit.title} (${i + 1})`,
             }))
@@ -680,7 +680,7 @@ export default function BusinessDashboardPage() {
     }
 
     const usd = Math.max(1, Number(prodPriceUsd) || 10);
-    const allImages = prodImages.map((img) => img.src).filter(Boolean);
+    const allImages = prodImages.map((img) => img.src).filter(Boolean).slice(0, 5);
     const chosenImage = allImages[0] || '';
 
     // EDIT MODE
@@ -3240,9 +3240,10 @@ export default function BusinessDashboardPage() {
             />
 
             <ImageUploader
-              label="Product Photos (Multi-Image Carousel)"
-              hint="Upload up to 8 photos from your device or choose a commercial preset. The first photo will be used as the primary showcase image."
+              label="Product Photos (Up to 5 Images)"
+              hint="Upload up to 5 photos from your device or choose a commercial preset. The first photo will be used as the primary showcase image."
               multiple={true}
+              maxImages={5}
               images={prodImages}
               onChange={setProdImages}
             />

@@ -83,7 +83,7 @@ export default function ProductDetailPage() {
   const productImages = useMemo(() => {
     if (!product) return [];
     if (product.images && product.images.length > 0) {
-      return product.images.filter(Boolean);
+      return product.images.filter(Boolean).slice(0, 5);
     }
     return product.image ? [product.image].filter(Boolean) : [];
   }, [product]);

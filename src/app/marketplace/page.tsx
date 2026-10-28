@@ -280,9 +280,9 @@ export default function MarketplacePage() {
   const productImages = useMemo(() => {
     if (!selectedProduct) return [];
     if (selectedProduct.images && selectedProduct.images.length > 0) {
-      return selectedProduct.images;
+      return selectedProduct.images.filter(Boolean).slice(0, 5);
     }
-    return [selectedProduct.image];
+    return selectedProduct.image ? [selectedProduct.image] : [];
   }, [selectedProduct]);
 
   return (
@@ -671,7 +671,7 @@ export default function MarketplacePage() {
                       {/* Vertical Thumbnail Strip */}
                       {productImages.length > 1 && (
                         <div className="flex flex-col gap-2 shrink-0">
-                          {productImages.slice(0, 4).map((img, idx) => (
+                          {productImages.slice(0, 5).map((img, idx) => (
                             <button
                               key={idx}
                               type="button"

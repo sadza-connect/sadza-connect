@@ -13,6 +13,8 @@ import {
   MapPin,
   ShoppingCart,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { MarketplaceProduct } from '@/lib/data/zimbabwe';
 
@@ -34,18 +36,22 @@ export function ProductCard({
   className = '',
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Normalize image gallery
-  const images = product.images && product.images.length > 0
-    ? product.images
-    : product.image
-    ? [product.image]
-    : [];
-  const primaryImage = imageError || images.length === 0
-    ? 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80'
-    : images[0];
+  // Normalize image gallery (each product accepts up to 5 images)
+  const images = (
+    product.images && product.images.length > 0
+      ? product.images
+      : product.image
+      ? [product.image]
+      : []
+  ).filter(Boolean).slice(0, 5);
 
-  const totalImages = Math.max(images.length, 1);
+  const totalImages = Math.min(Math.max(images.length, 1), 5);
+  const primaryImage =
+    imageError || images.length === 0
+      ? 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80'
+      : images[activeImageIndex] || images[0];
 
   // Prices
   const usdPrice = typeof product.priceUsd === 'number' ? product.priceUsd : parseFloat(product.priceUsd || '0');
@@ -133,13 +139,57 @@ export function ProductCard({
             />
           </button>
 
+          {/* Multi-Image Navigation Arrows (up to 5 images) */}
+          {totalImages > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImageError(false);
+                  setActiveImageIndex((prev) => (prev === 0 ? totalImages - 1 : prev - 1));
+                }}
+                aria-label="Previous image"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImageError(false);
+                  setActiveImageIndex((prev) => (prev === totalImages - 1 ? 0 : prev + 1));
+                }}
+                aria-label="Next image"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/55 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+
           {/* Bottom-Right Photo Count (e.g. 1/5) */}
           <div className="absolute bottom-3 right-3 z-10">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-xs text-white text-xs font-medium shadow-xs">
               <ImageIcon className="w-3.5 h-3.5 text-white" />
-              <span>1/{totalImages}</span>
+              <span>{activeImageIndex + 1}/{totalImages}</span>
             </span>
           </div>
+
+          {/* Subtle dots indicator when hovering card with multiple images */}
+          {totalImages > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              {Array.from({ length: totalImages }).map((_, dotIdx) => (
+                <span
+                  key={dotIdx}
+                  className={`h-1.5 rounded-full transition-all ${
+                    dotIdx === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* =============================================================

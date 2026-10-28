@@ -430,6 +430,11 @@ export function CommercialPortalWorkspace() {
   const [newProdUnit, setNewProdUnit] = useState('Each');
   const [newProdStock, setNewProdStock] = useState('Available in stock');
   const [newProdDesc, setNewProdDesc] = useState('');
+  const [newProdImages, setNewProdImages] = useState<string[]>([]);
+  const [newProdImageInput, setNewProdImageInput] = useState('');
+  const [newProdBusinessId, setNewProdBusinessId] = useState('');
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+  const [quickViewImageIndex, setQuickViewImageIndex] = useState(0);
 
   // Quick Apply Job Modal State
   const [selectedJob, setSelectedJob] = useState<JobItem | null>(null);
@@ -674,45 +679,93 @@ export function CommercialPortalWorkspace() {
     setUploadProductOpen(true);
   };
 
-  const handleCreateProduct = (e: React.FormEvent) => {
+  const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newProdTitle.trim()) return;
+
+    setIsSubmittingProduct(true);
     const usd = parseFloat(newProdPriceUSD) || 25;
-    const created: MarketplaceProduct = {
-      id: `p-${Date.now()}`,
-      slug: `prod-${Date.now()}`,
-      title: newProdTitle.trim() || 'Commercial Supply Item',
-      category: newProdCategory,
-      province: newProdProvince,
-      priceUsd: usd,
-      priceZig: Math.round(usd * 26.5),
-      unit: newProdUnit || 'Each',
-      movementBadge: 'Just Arrived',
-      postedAgo: 'Just now',
-      stockNote: newProdStock || 'In stock',
-      location: `${newProdProvince}, Zimbabwe`,
-      condition: 'Brand New',
-      sellerId: 'biz-current',
-      sellerSlug: 'user-business',
-      sellerName: user?.fullName || 'Your Registered Business',
-      sellerType: 'Registered Company (Pvt Ltd)',
-      sellerPlan: accountMode === 'paid_subscriber' ? 'Paid Subscriber' : 'Month 1 Free Grace',
-      sellerPhone: '263772111222',
-      sellerWhatsapp: '263772111222',
-      sellerVerified: true,
-      image:
-        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=700&q=80',
-      images: [
-        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=700&q=80',
-      ],
-      description: newProdDesc.trim() || 'Uploaded directly via Sadza Connect Commercial Portal.',
-      highlights: ['Uploaded directly via Sadza Connect Commercial Portal.'],
-      featured: false,
-    };
-    setProducts([created, ...products]);
-    setUploadProductOpen(false);
-    setNewProdTitle('');
-    setNewProdPriceUSD('');
-    setNewProdDesc('');
+    const targetBusiness =
+      businesses.find((b) => b.id === newProdBusinessId) ||
+      businesses[0];
+
+    const finalImages = (
+      newProdImages.length > 0
+        ? newProdImages
+        : [
+            'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
+          ]
+    ).slice(0, 5);
+
+    try {
+      const res = await fetch('/api/v1/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          business_id: targetBusiness?.id,
+          business_slug: targetBusiness?.slug,
+          name: newProdTitle.trim(),
+          category: newProdCategory,
+          price_usd: usd,
+          description:
+            newProdDesc.trim() ||
+            `Supplied directly by ${targetBusiness?.name || 'Verified Commercial Supplier'} in ${newProdProvince}.`,
+          images: finalImages,
+          in_stock: true,
+          condition: 'Brand New',
+          is_featured: false,
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok && json.data?.product) {
+        const mapped = mapDbProductToMarketplaceProduct(json.data.product);
+        setProducts((prev) => [mapped, ...prev.filter((p) => p.id !== mapped.id)]);
+      } else {
+        const created: MarketplaceProduct = {
+          id: `p-${Date.now()}`,
+          slug: `prod-${Date.now()}`,
+          title: newProdTitle.trim() || 'Commercial Supply Item',
+          category: newProdCategory,
+          province: newProdProvince,
+          priceUsd: usd,
+          priceZig: Math.round(usd * 26.5),
+          unit: newProdUnit || 'Each',
+          movementBadge: 'Just Arrived',
+          postedAgo: 'Just now',
+          stockNote: newProdStock || 'In stock',
+          location: `${newProdProvince}, Zimbabwe`,
+          condition: 'Brand New',
+          sellerId: targetBusiness?.id || 'biz-current',
+          sellerSlug: targetBusiness?.slug || 'user-business',
+          sellerName: targetBusiness?.name || user?.fullName || 'Your Registered Business',
+          sellerType: 'Registered Company (Pvt Ltd)',
+          sellerPlan: accountMode === 'paid_subscriber' ? 'Paid Subscriber' : 'Month 1 Free Grace',
+          sellerPhone: targetBusiness?.phone || '263772111222',
+          sellerWhatsapp: targetBusiness?.phone || '263772111222',
+          sellerVerified: true,
+          image: finalImages[0],
+          images: finalImages,
+          description:
+            newProdDesc.trim() ||
+            `Supplied directly by ${targetBusiness?.name || 'Verified Commercial Supplier'} in ${newProdProvince}.`,
+          highlights: ['Uploaded directly via Sadza Connect Commercial Portal.'],
+          featured: false,
+        };
+        setProducts((prev) => [created, ...prev]);
+      }
+    } catch (err) {
+      console.error('Failed to create product:', err);
+    } finally {
+      setIsSubmittingProduct(false);
+      setUploadProductOpen(false);
+      setNewProdTitle('');
+      setNewProdPriceUSD('');
+      setNewProdDesc('');
+      setNewProdImages([]);
+      setNewProdImageInput('');
+    }
   };
 
   const handlePublishNewAdvert = async (e: React.FormEvent) => {
@@ -1452,8 +1505,9 @@ export function CommercialPortalWorkspace() {
                       <ProductCard
                         key={item.id}
                         product={item}
-                        onViewProduct={() => {
-                          window.location.href = `/marketplace?product=${encodeURIComponent(item.slug || item.id)}`;
+                        onViewProduct={(prod) => {
+                          setQuickViewProduct(prod);
+                          setQuickViewImageIndex(0);
                         }}
                       />
                     ))}
@@ -2610,9 +2664,31 @@ export function CommercialPortalWorkspace() {
           description="Available to businesses in their 1-Month Free Grace Period or Paid Subscribers."
         >
           <form onSubmit={handleCreateProduct} className="space-y-3.5">
+            {/* Listing Business Profile */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Listing Business Profile *
+              </label>
+              <select
+                value={newProdBusinessId}
+                onChange={(e) => {
+                  setNewProdBusinessId(e.target.value);
+                  const selected = businesses.find((b) => b.id === e.target.value);
+                  if (selected?.province) setNewProdProvince(selected.province);
+                }}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
+              >
+                {businesses.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.province || 'Zimbabwe'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <Input
-              label="Product Title / Specification"
-              placeholder="e.g. 50kg PPC Surebuild Cement or 5kVA Hybrid Inverter"
+              label="Product Title / Specification *"
+              placeholder="e.g. 550W Monocrystalline Solar Panel or 5kVA Hybrid Inverter"
               required
               value={newProdTitle}
               onChange={(e) => setNewProdTitle(e.target.value)}
@@ -2656,17 +2732,17 @@ export function CommercialPortalWorkspace() {
 
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Price in USD ($)"
+                label="Price in USD ($) *"
                 type="number"
                 step="0.01"
-                placeholder="e.g. 120"
+                placeholder="e.g. 180"
                 required
                 value={newProdPriceUSD}
                 onChange={(e) => setNewProdPriceUSD(e.target.value)}
               />
               <Input
-                label="Unit / Packaging"
-                placeholder="e.g. Per 50kg Bag / Full Kit"
+                label="Unit / Packaging *"
+                placeholder="e.g. Each / Per 50kg Bag"
                 required
                 value={newProdUnit}
                 onChange={(e) => setNewProdUnit(e.target.value)}
@@ -2680,6 +2756,109 @@ export function CommercialPortalWorkspace() {
               onChange={(e) => setNewProdStock(e.target.value)}
             />
 
+            {/* Product Photos (Each product accepts up to 5 images) */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3.5 bg-slate-50/70 dark:bg-slate-800/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-xs font-bold text-slate-900 dark:text-white">
+                    Product Photos (Up to 5 images)
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Each product can accept up to 5 images. Slot 1 is the primary showcase photo.
+                  </p>
+                </div>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                    newProdImages.length >= 5
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                  }`}
+                >
+                  {newProdImages.length}/5 photos
+                </span>
+              </div>
+
+              {/* Photo Input Row */}
+              {newProdImages.length < 5 && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Paste image URL (e.g. Unsplash or direct photo link)..."
+                      value={newProdImageInput}
+                      onChange={(e) => setNewProdImageInput(e.target.value)}
+                      className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
+                    />
+                    <button
+                      type="button"
+                      disabled={!newProdImageInput.trim() || newProdImages.length >= 5}
+                      onClick={() => {
+                        const trimmed = newProdImageInput.trim();
+                        if (trimmed && newProdImages.length < 5) {
+                          setNewProdImages([...newProdImages, trimmed]);
+                          setNewProdImageInput('');
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs shrink-0 transition cursor-pointer"
+                    >
+                      + Add Image
+                    </button>
+                  </div>
+
+                  {/* Preset photo tags */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] font-semibold text-slate-500">Quick presets:</span>
+                    {[
+                      { name: 'Solar Panel', url: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80' },
+                      { name: 'Solar Inverter', url: 'https://images.unsplash.com/photo-1548611716-ad888c3a50d2?auto=format&fit=crop&w=800&q=80' },
+                      { name: 'Agro Tractor', url: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=800&q=80' },
+                      { name: 'PPC Cement', url: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=800&q=80' },
+                      { name: 'Generator', url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        disabled={newProdImages.length >= 5}
+                        onClick={() => {
+                          if (newProdImages.length < 5) {
+                            setNewProdImages([...newProdImages, preset.url]);
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-medium text-slate-700 dark:text-slate-200 hover:border-emerald-600 hover:text-emerald-600 transition disabled:opacity-50 cursor-pointer"
+                      >
+                        + {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Uploaded Photos Grid (up to 5 slots) */}
+              {newProdImages.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+                  {newProdImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
+                    >
+                      <Image src={img} alt={`Slot ${idx + 1}`} fill className="object-cover" />
+                      <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
+                        {idx === 0 ? '1/5 (Cover)' : `${idx + 1}/5`}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setNewProdImages(newProdImages.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-red-600 text-white flex items-center justify-center opacity-80 hover:opacity-100 transition cursor-pointer"
+                        title="Remove photo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="pt-2 flex items-center justify-end gap-2">
               <Button
                 variant="outline"
@@ -2689,8 +2868,8 @@ export function CommercialPortalWorkspace() {
               >
                 Cancel
               </Button>
-              <Button variant="primary" size="md" type="submit">
-                Publish to Live Feed
+              <Button variant="primary" size="md" type="submit" disabled={isSubmittingProduct}>
+                {isSubmittingProduct ? 'Publishing SKU...' : 'Publish to Live Feed'}
               </Button>
             </div>
           </form>
@@ -2708,14 +2887,52 @@ export function CommercialPortalWorkspace() {
           description={`${quickViewProduct.category} • Listed by ${quickViewProduct.sellerName} (${quickViewProduct.province})`}
         >
           <div className="space-y-4">
-            <div className="relative h-52 w-full rounded-xl overflow-hidden bg-slate-100">
-              <Image
-                src={quickViewProduct.image}
-                alt={quickViewProduct.title}
-                fill
-                className="object-cover"
-              />
-            </div>
+            {/* Multi-Image Gallery with up to 5 images */}
+            {(() => {
+              const qvImages = (
+                quickViewProduct.images && quickViewProduct.images.length > 0
+                  ? quickViewProduct.images
+                  : quickViewProduct.image
+                  ? [quickViewProduct.image]
+                  : []
+              ).filter(Boolean).slice(0, 5);
+              const activeQvImg = qvImages[quickViewImageIndex] || quickViewProduct.image;
+
+              return (
+                <div className="space-y-2.5">
+                  <div className="relative h-56 sm:h-64 w-full rounded-xl overflow-hidden bg-slate-900 shadow-inner">
+                    <Image
+                      src={activeQvImg}
+                      alt={quickViewProduct.title}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute bottom-2.5 right-2.5 bg-black/70 text-white text-[11px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                      {quickViewImageIndex + 1} / {qvImages.length}
+                    </div>
+                  </div>
+
+                  {qvImages.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                      {qvImages.map((img, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setQuickViewImageIndex(idx)}
+                          className={`relative h-14 w-18 rounded-lg overflow-hidden border-2 cursor-pointer transition shrink-0 ${
+                            quickViewImageIndex === idx
+                              ? 'border-emerald-600 ring-2 ring-emerald-500/20'
+                              : 'border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <Image src={img} alt={`thumb ${idx + 1}`} fill className="object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800 p-3.5 border border-slate-200 dark:border-slate-700">
               <div>

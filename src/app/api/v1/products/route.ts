@@ -27,7 +27,7 @@ const createProductSchema = z.object({
   category: z.string().optional(),
   price_usd: z.number().positive('Price must be greater than 0'),
   price_zig: z.number().optional(),
-  images: z.array(z.string()).optional(),
+  images: z.array(z.string()).max(5, 'Maximum of 5 images allowed per product').optional(),
   in_stock: z.boolean().optional(),
   stock_quantity: z.number().int().nonnegative().optional(),
   condition: z.string().optional(),

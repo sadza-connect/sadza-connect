@@ -17,6 +17,7 @@ interface ImageUploaderProps {
   onChange: (images: GalleryItem[]) => void;
   multiple?: boolean;
   hint?: string;
+  maxImages?: number;
 }
 
 const COMMON_PRESETS = [
@@ -104,6 +105,7 @@ export function ImageUploader({
   onChange,
   multiple = true,
   hint,
+  maxImages,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -111,14 +113,20 @@ export function ImageUploader({
   const [captionInput, setCaptionInput] = useState('');
   const [showUrlForm, setShowUrlForm] = useState(false);
 
+  const isAtLimit = Boolean(maxImages && images.length >= maxImages);
+
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    const remainingSlots = maxImages ? Math.max(0, maxImages - images.length) : files.length;
+    if (remainingSlots <= 0) return;
+
     setLoading(true);
     try {
+      const filesToProcess = files.slice(0, remainingSlots);
       const newItems: GalleryItem[] = [];
-      for (const file of files) {
+      for (const file of filesToProcess) {
         let finalSrc = '';
         try {
           const formData = new FormData();
@@ -152,7 +160,8 @@ export function ImageUploader({
       }
 
       if (multiple) {
-        onChange([...images, ...newItems]);
+        const combined = [...images, ...newItems];
+        onChange(maxImages ? combined.slice(0, maxImages) : combined);
       } else {
         onChange([newItems[0]]);
       }
@@ -164,7 +173,7 @@ export function ImageUploader({
 
   function handleAddUrl() {
     const trimmed = urlInput.trim();
-    if (!trimmed) return;
+    if (!trimmed || isAtLimit) return;
 
     const newItem: GalleryItem = {
       src: trimmed,
@@ -172,7 +181,8 @@ export function ImageUploader({
     };
 
     if (multiple) {
-      onChange([...images, newItem]);
+      const combined = [...images, newItem];
+      onChange(maxImages ? combined.slice(0, maxImages) : combined);
     } else {
       onChange([newItem]);
     }
@@ -183,12 +193,14 @@ export function ImageUploader({
   }
 
   function handleApplyPreset(path: string, labelText: string) {
+    if (isAtLimit) return;
     const newItem: GalleryItem = {
       src: path,
       caption: labelText,
     };
     if (multiple) {
-      onChange([...images, newItem]);
+      const combined = [...images, newItem];
+      onChange(maxImages ? combined.slice(0, maxImages) : combined);
     } else {
       onChange([newItem]);
     }
@@ -207,9 +219,20 @@ export function ImageUploader({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="flex items-center gap-2">
           <label className="text-xs font-bold uppercase tracking-wider text-[#2c3a52]">{label}</label>
-          {hint && <p className="text-[11px] text-[#6b81a5] mt-0.5">{hint}</p>}
+          {maxImages !== undefined && (
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isAtLimit
+                  ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/80 dark:text-amber-300'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-300'
+              }`}
+            >
+              {images.length}/{maxImages} photos
+            </span>
+          )}
+          {hint && <p className="text-[11px] text-[#6b81a5]">{hint}</p>}
         </div>
 
         <div className="flex items-center gap-2">
@@ -218,6 +241,8 @@ export function ImageUploader({
             variant="outline"
             size="sm"
             onClick={() => setShowUrlForm((v) => !v)}
+            disabled={isAtLimit && !showUrlForm}
+            title={isAtLimit ? `Maximum of ${maxImages} images reached` : undefined}
           >
             <Link2 className="h-3.5 w-3.5" />
             {showUrlForm ? 'Hide URL Input' : 'Paste Image URL / Path'}
@@ -236,16 +261,23 @@ export function ImageUploader({
             variant="outline"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
+            disabled={loading || isAtLimit}
             loading={loading}
-            className="bg-[#eef5ff] text-[#1743d4] border-[#bcd7ff] hover:bg-[#d9e8ff]"
+            title={isAtLimit ? `Maximum of ${maxImages} images reached` : undefined}
+            className="bg-[#eef5ff] text-[#1743d4] border-[#bcd7ff] hover:bg-[#d9e8ff] disabled:opacity-50"
           >
             <Upload className="h-3.5 w-3.5" /> Upload from Device
           </AdminButton>
         </div>
       </div>
 
-      {showUrlForm && (
+      {isAtLimit && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+          <span>Maximum of {maxImages} photos reached. Delete a photo to add or replace.</span>
+        </div>
+      )}
+
+      {showUrlForm && !isAtLimit && (
         <div className="p-3.5 rounded-xl border border-[#bcd7ff] bg-[#eef5ff]/50 space-y-2.5">
           <p className="text-xs font-bold text-[#142152]">Enter File Path or Web Image URL:</p>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -263,7 +295,7 @@ export function ImageUploader({
               placeholder="Caption (optional)"
               className="w-full sm:w-48 rounded-lg border border-[#c8d2e0] bg-white px-3 py-1.5 text-xs text-[#0a1018] placeholder:text-[#6b81a5] focus:border-[#1e57eb] focus:outline-none"
             />
-            <AdminButton type="button" size="sm" onClick={handleAddUrl} disabled={!urlInput.trim()}>
+            <AdminButton type="button" size="sm" onClick={handleAddUrl} disabled={!urlInput.trim() || isAtLimit}>
               <Check className="h-3.5 w-3.5" /> Set Image
             </AdminButton>
           </div>
@@ -278,7 +310,8 @@ export function ImageUploader({
                   key={p.path}
                   type="button"
                   onClick={() => handleApplyPreset(p.path, p.label)}
-                  className="rounded-md bg-white border border-[#c8d2e0] px-2.5 py-1 text-[11px] font-medium text-[#2c3a52] hover:border-[#1e57eb] hover:text-[#1e57eb] transition cursor-pointer"
+                  disabled={isAtLimit}
+                  className="rounded-md bg-white border border-[#c8d2e0] px-2.5 py-1 text-[11px] font-medium text-[#2c3a52] hover:border-[#1e57eb] hover:text-[#1e57eb] transition cursor-pointer disabled:opacity-50"
                 >
                   + {p.label}
                 </button>
@@ -301,6 +334,9 @@ export function ImageUploader({
                   alt={item.caption || `Image ${idx + 1}`}
                   className="h-full w-full object-cover"
                 />
+                <div className="absolute left-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {idx + 1}{maxImages ? `/${maxImages}` : ''}
+                </div>
                 <button
                   type="button"
                   onClick={() => handleRemove(idx)}
@@ -323,14 +359,16 @@ export function ImageUploader({
             </div>
           ))}
 
-          {multiple && (
+          {multiple && !isAtLimit && (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex aspect-[16/10] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#c8d2e0] bg-[#f4f6f9]/60 text-[#465a7e] transition-colors hover:border-[#1e57eb] hover:bg-[#eef5ff]/40 hover:text-[#1e57eb] cursor-pointer"
             >
               <Plus className="h-6 w-6" />
-              <span className="text-xs font-semibold">Add another photo</span>
+              <span className="text-xs font-semibold">
+                Add another photo {maxImages ? `(${images.length}/${maxImages})` : ''}
+              </span>
             </button>
           )}
         </div>
@@ -344,7 +382,7 @@ export function ImageUploader({
           </span>
           <div>
             <p className="text-sm font-semibold text-[#1f2a3d]">
-              No image selected. Click to upload from device, or click &ldquo;Paste Image URL&rdquo; above.
+              No image selected. Click to upload from device {maxImages ? `(up to ${maxImages} images)` : ''}, or click &ldquo;Paste Image URL&rdquo; above.
             </p>
             <p className="text-xs text-[#6b81a5] mt-0.5">PNG, JPG, WEBP formats supported.</p>
           </div>

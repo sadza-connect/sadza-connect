@@ -13,7 +13,7 @@ export function mapDbProductToMarketplaceProduct(p: any): MarketplaceProduct {
   }
 
   const defaultImage = images[0] || p.image || '';
-  const allImages = images.length > 0 ? images : (defaultImage ? [defaultImage] : []);
+  const allImages = (images.length > 0 ? images : (defaultImage ? [defaultImage] : [])).slice(0, 5);
 
   const usdPrice = typeof p.price_usd === 'number' ? p.price_usd : parseFloat(p.price_usd || '0');
   const zigPrice = p.price_zig
