@@ -15,6 +15,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateJobSchema = z.object({
   title: z.string().min(3).optional(),

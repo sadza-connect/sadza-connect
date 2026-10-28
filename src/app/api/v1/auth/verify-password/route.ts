@@ -11,6 +11,7 @@ import {
 import { AuthenticationError, AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const verifyPasswordSchema = z.object({
   password: z.string().min(1, 'Password is required'),

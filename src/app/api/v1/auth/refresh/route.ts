@@ -13,6 +13,7 @@ import { sanitizeUser } from '@/shared/utils/sanitize-user';
 import { AuthenticationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const authService = new AuthService();
 

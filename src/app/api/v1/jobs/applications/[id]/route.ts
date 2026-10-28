@@ -15,6 +15,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateStatusSchema = z.object({
   status: z.enum(['Submitted', 'Under Review', 'Shortlisted', 'Rejected']),

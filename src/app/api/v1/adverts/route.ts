@@ -11,6 +11,7 @@ import {
 } from '@/shared/utils/route-handler';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createAdvertSchema = z.object({
   business_id: z.string().uuid().optional(),

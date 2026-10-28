@@ -9,6 +9,7 @@ import {
 } from '@/shared/utils/route-handler';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const simulatePaymentSchema = z.object({
   reference: z.string().min(3, 'Transaction reference is required'),

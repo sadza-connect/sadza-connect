@@ -11,6 +11,7 @@ import { NotFoundError } from '@/shared/errors/AppError';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const applyJobSchema = z.object({
   applicant_name: z.string().min(2, 'Full name is required'),

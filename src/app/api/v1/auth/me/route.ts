@@ -10,6 +10,7 @@ import { sanitizeUser } from '@/shared/utils/sanitize-user';
 import { AuthenticationError, NotFoundError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const jwtService = new JwtService();
 const userRepo = new UserRepository();

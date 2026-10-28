@@ -18,6 +18,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createProductSchema = z.object({
   business_id: z.string().uuid().optional(),

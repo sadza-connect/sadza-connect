@@ -17,6 +17,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const upgradeTierSchema = z.object({
   tier: z.enum(['starter', 'growth', 'enterprise']),

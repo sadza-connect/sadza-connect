@@ -8,6 +8,7 @@ import {
 import { ValidationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();

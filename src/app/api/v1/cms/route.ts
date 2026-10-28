@@ -11,6 +11,7 @@ import {
 import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateCmsSchema = z.object({
   hero_headline: z.string().optional(),

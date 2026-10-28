@@ -16,6 +16,7 @@ import {
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 function generateZesaToken(): string {
   const parts: string[] = [];

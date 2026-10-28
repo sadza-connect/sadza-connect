@@ -12,6 +12,7 @@ import {
 import { AuthorizationError, NotFoundError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const replySchema = z.object({
   reply: z.string().min(1, 'Reply message cannot be empty'),

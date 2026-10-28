@@ -14,6 +14,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateIdCardSchema = z.object({
   status: z.enum(['Active', 'Suspended', 'Expired']).optional(),

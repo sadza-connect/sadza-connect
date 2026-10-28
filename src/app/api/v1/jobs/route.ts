@@ -16,6 +16,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createJobSchema = z.object({
   business_id: z.string().uuid().optional(),

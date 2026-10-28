@@ -46,16 +46,11 @@ import {
   CLEAN_PROVINCES,
   COMMERCIAL_SECTORS,
   DEFAULT_PAID_ADVERTS,
-  saveStoredAdverts,
-  getDeletedAdvertIds,
 } from '@/data/advertsStore';
 import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettings,
-  getStoredBusinesses,
-  saveStoredBusinesses,
-  getStoredProducts,
 } from '@/data/platformStore';
 import { BusinessListing, MarketplaceProduct } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
@@ -370,11 +365,8 @@ export function CommercialPortalWorkspace() {
           console.warn('API fetch for adverts failed:', apiErr);
         }
 
-        const deletedIds = new Set(getDeletedAdvertIds());
-        const validAds = liveAdverts.filter((item) => item && item.id && !deletedIds.has(item.id));
-
         if (isMounted) {
-          setPaidAdverts(validAds);
+          setPaidAdverts(liveAdverts);
           setIsLoadingAdverts(false);
         }
       } catch (err) {
@@ -461,17 +453,6 @@ export function CommercialPortalWorkspace() {
 
   useEffect(() => {
     let isMounted = true;
-
-    // Instant local cache hydration for zero-second initial paint
-    const cachedBiz = getStoredBusinesses();
-    if (cachedBiz && cachedBiz.length > 0) {
-      setBusinesses(cachedBiz.map(mapListingToDirectoryBusiness));
-    }
-
-    const cachedProds = getStoredProducts();
-    if (cachedProds && cachedProds.length > 0) {
-      setProducts(cachedProds.map(mapDbProductToMarketplaceProduct));
-    }
 
     const loadAllBusinesses = async () => {
       try {
@@ -834,7 +815,9 @@ export function CommercialPortalWorkspace() {
     };
     const nextAdverts = [createdAd, ...paidAdverts.filter((a) => a.id !== createdAd.id)];
     setPaidAdverts(nextAdverts);
-    saveStoredAdverts(nextAdverts);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('sadza-adverts-updated'));
+    }
     setCreateAdvertOpen(false);
     setAccountMode('paid_subscriber');
     setAdHeadline('');

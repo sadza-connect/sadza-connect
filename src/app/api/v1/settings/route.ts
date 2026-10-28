@@ -11,6 +11,7 @@ import {
 import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateSettingsSchema = z.object({
   usd_to_zig_rate: z.number().positive().optional(),

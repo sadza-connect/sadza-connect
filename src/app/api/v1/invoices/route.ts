@@ -12,6 +12,7 @@ import {
 import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createInvoiceSchema = z.object({
   invoice_number: z.string().optional(),

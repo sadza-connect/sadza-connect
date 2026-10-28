@@ -12,6 +12,7 @@ import {
 import { AuthorizationError, NotFoundError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateOrderSchema = z.object({
   status: z.enum(['Processing', 'In Transit', 'Delivered', 'Cancelled']).optional(),

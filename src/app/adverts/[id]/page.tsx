@@ -40,11 +40,13 @@ export default function AdvertDetailPage() {
   const { toast } = useToast();
 
   const [adverts, setAdverts] = useState<PaidAdvertItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     async function fetchAdvertData() {
+      setIsLoading(true);
       // Fetch specific advert from database
       try {
         const res = await fetch(`/api/v1/adverts/${encodeURIComponent(id)}`);
@@ -58,7 +60,7 @@ export default function AdvertDetailPage() {
         }
       } catch {}
 
-      // 3. Fetch all active adverts for related section
+      // Fetch all active adverts for related section
       try {
         const listRes = await fetch('/api/v1/adverts?limit=50');
         const listJson = await listRes.json();
@@ -74,7 +76,9 @@ export default function AdvertDetailPage() {
             return combined;
           });
         }
-      } catch {}
+      } catch {} finally {
+        if (isMounted) setIsLoading(false);
+      }
     }
 
     if (id) {
@@ -100,6 +104,26 @@ export default function AdvertDetailPage() {
     if (relatedAdverts.length > 0) return relatedAdverts;
     return adverts.filter((a) => a.id !== id).slice(0, 3);
   }, [adverts, relatedAdverts, id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
+        <Navbar />
+        <main className="flex-1 py-10 px-4 sm:px-6 max-w-5xl mx-auto w-full">
+          <div className="animate-pulse space-y-6">
+            <div className="h-6 w-44 bg-slate-200 dark:bg-slate-800 rounded" />
+            <div className="h-80 w-full bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+            <div className="space-y-3">
+              <div className="h-8 w-2/3 bg-slate-200 dark:bg-slate-800 rounded" />
+              <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded" />
+              <div className="h-4 w-1/2 bg-slate-200 dark:bg-slate-800 rounded" />
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!advert) {
     return (

@@ -11,6 +11,7 @@ import {
 import { AuthorizationError, NotFoundError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateUserSchema = z.object({
   role: z.enum(['admin', 'merchant', 'customer']).optional(),

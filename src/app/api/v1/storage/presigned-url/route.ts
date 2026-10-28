@@ -11,6 +11,7 @@ import {
 import { ValidationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const presignedUrlSchema = z.object({
   filename: z.string().optional(),

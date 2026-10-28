@@ -3,6 +3,7 @@ import { jsonResponse } from '@/shared/utils/route-handler';
 import { randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();

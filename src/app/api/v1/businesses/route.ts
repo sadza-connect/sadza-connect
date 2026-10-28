@@ -11,6 +11,7 @@ import {
 import { ValidationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createBusinessSchema = z.object({
   name: z.string().min(2, 'Business name must have at least 2 characters'),

@@ -15,6 +15,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createIdCardSchema = z.object({
   card_number: z.string().optional(),

@@ -13,6 +13,7 @@ import { AuthorizationError, ConflictError, ValidationError } from '@/shared/err
 import { User, Email, PasswordHash, AccountStatus } from '@/domain/index';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createUserSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),

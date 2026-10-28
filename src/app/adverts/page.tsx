@@ -31,10 +31,6 @@ import {
   PaidAdvertItem,
   CLEAN_PROVINCES,
   COMMERCIAL_SECTORS,
-  DEFAULT_PAID_ADVERTS,
-  loadStoredAdverts,
-  saveStoredAdverts,
-  getDeletedAdvertIds,
 } from '@/data/advertsStore';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -48,7 +44,8 @@ const OFFER_TYPES = [
 ] as const;
 
 export default function AdvertsDirectoryPage() {
-  const [adverts, setAdverts] = useState<PaidAdvertItem[]>(DEFAULT_PAID_ADVERTS);
+  const [adverts, setAdverts] = useState<PaidAdvertItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedSector, setSelectedSector] = useState<string>('All');
   const [selectedProvince, setSelectedProvince] = useState<string>('All Provinces');
   const [selectedOfferType, setSelectedOfferType] = useState<string>('All Offer Types');
@@ -70,40 +67,31 @@ export default function AdvertsDirectoryPage() {
   const [paymentMethod, setPaymentMethod] = useState<'ecocash' | 'innbucks' | 'card'>('ecocash');
   const [publishSuccess, setPublishSuccess] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchLiveAdverts() {
-      try {
-        let liveAdverts: PaidAdvertItem[] = [];
-        try {
-          const res = await fetch('/api/v1/adverts?limit=100');
-          if (res.ok) {
-            const json = await res.json();
-            const dbAds = json.data?.adverts || json.adverts || [];
-            if (Array.isArray(dbAds)) {
-              liveAdverts = dbAds.map(mapDbAdvertToPaidAdvert);
-            }
-          }
-        } catch (apiErr) {
-          console.warn('API fetch for adverts failed:', apiErr);
+  const fetchLiveAdverts = async () => {
+    try {
+      const res = await fetch('/api/v1/adverts?limit=100');
+      if (res.ok) {
+        const json = await res.json();
+        const dbAds = json.data?.adverts || json.adverts || [];
+        if (Array.isArray(dbAds)) {
+          setAdverts(dbAds.map(mapDbAdvertToPaidAdvert));
+          return;
         }
-
-        const deletedIds = new Set(getDeletedAdvertIds());
-        const validAds = liveAdverts.filter((item) => item && item.id && !deletedIds.has(item.id));
-
-        if (isMounted) {
-          setAdverts(validAds);
-        }
-      } catch {
-        if (isMounted) setAdverts([]);
       }
+      setAdverts([]);
+    } catch (apiErr) {
+      console.warn('API fetch for adverts failed:', apiErr);
+      setAdverts([]);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchLiveAdverts();
     const handleSync = () => fetchLiveAdverts();
     window.addEventListener('sadza-adverts-updated', handleSync);
     return () => {
-      isMounted = false;
       window.removeEventListener('sadza-adverts-updated', handleSync);
     };
   }, []);
@@ -179,32 +167,10 @@ export default function AdvertsDirectoryPage() {
       });
     } catch {}
 
-    const newAd: PaidAdvertItem = createdAdvertObj || {
-      id: `ad-${Date.now()}`,
-      businessName: businessName.trim() || 'Verified Zimbabwean Enterprise',
-      businessType,
-      province,
-      category,
-      offerType,
-      headline: headline.trim() || 'Special Commercial Promotion',
-      offerText:
-        offerText.trim() ||
-        'Contact our sales desk directly on WhatsApp to claim this promotional business offer.',
-      promoBadge: promoBadge.trim().toUpperCase() || 'PAID PROMO',
-      promoPriceUSD: usd,
-      priceZiG: usd ? Math.round(usd * 26.5) : undefined,
-      validUntil: validUntil.trim() || 'Valid this month',
-      whatsapp: cleanWhatsapp,
-      phone: `+${cleanWhatsapp}`,
-      image:
-        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
-      featuredOnHome: true,
-      postedAt: 'Just now',
-    };
-
-    const updated = [newAd, ...adverts];
-    setAdverts(updated);
-    saveStoredAdverts(updated);
+    await fetchLiveAdverts();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('sadza-adverts-updated'));
+    }
     setPublishSuccess(true);
   };
 
@@ -378,7 +344,24 @@ export default function AdvertsDirectoryPage() {
           </div>
 
           {/* Adverts Grid */}
-          {filteredAdverts.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs"
+                >
+                  <div className="h-52 w-full bg-slate-200 dark:bg-slate-800" />
+                  <div className="p-5 sm:p-6 space-y-4">
+                    <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+                    <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-800 rounded" />
+                    <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded" />
+                    <div className="h-10 w-full bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredAdverts.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center space-y-3">
               <Megaphone className="h-10 w-10 text-slate-400 mx-auto" />
               <h2 className="font-display text-lg font-bold text-slate-900 dark:text-white">

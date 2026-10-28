@@ -12,6 +12,7 @@ import {
 import { sanitizeUser } from '@/shared/utils/sanitize-user';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const authService = new AuthService();
 

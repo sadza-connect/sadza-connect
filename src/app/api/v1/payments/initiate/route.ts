@@ -9,6 +9,7 @@ import {
 } from '@/shared/utils/route-handler';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const initiatePaymentSchema = z.object({
   invoice_number: z.string().optional(),

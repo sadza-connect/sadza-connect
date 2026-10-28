@@ -7,6 +7,7 @@ import {
 } from '@/shared/utils/route-handler';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();

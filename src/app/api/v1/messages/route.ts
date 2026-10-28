@@ -11,6 +11,7 @@ import {
 import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const createMessageSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(255),

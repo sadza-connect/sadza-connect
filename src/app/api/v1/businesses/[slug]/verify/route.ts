@@ -14,6 +14,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const verifySchema = z.object({
   status: z.enum(['Verified', 'Rejected', 'Pending']),

@@ -33,6 +33,7 @@ try {
 
 // 2. Force standard lowercase production for Next.js build
 process.env.NODE_ENV = 'production';
+process.env.NEXT_TELEMETRY_DISABLED = '1';
 
 // 3. Resolve next binary
 const nextBin = path.resolve(rootDir, 'node_modules/.bin/next');
@@ -45,6 +46,7 @@ const result = spawnSync(nextBin, ['build'], {
   env: {
     ...process.env,
     NODE_ENV: 'production',
+    NEXT_TELEMETRY_DISABLED: '1',
   },
   shell: process.platform === 'win32',
 });

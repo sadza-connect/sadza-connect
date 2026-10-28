@@ -16,6 +16,7 @@ import {
 import { invalidateProductsCache } from '../route';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateProductSchema = z.object({
   name: z.string().min(2).optional(),

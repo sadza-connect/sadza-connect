@@ -15,6 +15,7 @@ import {
 } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const updateAdvertSchema = z.object({
   business_name: z.string().min(2).optional(),
