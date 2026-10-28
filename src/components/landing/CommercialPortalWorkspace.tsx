@@ -63,6 +63,7 @@ import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { ProductCard } from '@/components/marketplace/ProductCard';
 import { ProductDetailModal } from '@/components/marketplace/ProductDetailModal';
+import { HomeBannerSlideshow } from '@/components/landing/HomeBannerSlideshow';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const BUSINESS_SCALES = [
@@ -1377,30 +1378,8 @@ export function CommercialPortalWorkspace() {
               </div>
             </div>
 
-            {/* Marketplace Banner Promotion */}
-            {(feedFocus === 'all' || feedFocus === 'products') && (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xs mb-6 bg-slate-900 group">
-                <Link href="/marketplace" className="block relative">
-                  <img
-                    src="/banners/banner-marketplace.png"
-                    alt="Zimbabwe Commercial Marketplace"
-                    className="w-full h-auto max-h-[160px] sm:max-h-[200px] object-cover group-hover:scale-[1.01] transition-transform duration-300"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end p-4 sm:p-5">
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
-                        <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                        Explore Zimbabwe Wholesale &amp; Retail Marketplace →
-                      </span>
-                      <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold shadow-xs">
-                        Open Marketplace
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            )}
+            {/* Homepage Banner Slideshow (Representing all 5 Commercial Banners) */}
+            <HomeBannerSlideshow className="mb-6" />
 
             {/* ---------------------------------------------------------------
                 FEED SECTION A: PRODUCTS COMING & GOING (LIVE MARKETPLACE)
