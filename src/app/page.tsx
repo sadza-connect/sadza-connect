@@ -16,10 +16,10 @@ export default function HomePage() {
         <AnnouncementBar />
         <Navbar />
         <main className="flex-1">
-          {/* 1. SLIDESHOW COMES FIRST IMMEDIATELY AFTER NAVBAR BEFORE ANY OTHER DESIGN OR TEXT */}
+          {/* 1. SLIDESHOW COMES FIRST IMMEDIATELY AFTER NAVBAR - FULL WIDTH TRACK EDGE-TO-EDGE */}
           <section
             aria-label="Homepage Featured Banners Slideshow"
-            className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1"
+            className="w-full overflow-hidden pt-3 sm:pt-4 pb-1"
           >
             <HomeBannerSlideshow />
           </section>
