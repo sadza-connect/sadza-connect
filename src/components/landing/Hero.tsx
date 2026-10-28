@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { SpotlightCard } from '@/components/animations/SpotlightCard';
 import { ShinyText } from '@/components/animations/ShinyText';
 import { OrbitalRing } from '@/components/animations/OrbitalRing';
+import { HomeBannerSlideshow } from '@/components/landing/HomeBannerSlideshow';
 import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
@@ -98,7 +99,7 @@ export function Hero() {
     : [];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-transparent via-white/70 to-slate-50/80 dark:from-transparent dark:via-slate-950/60 dark:to-[#07090e]/90 py-16 sm:py-28 transition-colors">
+    <section className="relative overflow-hidden bg-gradient-to-b from-transparent via-white/70 to-slate-50/80 dark:from-transparent dark:via-slate-950/60 dark:to-[#07090e]/90 pt-10 pb-14 sm:pt-14 sm:pb-20 transition-colors">
       {/* The Majestic Celestial Orbital Ring */}
       <OrbitalRing size={940} />
 
@@ -220,8 +221,13 @@ export function Hero() {
           </div>
         </div>
 
+        {/* Homepage Hero Banner Slideshow (Representing the 5 Commercial Showcase Banners) */}
+        <div className="mt-8 sm:mt-10 max-w-5xl xl:max-w-6xl mx-auto text-left">
+          <HomeBannerSlideshow />
+        </div>
+
         {/* Feature & Trust Highlights Pill Strip */}
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto pt-6 border-t border-slate-200 dark:border-slate-800 text-left">
+        <div className="mt-10 sm:mt-12 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto pt-6 border-t border-slate-200 dark:border-slate-800 text-left">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
               <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />

@@ -63,7 +63,6 @@ import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { ProductCard } from '@/components/marketplace/ProductCard';
 import { ProductDetailModal } from '@/components/marketplace/ProductDetailModal';
-import { HomeBannerSlideshow } from '@/components/landing/HomeBannerSlideshow';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 const BUSINESS_SCALES = [
@@ -1378,8 +1377,7 @@ export function CommercialPortalWorkspace() {
               </div>
             </div>
 
-            {/* Homepage Banner Slideshow (Representing all 5 Commercial Banners) */}
-            <HomeBannerSlideshow className="mb-6" />
+
 
             {/* ---------------------------------------------------------------
                 FEED SECTION A: PRODUCTS COMING & GOING (LIVE MARKETPLACE)
