@@ -54,6 +54,7 @@ import {
   ZIMBABWE_PROVINCES,
   BUSINESS_CATEGORIES,
   BusinessListing,
+  SAMPLE_BUSINESSES,
 } from '@/lib/data/zimbabwe';
 import {
   getStoredBusinesses,
@@ -87,7 +88,7 @@ export function getEffectiveBusinessPrice(b: BusinessListing, st: PlatformSettin
 
 export default function AdminBusinessesPage() {
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
-  const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
+  const [businesses, setBusinesses] = useState<BusinessListing[]>(SAMPLE_BUSINESSES);
   const [query, setQuery] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -177,10 +178,12 @@ export default function AdminBusinessesPage() {
           credentials: 'include',
         });
         const json = await res.json();
-        if (json.success && Array.isArray(json.data?.businesses)) {
+        if (json.success && Array.isArray(json.data?.businesses) && json.data.businesses.length > 0) {
           if (isMounted) {
             const mapped = json.data.businesses.map(mapDbBusinessToListing);
-            setBusinesses(mapped);
+            const liveIds = new Set(mapped.map((b: BusinessListing) => b.id));
+            const merged = [...mapped, ...SAMPLE_BUSINESSES.filter((b) => !liveIds.has(b.id))];
+            setBusinesses(merged);
           }
         }
       } catch (err) {

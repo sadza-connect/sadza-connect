@@ -40,7 +40,7 @@ export default function JobDetailPage() {
   const slug = params?.slug || '';
   const { toast } = useToast();
 
-  const [allJobs, setAllJobs] = useState<JobOpening[]>([]);
+  const [allJobs, setAllJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Application Modal state

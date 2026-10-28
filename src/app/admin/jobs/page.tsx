@@ -40,7 +40,7 @@ import {
   ModalFooter,
   ConfirmModal,
 } from '@/components/admin/AdminUI';
-import { ZIMBABWE_PROVINCES, JobOpening } from '@/lib/data/zimbabwe';
+import { ZIMBABWE_PROVINCES, JobOpening, SAMPLE_JOBS } from '@/lib/data/zimbabwe';
 import {
   getStoredJobs,
   saveStoredJobs,
@@ -53,7 +53,7 @@ import { cn } from '@/lib/utils/cn';
 
 export default function AdminJobsPage() {
   const [activeTab, setActiveTab] = useState<'positions' | 'applications'>('positions');
-  const [jobs, setJobs] = useState<JobOpening[]>([]);
+  const [jobs, setJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
   const [applications, setApplications] = useState<JobApplicationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [availableBusinesses, setAvailableBusinesses] = useState<
@@ -91,8 +91,11 @@ export default function AdminJobsPage() {
         try {
           const jRes = await fetch('/api/v1/jobs?limit=100', { credentials: 'include' });
           const jJson = await jRes.json();
-          if (isMounted && jJson.success && Array.isArray(jJson.data?.jobs)) {
-            setJobs(jJson.data.jobs.map(mapDbJobToOpening));
+          if (isMounted && jJson.success && Array.isArray(jJson.data?.jobs) && jJson.data.jobs.length > 0) {
+            const mapped = jJson.data.jobs.map(mapDbJobToOpening);
+            const liveIds = new Set(mapped.map((j: JobOpening) => j.id));
+            const merged = [...mapped, ...SAMPLE_JOBS.filter((j) => !liveIds.has(j.id))];
+            setJobs(merged);
           }
         } catch (err) {
           console.warn('Failed to load jobs from database:', err);

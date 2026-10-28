@@ -35,6 +35,7 @@ import {
   UploadCloud,
   Eye,
   Sparkles,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
@@ -56,7 +57,7 @@ import {
   saveStoredBusinesses,
   getStoredProducts,
 } from '@/data/platformStore';
-import { BusinessListing, SAMPLE_BUSINESSES, SAMPLE_PRODUCTS } from '@/lib/data/zimbabwe';
+import { BusinessListing, SAMPLE_BUSINESSES, SAMPLE_PRODUCTS, SAMPLE_JOBS } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -260,7 +261,16 @@ interface JobItem {
   category: string;
 }
 
-const LATEST_JOBS: JobItem[] = [];
+const LATEST_JOBS: JobItem[] = SAMPLE_JOBS.map((sj) => ({
+  id: sj.id,
+  title: sj.title,
+  company: sj.company,
+  province: sj.province,
+  type: sj.type,
+  salary: sj.salaryUsd,
+  posted: sj.postedDate,
+  category: sj.category,
+}));
 
 type AccountViewMode =
   | 'visitor'
@@ -565,13 +575,18 @@ export function CommercialPortalWorkspace() {
         }
 
         if (isMounted) {
-          setJobs(liveJobs);
+          const existingIds = new Set(liveJobs.map((j) => j.id));
+          const merged = [
+            ...liveJobs,
+            ...LATEST_JOBS.filter((lj) => !existingIds.has(lj.id)),
+          ];
+          setJobs(merged);
           setIsLoadingJobs(false);
         }
       } catch (err) {
         console.error('Failed to load jobs for landing page:', err);
         if (isMounted) {
-          setJobs([]);
+          setJobs(LATEST_JOBS);
           setIsLoadingJobs(false);
         }
       }
@@ -1332,6 +1347,31 @@ export function CommercialPortalWorkspace() {
                 </span>
               </div>
             </div>
+
+            {/* Marketplace Banner Promotion */}
+            {(feedFocus === 'all' || feedFocus === 'products') && (
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xs mb-6 bg-slate-900 group">
+                <Link href="/marketplace" className="block relative">
+                  <img
+                    src="/banners/banner-marketplace.png"
+                    alt="Zimbabwe Commercial Marketplace"
+                    className="w-full h-auto max-h-[160px] sm:max-h-[200px] object-cover group-hover:scale-[1.01] transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end p-4 sm:p-5">
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-white text-xs sm:text-sm font-bold flex items-center gap-1.5">
+                        <ShoppingBag className="w-4 h-4 text-emerald-400" />
+                        Explore Zimbabwe Wholesale &amp; Retail Marketplace →
+                      </span>
+                      <span className="hidden sm:inline-flex items-center px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-bold shadow-xs">
+                        Open Marketplace
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            )}
 
             {/* ---------------------------------------------------------------
                 FEED SECTION A: PRODUCTS COMING & GOING (LIVE MARKETPLACE)

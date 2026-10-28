@@ -28,7 +28,7 @@ import { createJobInquiryLink } from '@/lib/utils/whatsapp';
 import { Modal, PublicModalBody, PublicModalFooter } from '@/components/ui/Modal';
 
 export default function JobsPage() {
-  const [jobs, setJobs] = useState<JobOpening[]>([]);
+  const [jobs, setJobs] = useState<JobOpening[]>(SAMPLE_JOBS);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
@@ -49,14 +49,16 @@ export default function JobsPage() {
       try {
         const res = await fetch('/api/v1/jobs?limit=100');
         const json = await res.json();
-        if (isMounted && json.success && Array.isArray(json.data?.jobs)) {
+        if (isMounted && json.success && Array.isArray(json.data?.jobs) && json.data.jobs.length > 0) {
           const mapped = json.data.jobs.map(mapDbJobToOpening);
-          setJobs(mapped);
+          const liveIds = new Set(mapped.map((j: JobOpening) => j.id));
+          const combined = [...mapped, ...SAMPLE_JOBS.filter((j) => !liveIds.has(j.id))];
+          setJobs(combined);
         } else if (isMounted) {
-          setJobs([]);
+          setJobs(SAMPLE_JOBS);
         }
       } catch {
-        if (isMounted) setJobs([]);
+        if (isMounted) setJobs(SAMPLE_JOBS);
       }
     }
 
@@ -180,6 +182,19 @@ export default function JobsPage() {
             </div>
           </div>
 
+          {/* Top Promotional Banner */}
+          <div className="relative mb-8 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm bg-slate-900">
+            <picture>
+              <source media="(max-width: 640px)" srcSet="/banners/banner-jobs-mobile.png" />
+              <img
+                src="/banners/banner-jobs-desk.png"
+                alt="Zimbabwe Commercial Jobs & Tenders"
+                className="w-full h-auto max-h-[220px] md:max-h-[260px] object-cover"
+                loading="eager"
+              />
+            </picture>
+          </div>
+
           {/* Search & Filter Bar */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-8 space-y-4 shadow-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
@@ -288,7 +303,7 @@ export default function JobsPage() {
                   </div>
 
                   <Link
-                    href={`/jobs/${job.id}`}
+                    href={`/jobs/${job.slug || job.id}`}
                     className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                   >
                     <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
@@ -340,7 +355,7 @@ export default function JobsPage() {
 
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800">
                   <Link
-                    href={`/jobs/${job.id}`}
+                    href={`/jobs/${job.slug || job.id}`}
                     className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     View Details
