@@ -19,7 +19,7 @@ export default function HomePage() {
           {/* 1. SLIDESHOW COMES FIRST IMMEDIATELY AFTER NAVBAR BEFORE ANY OTHER DESIGN OR TEXT */}
           <section
             aria-label="Homepage Featured Banners Slideshow"
-            className="w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1"
+            className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1"
           >
             <HomeBannerSlideshow />
           </section>
