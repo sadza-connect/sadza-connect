@@ -3,8 +3,9 @@
   publish = ".next"
 
 [build.environment]
-  # Prevent Netlify Secrets Scanner from flagging environment variables
+  # Prevent Netlify Secrets Scanner from flagging environment variables or markdown documentation
   SECRETS_SCAN_OMIT_KEYS = "API_PREFIX,RATE_LIMIT_WINDOW_MS,RATE_LIMIT_MAX,NEXT_PUBLIC_SITE_URL,NEXT_PUBLIC_API_URL,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,HOST,DB_NAME,DB_PORT,DB_SSL,DB_USER,DB_HOST,DB_PASSWORD,DATABASE_URL,JWT_ISSUER,JWT_AUDIENCE,JWT_ACCESS_EXPIRES_IN,JWT_REFRESH_EXPIRES_IN,NODE_ENV,CORS_ORIGINS,FRONTEND_URL,PORT,EMAIL_FROM,SUPABASE_URL,SUPABASE_ANON_KEY"
+  SECRETS_SCAN_OMIT_PATHS = "docs/**,*.md"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
