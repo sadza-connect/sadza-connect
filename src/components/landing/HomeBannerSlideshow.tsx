@@ -17,6 +17,7 @@ import {
 export interface BannerSlide {
   id: string;
   image: string;
+  mobileImage: string;
   title: string;
   tagline: string;
   ctaText: string;
@@ -29,6 +30,7 @@ export const HOME_BANNERS: BannerSlide[] = [
   {
     id: 'marketplace',
     image: '/banners/banner-marketplace.png',
+    mobileImage: '/banners/mobile/banner-marketplace-mobile.png',
     title: 'Everything You Need, in One Place',
     tagline: 'Discover products, compare options and connect directly with suppliers',
     ctaText: 'Explore Marketplace',
@@ -39,6 +41,7 @@ export const HOME_BANNERS: BannerSlide[] = [
   {
     id: 'businesses',
     image: '/banners/banner-businesses.png',
+    mobileImage: '/banners/mobile/banner-businesses-mobile.png',
     title: 'Find trusted businesses across Zimbabwe',
     tagline: 'Discover verified services, products, jobs and opportunities near you',
     ctaText: 'Explore Directory',
@@ -49,6 +52,7 @@ export const HOME_BANNERS: BannerSlide[] = [
   {
     id: 'jobs-tenders',
     image: '/banners/banner-jobs-mobile.png',
+    mobileImage: '/banners/mobile/banner-jobs-mobile.png',
     title: 'Jobs & Tenders. New Opportunities.',
     tagline: 'Discover vacancies, procurement notices and business opportunities across Zimbabwe',
     ctaText: 'Explore Opportunities',
@@ -59,6 +63,7 @@ export const HOME_BANNERS: BannerSlide[] = [
   {
     id: 'careers',
     image: '/banners/banner-jobs-desk.png',
+    mobileImage: '/banners/mobile/banner-jobs-desk-mobile.png',
     title: 'Your Next Opportunity Starts Here',
     tagline: 'Discover job vacancies, tenders and business opportunities across Zimbabwe',
     ctaText: 'Browse Vacancies',
@@ -69,6 +74,7 @@ export const HOME_BANNERS: BannerSlide[] = [
   {
     id: 'seller-tips',
     image: '/banners/banner-seller-tips.png',
+    mobileImage: '/banners/mobile/banner-seller-tips-mobile.png',
     title: 'Sell Smarter. Grow Faster.',
     tagline: 'Simple tips to showcase your products and reach more customers with a 30-day free grace period',
     ctaText: 'List Your Business',
@@ -192,7 +198,7 @@ export function HomeBannerSlideshow({
       <div className="relative w-full">
         {/* Outgoing or Static Current Slide */}
         <div
-          className={`w-full flex justify-center px-2 sm:px-6 lg:px-8 ${
+          className={`w-full flex justify-center px-1.5 xs:px-2 sm:px-6 lg:px-8 ${
             incomingIndex !== null
               ? 'transition-transform duration-700 ease-out will-change-transform'
               : ''
@@ -205,7 +211,26 @@ export function HomeBannerSlideshow({
           }}
         >
           <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
-            <div className="relative h-[280px] xs:h-[310px] sm:h-auto sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
+            {/* Mobile View: Dedicated high-impact tall card using mobileImage */}
+            <div className="relative h-[290px] xs:h-[320px] sm:hidden w-full overflow-hidden">
+              <Link
+                href={currentBanner.href}
+                className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                aria-label={`${currentBanner.title} - ${currentBanner.ctaText}`}
+              >
+                <Image
+                  src={currentBanner.mobileImage}
+                  alt={currentBanner.title}
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                />
+              </Link>
+            </div>
+
+            {/* Desktop View: Wide cinematic panorama using image */}
+            <div className="relative hidden sm:block sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
               <Link
                 href={currentBanner.href}
                 className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -216,8 +241,8 @@ export function HomeBannerSlideshow({
                   alt={currentBanner.title}
                   fill
                   priority
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 95vw, 1500px"
-                  className="object-cover object-left sm:object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                  sizes="(max-width: 1024px) 95vw, 1500px"
+                  className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
                 />
               </Link>
             </div>
@@ -227,7 +252,7 @@ export function HomeBannerSlideshow({
         {/* Incoming Slide: Enters from the extreme right/left edge of the page */}
         {incomingBanner !== null && (
           <div
-            className="absolute inset-0 w-full flex justify-center px-2 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
+            className="absolute inset-0 w-full flex justify-center px-1.5 xs:px-2 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
             style={{
               transform: isAnimating
                 ? 'translateX(0%)'
@@ -235,7 +260,25 @@ export function HomeBannerSlideshow({
             }}
           >
             <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
-              <div className="relative h-[280px] xs:h-[310px] sm:h-auto sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
+              {/* Mobile View: Dedicated high-impact tall card using mobileImage */}
+              <div className="relative h-[290px] xs:h-[320px] sm:hidden w-full overflow-hidden">
+                <Link
+                  href={incomingBanner.href}
+                  className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  aria-label={`${incomingBanner.title} - ${incomingBanner.ctaText}`}
+                >
+                  <Image
+                    src={incomingBanner.mobileImage}
+                    alt={incomingBanner.title}
+                    fill
+                    sizes="100vw"
+                    className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                  />
+                </Link>
+              </div>
+
+              {/* Desktop View: Wide cinematic panorama using image */}
+              <div className="relative hidden sm:block sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
                 <Link
                   href={incomingBanner.href}
                   className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -245,8 +288,8 @@ export function HomeBannerSlideshow({
                     src={incomingBanner.image}
                     alt={incomingBanner.title}
                     fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 95vw, 1500px"
-                    className="object-cover object-left sm:object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                    sizes="(max-width: 1024px) 95vw, 1500px"
+                    className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
                   />
                 </Link>
               </div>
