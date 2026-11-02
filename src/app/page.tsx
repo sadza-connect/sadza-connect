@@ -19,7 +19,7 @@ export default function HomePage() {
           {/* 1. SLIDESHOW COMES FIRST IMMEDIATELY AFTER NAVBAR - FULL WIDTH TRACK EDGE-TO-EDGE */}
           <section
             aria-label="Homepage Featured Banners Slideshow"
-            className="w-full overflow-hidden pt-3 sm:pt-4 pb-1"
+            className="w-full overflow-hidden pt-0 sm:pt-4 pb-0 sm:pb-1"
           >
             <HomeBannerSlideshow />
           </section>

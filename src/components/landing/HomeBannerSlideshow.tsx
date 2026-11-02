@@ -198,7 +198,7 @@ export function HomeBannerSlideshow({
       <div className="relative w-full">
         {/* Outgoing or Static Current Slide */}
         <div
-          className={`w-full flex justify-center px-1.5 xs:px-2 sm:px-6 lg:px-8 ${
+          className={`w-full flex justify-center px-0 sm:px-6 lg:px-8 ${
             incomingIndex !== null
               ? 'transition-transform duration-700 ease-out will-change-transform'
               : ''
@@ -210,11 +210,11 @@ export function HomeBannerSlideshow({
                 : 'translateX(0%)',
           }}
         >
-          <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
-            {/* Mobile View: Dedicated high-impact tall card using mobileImage */}
+          <div className="w-full max-w-7xl rounded-none sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
+            {/* Mobile View: Dedicated high-impact tall card covering phone screen (Gumtree style) */}
             <div
-              className="relative aspect-[800/620] sm:hidden w-full overflow-hidden"
-              style={{ aspectRatio: '800 / 620' }}
+              className="relative aspect-[800/880] sm:hidden w-full overflow-hidden"
+              style={{ aspectRatio: '800 / 880' }}
             >
               <Link
                 href={currentBanner.href}
@@ -258,18 +258,18 @@ export function HomeBannerSlideshow({
         {/* Incoming Slide: Enters from the extreme right/left edge of the page */}
         {incomingBanner !== null && (
           <div
-            className="absolute inset-0 w-full flex justify-center px-1.5 xs:px-2 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
+            className="absolute inset-0 w-full flex justify-center px-0 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
             style={{
               transform: isAnimating
                 ? 'translateX(0%)'
                 : `translateX(${slideDirection === 'next' ? '100%' : '-100%'})`,
             }}
           >
-            <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
-              {/* Mobile View: Dedicated high-impact tall card using mobileImage */}
+            <div className="w-full max-w-7xl rounded-none sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
+              {/* Mobile View: Dedicated high-impact tall card covering phone screen (Gumtree style) */}
               <div
-                className="relative aspect-[800/620] sm:hidden w-full overflow-hidden"
-                style={{ aspectRatio: '800 / 620' }}
+                className="relative aspect-[800/880] sm:hidden w-full overflow-hidden"
+                style={{ aspectRatio: '800 / 880' }}
               >
                 <Link
                   href={incomingBanner.href}
