@@ -36,11 +36,21 @@ import {
   Eye,
   Sparkles,
   ShoppingBag,
+  Home,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import {
+  getStoredProperties,
+  PropertyListing,
+} from '@/data/propertiesStore';
+import {
+  getStoredEvents,
+  EventItem,
+} from '@/data/eventsStore';
 import {
   PaidAdvertItem,
   CLEAN_PROVINCES,
@@ -250,7 +260,14 @@ type AccountViewMode =
   | 'grace_expiring'
   | 'grace_expired'
   | 'paid_subscriber';
-type FeedFocusTab = 'all' | 'products' | 'businesses' | 'jobs' | 'adverts';
+type FeedFocusTab =
+  | 'all'
+  | 'products'
+  | 'businesses'
+  | 'adverts'
+  | 'properties'
+  | 'jobs'
+  | 'events';
 
 export function CommercialPortalWorkspace() {
   const { user } = useAuth();
@@ -341,6 +358,10 @@ export function CommercialPortalWorkspace() {
   >('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Properties & Events State
+  const [properties, setProperties] = useState<PropertyListing[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+
   // Adverts State & Filtering Mode
   const [paidAdverts, setPaidAdverts] = useState<PaidAdvertItem[]>(DEFAULT_PAID_ADVERTS);
   const [advertFilterMode, setAdvertFilterMode] = useState<'matching' | 'all'>('matching');
@@ -387,6 +408,20 @@ export function CommercialPortalWorkspace() {
       isMounted = false;
       window.removeEventListener('sadza-adverts-updated', handleSync);
       window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadPropsAndEvents = () => {
+      setProperties(getStoredProperties());
+      setEvents(getStoredEvents());
+    };
+    loadPropsAndEvents();
+    window.addEventListener('sadza-properties-updated', loadPropsAndEvents);
+    window.addEventListener('sadza-events-updated', loadPropsAndEvents);
+    return () => {
+      window.removeEventListener('sadza-properties-updated', loadPropsAndEvents);
+      window.removeEventListener('sadza-events-updated', loadPropsAndEvents);
     };
   }, []);
 
@@ -609,6 +644,32 @@ export function CommercialPortalWorkspace() {
       return matchSector && matchProvince && matchQuery;
     });
   }, [jobs, selectedSector, selectedProvince, searchQuery]);
+
+  // Filtered Properties & Rentals
+  const filteredProperties = useMemo(() => {
+    return properties.filter((p) => {
+      const matchProv = selectedProvince === 'All Provinces' || p.province === selectedProvince;
+      const matchQuery =
+        !searchQuery.trim() ||
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.suburb.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.city.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchProv && matchQuery;
+    });
+  }, [properties, selectedProvince, searchQuery]);
+
+  // Filtered Events & Expos
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      const matchProv = selectedProvince === 'All Provinces' || e.province === selectedProvince;
+      const matchQuery =
+        !searchQuery.trim() ||
+        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.organizer.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchProv && matchQuery;
+    });
+  }, [events, selectedProvince, searchQuery]);
 
   // Filtered Paid Adverts in Right Sidebar & Spotlight
   const displayedAdverts = useMemo(() => {
@@ -1109,8 +1170,10 @@ export function CommercialPortalWorkspace() {
                 { id: 'all', label: 'All Activity' },
                 { id: 'products', label: `Products (${filteredProducts.length})` },
                 { id: 'businesses', label: `Businesses (${filteredBusinesses.length})` },
+                { id: 'adverts', label: `Adverts & Deals (${paidAdverts.length})` },
+                { id: 'properties', label: `Property & Rentals (${filteredProperties.length})` },
                 { id: 'jobs', label: `Jobs (${filteredJobs.length})` },
-                { id: 'adverts', label: `Paid Adverts (${paidAdverts.length})` },
+                { id: 'events', label: `Events (${filteredEvents.length})` },
               ] as const
             ).map((tab) => (
               <button
@@ -1173,7 +1236,7 @@ export function CommercialPortalWorkspace() {
                   href="/businesses"
                   className="text-xs font-bold text-emerald-600 hover:underline"
                 >
-                  All 20 →
+                  View All →
                 </Link>
               </div>
 
@@ -1290,8 +1353,10 @@ export function CommercialPortalWorkspace() {
                       { id: 'all', label: 'All Activity' },
                       { id: 'products', label: `Products (${filteredProducts.length})` },
                       { id: 'businesses', label: `Businesses (${filteredBusinesses.length})` },
+                      { id: 'adverts', label: `Adverts & Deals (${paidAdverts.length})` },
+                      { id: 'properties', label: `Property & Rentals (${filteredProperties.length})` },
                       { id: 'jobs', label: `Jobs (${filteredJobs.length})` },
-                      { id: 'adverts', label: `Sponsored Adverts (${paidAdverts.length})` },
+                      { id: 'events', label: `Events (${filteredEvents.length})` },
                     ] as const
                   ).map((tab) => (
                     <button
@@ -2130,6 +2195,230 @@ export function CommercialPortalWorkspace() {
                         >
                           Quick Apply
                         </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------------
+                FEED SECTION D: PROPERTY & RENTALS IN ZIMBABWE
+            --------------------------------------------------------------- */}
+            {(feedFocus === 'all' || feedFocus === 'properties') && (
+              <div
+                id="properties"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+              >
+                <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex items-center justify-between gap-3 bg-emerald-50/40 dark:bg-emerald-950/20">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <Home className="h-5 w-5 text-emerald-600" />
+                      <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                        Property &amp; Rentals in Zimbabwe
+                      </h2>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      Residential rentals, commercial offices, warehouses &amp; stands
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/properties"
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors shrink-0"
+                  >
+                    <span>All Properties</span>
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </div>
+
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredProperties.length === 0 ? (
+                    <div className="p-8 text-center space-y-2">
+                      <Home className="h-8 w-8 text-slate-400 mx-auto" />
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        No property listings match this filter
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Check back soon or list your property or stand on Sadza Connect.
+                      </p>
+                    </div>
+                  ) : (
+                    (feedFocus === 'properties' ? filteredProperties : filteredProperties.slice(0, 3)).map((prop) => (
+                      <div
+                        key={prop.id}
+                        className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <div className="flex items-start gap-4 min-w-0">
+                          <div className="relative h-20 w-24 sm:h-24 sm:w-32 rounded-xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
+                            <Image
+                              src={prop.images[0]}
+                              alt={prop.title}
+                              fill
+                              className="object-cover"
+                            />
+                            <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-xs text-[10px] font-bold text-white px-2 py-0.5 rounded">
+                              {prop.propertyType}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 text-xs font-bold">
+                                USD ${prop.priceUSD.toLocaleString()} {prop.pricePeriod === 'per_month' ? '/mo' : ''}
+                              </span>
+                              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                                ~ZiG {(prop.priceUSD * 26.5).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </span>
+                              <span className="text-xs text-slate-400">• {prop.category}</span>
+                            </div>
+
+                            <h3 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-1">
+                              {prop.title}
+                            </h3>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                              <span className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-200">
+                                <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                                {prop.suburb}, {prop.city}
+                              </span>
+                              <span>•</span>
+                              <span>{prop.advertiserName}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 sm:self-center">
+                          <Link
+                            href="/properties"
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 px-3.5 py-2 text-xs font-bold transition-colors"
+                          >
+                            Details
+                          </Link>
+                          <a
+                            href={`https://wa.me/${prop.whatsapp}?text=${encodeURIComponent(
+                              `Hello, I saw your property listing for "${prop.title}" on Sadza Connect. Is it still available?`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 text-xs font-bold transition-transform active:scale-95 shadow-sm"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------------
+                FEED SECTION E: UPCOMING EVENTS & COMMERCIAL EXPOS
+            --------------------------------------------------------------- */}
+            {(feedFocus === 'all' || feedFocus === 'events') && (
+              <div
+                id="events"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+              >
+                <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex items-center justify-between gap-3 bg-indigo-50/40 dark:bg-indigo-950/20">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <Calendar className="h-5 w-5 text-indigo-600" />
+                      <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                        Upcoming Commercial Events &amp; Expos
+                      </h2>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      Trade fairs, mining summits, agricultural field days &amp; forums
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/events"
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors shrink-0"
+                  >
+                    <span>All Events</span>
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </div>
+
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredEvents.length === 0 ? (
+                    <div className="p-8 text-center space-y-2">
+                      <Calendar className="h-8 w-8 text-slate-400 mx-auto" />
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        No scheduled events match this filter
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Check back soon or submit an event to appear on Sadza Connect.
+                      </p>
+                    </div>
+                  ) : (
+                    (feedFocus === 'events' ? filteredEvents : filteredEvents.slice(0, 3)).map((evt) => (
+                      <div
+                        key={evt.id}
+                        className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <div className="flex items-start gap-4 min-w-0">
+                          <div className="relative h-20 w-24 sm:h-24 sm:w-32 rounded-xl overflow-hidden shrink-0 bg-slate-900">
+                            <Image
+                              src={evt.bannerImage}
+                              alt={evt.title}
+                              fill
+                              className="object-cover"
+                            />
+                            <div className="absolute top-1.5 left-1.5 bg-indigo-900/90 text-[10px] font-bold text-white px-2 py-0.5 rounded">
+                              {evt.entryType}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 text-xs font-bold flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{evt.startDate}</span>
+                              </span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                {evt.time}
+                              </span>
+                            </div>
+
+                            <h3 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-1">
+                              {evt.title}
+                            </h3>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                              <span className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-200">
+                                <MapPin className="h-3.5 w-3.5 text-indigo-600" />
+                                {evt.venue}, {evt.city}
+                              </span>
+                              <span>•</span>
+                              <span>{evt.organizer}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 sm:self-center">
+                          <Link
+                            href="/events"
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 px-3.5 py-2 text-xs font-bold transition-colors"
+                          >
+                            View
+                          </Link>
+                          <a
+                            href={`https://wa.me/${evt.whatsapp}?text=${encodeURIComponent(
+                              `Hello, I would like to inquire about "${evt.title}" on Sadza Connect.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 text-xs font-bold transition-transform active:scale-95 shadow-sm"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
                       </div>
                     ))
                   )}

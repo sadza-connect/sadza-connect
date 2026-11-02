@@ -60,6 +60,7 @@ export const COMMERCIAL_SECTORS = [
   { id: 'Events, Media & Printing', name: 'Events, Media & Printing', label: 'Events, Media & Printing', count: 0 },
   { id: 'Security & Borehole Drilling', name: 'Security & Borehole Drilling', label: 'Security & Borehole Drilling', count: 0 },
   { id: 'Beauty, Salons & Wellness', name: 'Beauty, Salons & Wellness', label: 'Beauty, Salons & Wellness', count: 0 },
+  { id: 'Others', name: 'Others', label: 'Others (General / Unlisted)', count: 0 },
 ] as const;
 
 export const DEFAULT_PAID_ADVERTS: PaidAdvertItem[] = [];

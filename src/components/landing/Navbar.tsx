@@ -152,7 +152,7 @@ export function Navbar() {
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="relative z-10 hidden items-center gap-6 text-sm font-semibold text-slate-700 dark:text-slate-200 lg:flex">
+        <nav className="relative z-10 hidden items-center gap-4 xl:gap-5 text-sm font-semibold text-slate-700 dark:text-slate-200 lg:flex">
           <Link
             href="/businesses"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
@@ -167,9 +167,15 @@ export function Navbar() {
           </Link>
           <Link
             href="/adverts"
-            className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors whitespace-nowrap"
           >
             Adverts &amp; Deals
+          </Link>
+          <Link
+            href="/properties"
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors whitespace-nowrap"
+          >
+            Property &amp; Rentals
           </Link>
           <Link
             href="/jobs"
@@ -178,8 +184,14 @@ export function Navbar() {
             Jobs
           </Link>
           <Link
-            href="/bill-payments"
+            href="/events"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+          >
+            Events
+          </Link>
+          <Link
+            href="/bill-payments"
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors whitespace-nowrap"
           >
             Bill Payments
           </Link>
@@ -478,11 +490,25 @@ export function Navbar() {
               Adverts &amp; Deals
             </Link>
             <Link
+              href="/properties"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+            >
+              Property &amp; Rentals
+            </Link>
+            <Link
               href="/jobs"
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
             >
               Jobs
+            </Link>
+            <Link
+              href="/events"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+            >
+              Events
             </Link>
             <Link
               href="/bill-payments"

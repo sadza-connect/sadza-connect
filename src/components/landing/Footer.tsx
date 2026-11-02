@@ -109,10 +109,26 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/properties"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Property &amp; Rentals
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/jobs"
                   className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
                   Jobs &amp; Vacancies
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/events"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Events &amp; Expos
                 </Link>
               </li>
               <li>

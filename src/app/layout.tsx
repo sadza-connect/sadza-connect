@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Montserrat } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
@@ -7,6 +8,13 @@ import { ToastProvider } from '@/components/providers/ToastProvider';
 import { CelestialSky } from '@/components/animations/CelestialSky';
 import { AuthCelebrationModal } from '@/components/ui/AuthCelebrationModal';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-montserrat',
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+});
 
 export const metadata: Metadata = {
   title: 'Sadza Connect — Zimbabwe’s Digital Platform for Business, Marketplace, Jobs & Utilities',
@@ -37,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={montserrat.variable} suppressHydrationWarning>
       <head>
         {/* Anti-flash inline script to prevent theme flicker and initialize sky parameters */}
         <script
@@ -65,7 +73,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased selection:bg-brand-600/20 selection:text-brand-700 dark:selection:bg-brand-500/30 dark:selection:text-brand-300 min-h-screen flex flex-col relative text-ink-950 dark:text-ink-50">
+      <body className={`${montserrat.className} font-sans antialiased selection:bg-brand-600/20 selection:text-brand-700 dark:selection:bg-brand-500/30 dark:selection:text-brand-300 min-h-screen flex flex-col relative text-ink-950 dark:text-ink-50`}>
         <ThemeProvider>
           <AuthProvider>
             <CelebrationProvider>

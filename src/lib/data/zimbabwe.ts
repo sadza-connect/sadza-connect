@@ -205,6 +205,14 @@ export const BUSINESS_CATEGORIES: Category[] = [
     count: 183,
     iconName: 'Briefcase',
   },
+  {
+    id: 'cat-13',
+    slug: 'others',
+    name: 'Others',
+    description: 'General goods, unlisted commercial sectors, specialised services & custom enterprise',
+    count: 65,
+    iconName: 'MoreHorizontal',
+  },
 ];
 
 export interface BusinessReview {

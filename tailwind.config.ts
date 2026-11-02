@@ -65,8 +65,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        display: ['var(--font-display)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-montserrat)', 'Montserrat', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['var(--font-montserrat)', 'Montserrat', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'display-sm': ['clamp(2rem, 4vw, 2.75rem)', { lineHeight: '1.08', letterSpacing: '-0.025em', fontWeight: '700' }],
