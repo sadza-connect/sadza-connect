@@ -212,7 +212,10 @@ export function HomeBannerSlideshow({
         >
           <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
             {/* Mobile View: Dedicated high-impact tall card using mobileImage */}
-            <div className="relative h-[290px] xs:h-[320px] sm:hidden w-full overflow-hidden">
+            <div
+              className="relative aspect-[800/620] sm:hidden w-full overflow-hidden"
+              style={{ aspectRatio: '800 / 620' }}
+            >
               <Link
                 href={currentBanner.href}
                 className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -230,7 +233,10 @@ export function HomeBannerSlideshow({
             </div>
 
             {/* Desktop View: Wide cinematic panorama using image */}
-            <div className="relative hidden sm:block sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
+            <div
+              className="relative hidden sm:block aspect-[2/1] w-full overflow-hidden"
+              style={{ aspectRatio: '2 / 1' }}
+            >
               <Link
                 href={currentBanner.href}
                 className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -261,7 +267,10 @@ export function HomeBannerSlideshow({
           >
             <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
               {/* Mobile View: Dedicated high-impact tall card using mobileImage */}
-              <div className="relative h-[290px] xs:h-[320px] sm:hidden w-full overflow-hidden">
+              <div
+                className="relative aspect-[800/620] sm:hidden w-full overflow-hidden"
+                style={{ aspectRatio: '800 / 620' }}
+              >
                 <Link
                   href={incomingBanner.href}
                   className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -278,7 +287,10 @@ export function HomeBannerSlideshow({
               </div>
 
               {/* Desktop View: Wide cinematic panorama using image */}
-              <div className="relative hidden sm:block sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
+              <div
+                className="relative hidden sm:block aspect-[2/1] w-full overflow-hidden"
+                style={{ aspectRatio: '2 / 1' }}
+              >
                 <Link
                   href={incomingBanner.href}
                   className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
