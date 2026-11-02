@@ -1,7 +1,7 @@
 export function getResetPasswordEmailPlainText(otp: string): string {
-  return `Reset your Sadza Connect password
+  return `Reset your MySadza Connect password
 
-We received a request to reset the password for your Sadza Connect account.
+We received a request to reset the password for your MySadza Connect account.
 Enter the 6-digit verification code below to proceed:
 
 ${otp}
@@ -9,8 +9,8 @@ ${otp}
 This code expires in 15 minutes. If you did not request a password reset, your account is safe and you can ignore this email.
 
 —
-Sadza Connect Zimbabwe
-Connecting Zimbabwe's Commerce, Verified Merchants & Diaspora`;
+MySadza Connect Zimbabwe
+Zimbabwe Commercial Super-Platform`;
 }
 
 export function getResetPasswordEmailHtml(otp: string): string {
@@ -20,7 +20,7 @@ export function getResetPasswordEmailHtml(otp: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset your Sadza Connect Password</title>
+  <title>Reset your MySadza Connect Password</title>
 </head>
 <body style="margin:0;padding:0;background-color:#090d16;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f3f4f6">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#090d16;padding:40px 16px">
@@ -29,9 +29,9 @@ export function getResetPasswordEmailHtml(otp: string): string {
         <table role="presentation" width="100%" style="max-width:500px;background-color:#0f172a;border-radius:16px;overflow:hidden;border:1px solid #1e293b;box-shadow:0 10px 25px -5px rgba(0, 0, 0, 0.5)">
           <!-- Header Banner -->
           <tr>
-            <td style="padding:32px 32px 24px;text-align:center;background:linear-gradient(135deg, #b45309 0%, #78350f 100%)">
-              <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px;color:#ffffff">SADZA CONNECT</h1>
-              <p style="margin:6px 0 0;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#fef3c7">Security & Account Recovery</p>
+            <td style="padding:32px 32px 24px;text-align:center;background:linear-gradient(135deg, #007a3d 0%, #004a24 100%)">
+              <h1 style="margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px;color:#ffffff">MYSADZA CONNECT</h1>
+              <p style="margin:6px 0 0;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#facc15">ZIMBABWE COMMERCIAL SUPER-PLATFORM</p>
             </td>
           </tr>
 
@@ -40,7 +40,7 @@ export function getResetPasswordEmailHtml(otp: string): string {
             <td style="padding:36px 32px 24px;text-align:center">
               <h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#ffffff">Password Reset Code</h2>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#94a3b8">
-                We received a request to reset your Sadza Connect account password. Use this 6-digit recovery code to complete the verification step:
+                We received a request to reset your MySadza Connect account password. Use this 6-digit recovery code to complete the verification step:
               </p>
 
               <!-- OTP Code Display -->
@@ -59,10 +59,10 @@ export function getResetPasswordEmailHtml(otp: string): string {
           <tr>
             <td style="padding:20px 32px;background-color:#090e1a;border-top:1px solid #1e293b;text-align:center">
               <p style="margin:0;font-size:12px;color:#64748b">
-                Need help? Contact Sadza Connect Security Support at support@sadzaconnect.co.zw
+                Need help? Contact MySadza Connect Security Support at support@sadzaconnect.co.zw
               </p>
               <p style="margin:8px 0 0;font-size:11px;color:#475569">
-                &copy; 2026 Sadza Connect Zimbabwe. All rights reserved.
+                &copy; 2026 MySadza Connect Zimbabwe. All rights reserved.
               </p>
             </td>
           </tr>

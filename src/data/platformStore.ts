@@ -52,8 +52,8 @@ export interface PlatformSettings {
 }
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
-  siteName: 'Sadza Connect',
-  tagline: 'Connecting People, Businesses & Opportunities Across Zimbabwe',
+  siteName: 'MySadza Connect',
+  tagline: 'Zimbabwe Commercial Super-Platform',
   announcementText:
     'New Business Registrations Receive a 30-Day Free Grace Period • Active Monthly Listing $10/mo • Direct WhatsApp Trade',
   announcementEnabled: true,
@@ -87,11 +87,11 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   autoApproveTier1: false,
   requireEmailVerification: true,
   allowPublicReviews: true,
-  aboutHeadline: 'National Commercial Directory, Marketplace & Utility Settlement Platform',
+  aboutHeadline: 'Zimbabwe Commercial Super-Platform — Directory, Marketplace, Jobs & Utilities',
   aboutMission:
     'To provide every legitimate enterprise in Zimbabwe—from independent sole proprietors and cooperatives to incorporated companies—with verified digital visibility, direct WhatsApp customer inquiries, and transparent marketplace commerce.',
   aboutVision:
-    'To serve as Zimbabwe’s primary commercial registry and trade infrastructure across all 10 provinces, connecting local suppliers with domestic and diaspora buyers.',
+    'To serve as Zimbabwe’s premier commercial super-platform and trade infrastructure across all 10 provinces, connecting local suppliers with domestic and diaspora buyers.',
 };
 
 export interface UtilityReceipt {

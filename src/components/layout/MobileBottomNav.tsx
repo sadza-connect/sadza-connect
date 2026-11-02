@@ -41,7 +41,7 @@ export function MobileBottomNav() {
       isActive: pathname.startsWith('/businesses'),
     },
     {
-      label: 'List',
+      label: 'Post Ad',
       href: listHref,
       icon: Plus,
       isSpecial: true,

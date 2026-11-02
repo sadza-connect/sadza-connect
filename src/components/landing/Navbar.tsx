@@ -387,15 +387,15 @@ export function Navbar() {
                 Sign In
               </Link>
 
-              {/* Primary CTA with Metallic Emerald Foil Edge */}
+              {/* Gumtree-style Post a Listing / Sell CTA with Metallic Emerald Foil Edge */}
               <button
                 type="button"
                 onClick={() => setRegisterModalOpen(true)}
                 className="relative isolate inline-flex items-center justify-center rounded-full p-[1.5px] metal-foil-emerald shadow-xs hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer"
               >
-                <span className="relative z-10 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 text-xs font-semibold transition-colors">
+                <span className="relative z-10 inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 text-xs font-bold transition-colors">
                   <PlusCircle className="h-3.5 w-3.5" />
-                  <span>Register</span>
+                  <span>+ Post a Listing</span>
                 </span>
               </button>
             </>
@@ -666,9 +666,9 @@ export function Navbar() {
                     setMobileMenuOpen(false);
                     setRegisterModalOpen(true);
                   }}
-                  className="w-full text-center py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white shadow-xs cursor-pointer"
+                  className="w-full text-center py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-xs cursor-pointer"
                 >
-                  Register
+                  + Post a Listing / Register
                 </button>
               </>
             )}

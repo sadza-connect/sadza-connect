@@ -192,7 +192,7 @@ export function HomeBannerSlideshow({
       <div className="relative w-full">
         {/* Outgoing or Static Current Slide */}
         <div
-          className={`w-full flex justify-center px-4 sm:px-6 lg:px-8 ${
+          className={`w-full flex justify-center px-2 sm:px-6 lg:px-8 ${
             incomingIndex !== null
               ? 'transition-transform duration-700 ease-out will-change-transform'
               : ''
@@ -204,8 +204,8 @@ export function HomeBannerSlideshow({
                 : 'translateX(0%)',
           }}
         >
-          <div className="w-full max-w-7xl rounded-xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden">
-            <div className="relative aspect-[2/1] sm:aspect-[2/1] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
+          <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
+            <div className="relative h-[280px] xs:h-[310px] sm:h-auto sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
               <Link
                 href={currentBanner.href}
                 className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -217,7 +217,7 @@ export function HomeBannerSlideshow({
                   fill
                   priority
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 95vw, 1500px"
-                  className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                  className="object-cover object-left sm:object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
                 />
               </Link>
             </div>
@@ -227,15 +227,15 @@ export function HomeBannerSlideshow({
         {/* Incoming Slide: Enters from the extreme right/left edge of the page */}
         {incomingBanner !== null && (
           <div
-            className="absolute inset-0 w-full flex justify-center px-4 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
+            className="absolute inset-0 w-full flex justify-center px-2 sm:px-6 lg:px-8 transition-transform duration-700 ease-out will-change-transform"
             style={{
               transform: isAnimating
                 ? 'translateX(0%)'
                 : `translateX(${slideDirection === 'next' ? '100%' : '-100%'})`,
             }}
           >
-            <div className="w-full max-w-7xl rounded-xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden">
-              <div className="relative aspect-[2/1] sm:aspect-[2/1] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
+            <div className="w-full max-w-7xl rounded-2xl sm:rounded-2xl md:rounded-3xl bg-slate-950 overflow-hidden shadow-md">
+              <div className="relative h-[280px] xs:h-[310px] sm:h-auto sm:aspect-[16/9] md:aspect-[2.2/1] lg:aspect-[2.45/1] xl:aspect-[2.55/1] w-full overflow-hidden">
                 <Link
                   href={incomingBanner.href}
                   className="block relative h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -246,7 +246,7 @@ export function HomeBannerSlideshow({
                     alt={incomingBanner.title}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 95vw, 1500px"
-                    className="object-cover object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
+                    className="object-cover object-left sm:object-center group-hover:scale-[1.01] transition-transform duration-700 ease-out"
                   />
                 </Link>
               </div>

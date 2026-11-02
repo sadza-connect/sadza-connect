@@ -17,19 +17,18 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: 'Sadza Connect — Zimbabwe’s Digital Platform for Business, Marketplace, Jobs & Utilities',
+  title: 'MySadza Connect — Zimbabwe Commercial Super-Platform',
   description:
-    'Zimbabwe’s unified commercial discovery platform. Connecting people, verified businesses, marketplace deals, open jobs, and instant utility bill settlements across all 10 provinces.',
+    'MySadza Connect — Zimbabwe Commercial Super-Platform. Free classifieds to buy, sell, rent property, find jobs, hire services, and discover verified businesses across all 10 provinces.',
   keywords: [
+    'MySadza Connect',
     'Sadza Connect',
-    'Sadza Connect',
-    'Zimbabwe business directory',
-    'Harare businesses',
+    'Zimbabwe classifieds',
+    'buy and sell Zimbabwe',
+    'Harare property rentals',
     'Bulawayo marketplace',
-    'ZESA electricity tokens',
     'Zimbabwe jobs',
-    'Gweru solar suppliers',
-    'Victoria Falls lodges',
+    'Zimbabwe commercial super-platform',
   ],
   authors: [{ name: 'Africdominion Group (Pvt) Ltd' }],
   icons: {

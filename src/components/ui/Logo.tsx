@@ -25,7 +25,7 @@ export function Logo({
     <Link
       href="/"
       className={cn('group inline-flex items-center gap-3 select-none', className)}
-      aria-label="Sadza Connect Homepage"
+      aria-label="MySadza Connect Homepage"
     >
       {/* 
         Logo Badge Container: 
@@ -36,7 +36,7 @@ export function Logo({
         <div className={cn('relative aspect-[570/380] overflow-hidden', heightClasses[size])}>
           <Image
             src="/logo.png"
-            alt="Sadza Connect Zimbabwe"
+            alt="MySadza Connect Zimbabwe"
             width={180}
             height={120}
             className="h-full w-auto object-contain"
@@ -49,7 +49,7 @@ export function Logo({
         <div className="hidden sm:flex flex-col border-l border-ink-200/90 dark:border-ink-800 pl-3">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-extrabold tracking-tight text-ink-950 dark:text-white leading-tight">
-              Sadza Connect
+              MySadza Connect
             </span>
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand-600" />
             <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
@@ -57,7 +57,7 @@ export function Logo({
             </span>
           </div>
           <span className="text-[10px] font-medium tracking-normal text-ink-500 dark:text-ink-400">
-            Connecting People, Businesses & Opportunities
+            Zimbabwe Commercial Super-Platform
           </span>
         </div>
       )}

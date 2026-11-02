@@ -48,9 +48,9 @@ export function Footer() {
             <Logo size="md" showTagline={false} />
 
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm leading-relaxed">
-              {settings.siteName} is Zimbabwe&rsquo;s commercial directory, marketplace, job board,
-              and utility bill settlement platform serving businesses and households across all 10
-              provinces.
+              {settings.siteName} is Zimbabwe&rsquo;s commercial super-platform &mdash; uniting
+              verified business directories, marketplace classifieds, property rentals, jobs, and
+              instant utility settlements across all 10 provinces.
             </p>
 
             <div className="space-y-2 pt-1 text-xs text-slate-600 dark:text-slate-400">
