@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -22,6 +22,8 @@ import {
   Printer,
   QrCode,
   ExternalLink,
+  Camera,
+  Upload,
 } from 'lucide-react';
 import {
   ZIMBABWE_PROVINCES,
@@ -64,8 +66,10 @@ import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 type UserTab = 'overview' | 'utilities' | 'saved' | 'jobs' | 'settings';
 
 export default function UserDashboardPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { toast } = useToast();
+  const sidebarPhotoRef = useRef<HTMLInputElement>(null);
+  const settingsPhotoRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [activeTab, setActiveTab] = useState<UserTab>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -96,6 +100,31 @@ export default function UserDashboardPage() {
   const [cvTitle, setCvTitle] = useState('');
   const [cvSkills, setCvSkills] = useState('');
   const [cvFileName, setCvFileName] = useState('');
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'Image Too Large',
+        description: 'Please select an image under 5MB.',
+        variant: 'error',
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      updateUser({ avatarUrl: result });
+      showToast('Profile photo updated successfully!');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    updateUser({ avatarUrl: null });
+    showToast('Profile photo removed.');
+  };
 
   useEffect(() => {
     if (user?.fullName && !cvFullName) {
@@ -303,7 +332,7 @@ export default function UserDashboardPage() {
             SC
           </div>
           <div>
-            <span className="block text-sm font-bold tracking-tight text-white">Sadza Connect</span>
+            <span className="block text-sm font-bold tracking-tight text-white">MySadza Connect</span>
             <span className="block text-[10px] font-semibold uppercase tracking-widest text-emerald-400">
               Buyer & Career Portal
             </span>
@@ -320,20 +349,68 @@ export default function UserDashboardPage() {
 
       {/* User Card */}
       <div className="border-b border-white/10 p-4">
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Verified Member
-            </span>
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-              Active
-            </span>
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative group shrink-0">
+              <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-emerald-400 bg-slate-800 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.fullName || 'User'}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>
+                    {(user?.fullName || cvFullName || 'VU')
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => sidebarPhotoRef.current?.click()}
+                title="Change Profile Picture"
+                className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <input
+                ref={sidebarPhotoRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Verified Member
+                </span>
+                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                  Active
+                </span>
+              </div>
+              <p className="text-sm font-bold text-white truncate">{user?.fullName || cvFullName || 'Valued User'}</p>
+              <p className="text-[11px] text-slate-400 truncate">{user?.email || 'Individual Account'}</p>
+            </div>
           </div>
-          <p className="text-sm font-bold text-white truncate">{user?.fullName || cvFullName || 'Valued User'}</p>
-          <p className="text-[11px] text-slate-400 truncate">{user?.email || 'Individual Account'}</p>
-          <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 pt-0.5">
-            <MapPin className="h-3 w-3" /> {cvProvince}
-          </p>
+          <div className="flex items-center justify-between pt-1 border-t border-white/5">
+            <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> {cvProvince}
+            </p>
+            <button
+              type="button"
+              onClick={() => sidebarPhotoRef.current?.click()}
+              className="text-[10px] font-semibold text-slate-300 hover:text-emerald-400 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Camera className="h-3 w-3" /> Change Photo
+            </button>
+          </div>
         </div>
       </div>
 
@@ -920,11 +997,71 @@ export default function UserDashboardPage() {
 
           {/* TAB 5: ACCOUNT SETTINGS */}
           {activeTab === 'settings' && (
-            <Panel>
-              <PanelHeading
-                title="Personal Account Credentials & Preferences"
-                hint="Your primary registration email and mobile number are locked for account security."
-              />
+            <div className="space-y-6">
+              {/* Profile Photo Uploader */}
+              <Panel>
+                <PanelHeading
+                  title="Profile Photo & Avatar"
+                  hint="Upload an authentic photo of yourself to build trust across MySadza Connect."
+                />
+                <div className="mt-5 flex flex-col sm:flex-row items-center gap-6">
+                  <div className="relative group shrink-0">
+                    <div className="h-24 w-24 rounded-2xl overflow-hidden border-2 border-emerald-500/80 bg-slate-100 dark:bg-slate-800 shadow-md flex items-center justify-center text-slate-700 dark:text-white font-extrabold text-2xl">
+                      {user?.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl}
+                          alt={user.fullName || 'User Avatar'}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span>
+                          {(user?.fullName || cvFullName || 'VU')
+                            .split(' ')
+                            .map((n) => n[0])
+                            .slice(0, 2)
+                            .join('')
+                            .toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-center sm:text-left">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                      <input
+                        ref={settingsPhotoRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                      <AdminButton
+                        type="button"
+                        onClick={() => settingsPhotoRef.current?.click()}
+                      >
+                        <Camera className="h-4 w-4" /> Upload Profile Photo
+                      </AdminButton>
+                      {user?.avatarUrl && (
+                        <AdminButton
+                          type="button"
+                          variant="outline"
+                          onClick={handleRemoveAvatar}
+                        >
+                          <Trash2 className="h-4 w-4 text-rose-500" /> Remove Photo
+                        </AdminButton>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Supports JPG, PNG, or WebP up to 5MB. Synchronizes instantly across your navigation and buyer card.
+                    </p>
+                  </div>
+                </div>
+              </Panel>
+
+              <Panel>
+                <PanelHeading
+                  title="Personal Account Credentials & Preferences"
+                  hint="Your primary registration email and mobile number are locked for account security."
+                />
               <div className="mt-5 space-y-5">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="rounded-xl border border-slate-200 bg-slate-100/80 p-3.5">
@@ -979,6 +1116,7 @@ export default function UserDashboardPage() {
                 </div>
               </div>
             </Panel>
+          </div>
           )}
         </main>
       </div>

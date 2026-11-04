@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -20,6 +20,8 @@ import {
   SlidersHorizontal,
   Sparkles,
   CreditCard,
+  Camera,
+  Upload,
 } from 'lucide-react';
 import { AnnouncementBar } from '@/components/landing/AnnouncementBar';
 import { Navbar } from '@/components/landing/Navbar';
@@ -66,6 +68,22 @@ export default function AdvertsDirectoryPage() {
   const [whatsapp, setWhatsapp] = useState('263772111222');
   const [paymentMethod, setPaymentMethod] = useState<'ecocash' | 'innbucks' | 'card'>('ecocash');
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [advertImage, setAdvertImage] = useState<string>('');
+  const advertFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdvertImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Advert flyer/photo must be under 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAdvertImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const fetchLiveAdverts = async () => {
     try {
@@ -139,6 +157,7 @@ export default function AdvertsDirectoryPage() {
           whatsapp: cleanWhatsapp,
           phone: `+${cleanWhatsapp}`,
           image:
+            advertImage ||
             'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
           featured_on_home: true,
         }),
@@ -615,6 +634,57 @@ export default function AdvertsDirectoryPage() {
                 value={offerText}
                 onChange={(e) => setOfferText(e.target.value)}
               />
+
+              {/* Advert Flyer / Picture Upload */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Advert Flyer / Picture Upload
+                </label>
+                <div className="flex items-center gap-3">
+                  {advertImage ? (
+                    <div className="relative h-20 w-32 rounded-xl overflow-hidden border-2 border-emerald-500 shadow-sm shrink-0">
+                      <img src={advertImage} alt="Advert Preview" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setAdvertImage('')}
+                        title="Remove uploaded flyer"
+                        className="absolute top-1 right-1 bg-black/75 hover:bg-black rounded-full p-1 text-white cursor-pointer"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => advertFileInputRef.current?.click()}
+                      className="h-20 w-32 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-500 cursor-pointer transition-colors bg-slate-50 dark:bg-slate-800 shrink-0"
+                    >
+                      <Camera className="h-5 w-5 mb-1" />
+                      <span className="text-[10px] font-bold">Upload Flyer</span>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      ref={advertFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAdvertImageUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => advertFileInputRef.current?.click()}
+                      className="text-xs"
+                    >
+                      <Upload className="h-3.5 w-3.5 mr-1" /> {advertImage ? 'Change Picture / Flyer' : 'Upload Flyer from Device'}
+                    </Button>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Upload promo flyer, poster, or banner (JPG, PNG, WebP up to 5MB).
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Input

@@ -513,6 +513,8 @@ export interface MarketplaceProduct {
   highlights: string[];
   specs?: { label: string; value: string; icon?: string }[];
   featured?: boolean;
+  isSold?: boolean;
+  status?: 'Available' | 'Sold';
 }
 
 export const SAMPLE_PRODUCTS: MarketplaceProduct[] = [

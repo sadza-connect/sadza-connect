@@ -268,7 +268,7 @@ function SidebarContent({
           <ShieldCheck className="h-5 w-5" />
         </span>
         <div className="leading-none">
-          <p className="font-display text-sm font-bold tracking-tight text-white">SADZA CONNECT</p>
+          <p className="font-display text-sm font-bold tracking-tight text-white">MYSADZA CONNECT</p>
           <p className="mt-1 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-[#6b81a5]">
             Admin Console
           </p>

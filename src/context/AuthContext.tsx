@@ -23,6 +23,7 @@ export interface AuthContextType {
   login: (payload: { user: UserSession; accessToken: string; refreshToken: string }) => void;
   logout: () => Promise<boolean>;
   refreshSession: () => Promise<boolean>;
+  updateUser: (partial: Partial<UserSession>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -234,6 +235,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLogoutError(null);
   }, []);
 
+  const updateUser = useCallback((partial: Partial<UserSession>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...partial };
+      try {
+        localStorage.setItem('sadza_user', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to update stored user', e);
+      }
+      return updated;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -245,6 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         refreshSession,
+        updateUser,
       }}
     >
       {children}

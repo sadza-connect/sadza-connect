@@ -59,14 +59,22 @@ export function ProductCard({
     ? product.priceZig
     : Math.round(usdPrice * 26.5);
 
+  const isSold = Boolean(product.isSold || product.status === 'Sold');
+
   // Clean WhatsApp number
   const rawPhone = product.sellerWhatsapp || product.sellerPhone || '263772123456';
   const cleanPhone = rawPhone.replace(/[^\d]/g, '');
-  const waLink = `https://wa.me/${cleanPhone}?text=Hi%20${encodeURIComponent(
-    product.sellerName
-  )},%20I%20am%20interested%20in%20your%20product%20"${encodeURIComponent(
-    product.title
-  )}"%20(US$%20${usdPrice.toFixed(2)})%20on%20Sadza%20Connect.`;
+  const waLink = isSold
+    ? `https://wa.me/${cleanPhone}?text=Hi%20${encodeURIComponent(
+        product.sellerName
+      )},%20I%20saw%20your%20product%20"${encodeURIComponent(
+        product.title
+      )}"%20on%20Sadza%20Connect%20which%20is%20marked%20as%20Sold.%20Do%20you%20have%20any%20upcoming%20restock%20or%20similar%20alternatives?`
+    : `https://wa.me/${cleanPhone}?text=Hi%20${encodeURIComponent(
+        product.sellerName
+      )},%20I%20am%20interested%20in%20your%20product%20"${encodeURIComponent(
+        product.title
+      )}"%20(US$%20${usdPrice.toFixed(2)})%20on%20Sadza%20Connect.`;
 
   // Dynamic Specs (defaults to 3 key specs as seen in the Figma design)
   const specs = product.specs && product.specs.length >= 3
@@ -112,15 +120,20 @@ export function ProductCard({
             onError={() => setImageError(true)}
           />
 
-          {/* Top-Left Featured Badge */}
-          {product.featured !== false && (
-            <div className="absolute top-3 left-3 z-10">
+          {/* Top-Left Badges (SOLD / Featured) */}
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 flex-wrap">
+            {isSold ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-[11px] font-black uppercase tracking-wider shadow-md border border-white/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                <span>SOLD</span>
+              </span>
+            ) : product.featured !== false ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#056636] text-white text-xs font-semibold shadow-xs">
                 <Star className="w-3.5 h-3.5 fill-white text-white" />
                 <span>Featured</span>
               </span>
-            </div>
-          )}
+            ) : null}
+          </div>
 
           {/* Top-Right Heart / Wishlist Button */}
           <button

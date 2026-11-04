@@ -37,6 +37,8 @@ export interface PropertyListing {
   phone: string;
   postedAt: string;
   isFeatured: boolean;
+  occupancyStatus?: 'Available' | 'Occupied' | 'Taken';
+  isOccupied?: boolean;
 }
 
 export const PROPERTY_TYPES = [
@@ -140,6 +142,8 @@ export const DEFAULT_PROPERTIES: PropertyListing[] = [
     phone: '+263 77 122 2333',
     postedAt: '3 days ago',
     isFeatured: false,
+    occupancyStatus: 'Taken',
+    isOccupied: true,
   },
   {
     id: 'prop-4',
@@ -219,5 +223,26 @@ export function saveStoredProperty(property: PropertyListing): void {
     window.dispatchEvent(new Event('sadza-properties-updated'));
   } catch (err) {
     console.error('Failed to save property to localStorage:', err);
+  }
+}
+
+export function togglePropertyOccupancy(propertyId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredProperties();
+    const updated = existing.map((p) => {
+      if (p.id !== propertyId) return p;
+      const isCurrentlyOccupied = p.occupancyStatus === 'Occupied' || p.occupancyStatus === 'Taken' || p.isOccupied;
+      const nextStatus: 'Available' | 'Taken' = isCurrentlyOccupied ? 'Available' : 'Taken';
+      return {
+        ...p,
+        occupancyStatus: nextStatus,
+        isOccupied: !isCurrentlyOccupied,
+      };
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-properties-updated'));
+  } catch (err) {
+    console.error('Failed to toggle property occupancy:', err);
   }
 }

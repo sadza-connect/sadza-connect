@@ -131,11 +131,19 @@ export function ProductDetailModal({
     ? 'info@greenenergysolutions.co.zw'
     : `sales@${product.sellerSlug || 'sadzaconnect'}.co.zw`;
 
-  const waLink = `https://wa.me/${digitsOnlyPhone}?text=Hi%20${encodeURIComponent(
-    product.sellerName
-  )},%20I%20am%20interested%20in%20your%20product%20"${encodeURIComponent(
-    product.title
-  )}"%20(US$%20${usdPrice.toFixed(2)})%20listed%20on%20Sadza%20Connect.`;
+  const isSold = Boolean(product.isSold || product.status === 'Sold');
+
+  const waLink = isSold
+    ? `https://wa.me/${digitsOnlyPhone}?text=Hi%20${encodeURIComponent(
+        product.sellerName
+      )},%20I%20saw%20your%20product%20"${encodeURIComponent(
+        product.title
+      )}"%20on%20Sadza%20Connect%20which%20is%20marked%20as%20Sold.%20Do%20you%20have%20any%20upcoming%20restock%20or%20similar%20alternatives?`
+    : `https://wa.me/${digitsOnlyPhone}?text=Hi%20${encodeURIComponent(
+        product.sellerName
+      )},%20I%20am%20interested%20in%20your%20product%20"${encodeURIComponent(
+        product.title
+      )}"%20(US$%20${usdPrice.toFixed(2)})%20listed%20on%20Sadza%20Connect.`;
 
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     (product.sellerAddress || product.location || 'Harare') + ', Zimbabwe'
@@ -375,12 +383,19 @@ export function ProductDetailModal({
                 {/* PRODUCT OVERVIEW SUB-COLUMN (MD: 6 COLS) */}
                 <div className="md:col-span-6 flex flex-col justify-between space-y-3.5">
                   <div className="space-y-2.5">
-                    {/* Top In Stock Pill Badge */}
+                    {/* Top In Stock / SOLD Pill Badge */}
                     <div>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#e8f5e9] text-[#056636] border border-[#c8e6c9] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                        <span>In Stock</span>
-                      </span>
+                      {isSold ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-600 text-white shadow-xs">
+                          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                          <span>SOLD OUT / ITEM SOLD</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#e8f5e9] text-[#056636] border border-[#c8e6c9] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          <span>In Stock</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Product Title */}
@@ -469,7 +484,7 @@ export function ProductDetailModal({
                       className="w-full py-3 px-4 rounded-xl bg-[#007a3d] hover:bg-[#006331] text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                     >
                       <MessageCircle className="w-4 h-4 fill-white text-[#007a3d]" />
-                      <span>Contact Seller</span>
+                      <span>{isSold ? 'Inquire (Item Sold — Ask for Restock)' : 'Contact Seller on WhatsApp'}</span>
                     </a>
 
                     {/* Secondary Action Row: Share, Save, Report */}

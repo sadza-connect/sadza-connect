@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   Building2,
@@ -30,6 +30,9 @@ import {
   Send,
   Pencil,
   Check,
+  Camera,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   ZIMBABWE_PROVINCES,
@@ -155,6 +158,8 @@ export default function BusinessDashboardPage() {
       setProdCategory(prodToEdit.category || BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy');
       setProdPriceUsd(String(prodToEdit.priceUsd || ''));
       setProdUnit(prodToEdit.unit || 'Per Unit');
+      setProdStockNote(prodToEdit.stockNote || (prodToEdit.isSold || prodToEdit.status === 'Sold' ? 'Sold Out' : 'In Stock'));
+      setProdStatus(prodToEdit.isSold || prodToEdit.status === 'Sold' ? 'Sold' : 'Available');
       const existingImages =
         prodToEdit.images && prodToEdit.images.length > 0
           ? prodToEdit.images.slice(0, 5).map((img, i) => ({
@@ -194,6 +199,7 @@ export default function BusinessDashboardPage() {
     setProdPriceUsd('');
     setProdUnit('Per Unit');
     setProdStockNote('In Stock');
+    setProdStatus('Available');
     setProdImages([]);
     setProdDesc('');
     setShowProductModal(true);
@@ -245,6 +251,7 @@ export default function BusinessDashboardPage() {
   const [prodPriceUsd, setProdPriceUsd] = useState('');
   const [prodUnit, setProdUnit] = useState('Per Unit');
   const [prodStockNote, setProdStockNote] = useState('');
+  const [prodStatus, setProdStatus] = useState<'Available' | 'Sold'>('Available');
   const [prodImages, setProdImages] = useState<UploadedMediaItem[]>([]);
   const [prodDesc, setProdDesc] = useState('');
 
@@ -282,6 +289,10 @@ export default function BusinessDashboardPage() {
   const [editEntityType, setEditEntityType] = useState<BusinessListing['businessType']>(
     'Registered Company (Pvt Ltd)'
   );
+  const [editLogoUrl, setEditLogoUrl] = useState('');
+  const [editCoverUrl, setEditCoverUrl] = useState('');
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [kycAssets, setKycAssets] = useState<UploadedMediaItem[]>([]);
 
 
@@ -512,12 +523,107 @@ export default function BusinessDashboardPage() {
     setEditHours(currentBusiness.openingHours || 'Mon - Sat: 08:00 - 17:00');
     setEditServices((currentBusiness.services || []).join(', '));
     setEditEntityType(currentBusiness.businessType || 'Registered Company (Pvt Ltd)');
+    setEditLogoUrl(currentBusiness.logoUrl || currentBusiness.image || '');
+    setEditCoverUrl(currentBusiness.coverImage || '');
   }, [currentBusiness]);
 
   const showToast = (msg: string) => {
     toast({
       title: 'Storefront Updated',
       description: msg,
+      variant: 'success',
+    });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload an image file (PNG, JPG, WebP).',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Storefront logo must be under 5MB.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setEditLogoUrl(reader.result);
+        toast({
+          title: 'Logo Selected',
+          description: 'Storefront logo loaded. Click "Save Storefront Changes" to persist.',
+          variant: 'success',
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload an image file (PNG, JPG, WebP).',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Cover banner photo must be under 5MB.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setEditCoverUrl(reader.result);
+        toast({
+          title: 'Banner Selected',
+          description: 'Storefront banner loaded. Click "Save Storefront Changes" to persist.',
+          variant: 'success',
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleToggleProductSold = (productId: string) => {
+    const next = products.map((p) => {
+      if (p.id !== productId) return p;
+      const isCurrentlySold = Boolean(p.isSold || p.status === 'Sold');
+      const newSold = !isCurrentlySold;
+      return {
+        ...p,
+        isSold: newSold,
+        status: (newSold ? 'Sold' : 'Available') as 'Sold' | 'Available',
+        stockNote: newSold ? 'Sold Out' : 'In Stock',
+      };
+    });
+    setProducts(next);
+    saveStoredProducts(next);
+    toast({
+      title: 'Product Status Updated',
+      description: 'Product availability updated across marketplace listings.',
       variant: 'success',
     });
   };
@@ -711,13 +817,16 @@ export default function BusinessDashboardPage() {
           return;
         }
 
+        const isSold = prodStatus === 'Sold';
         const updatedProd: MarketplaceProduct = {
           ...editingProduct,
           title: prodTitle.trim(),
           category: prodCategory,
           priceUsd: usd,
           unit: prodUnit.trim() || 'Per Unit',
-          stockNote: prodStockNote.trim() || 'In Stock',
+          stockNote: isSold ? (prodStockNote.trim() || 'Sold Out') : (prodStockNote.trim() || 'In Stock'),
+          isSold,
+          status: prodStatus,
           image: chosenImage || editingProduct.image,
           images: allImages.length > 0 ? allImages : (editingProduct.images || []),
           description:
@@ -789,6 +898,7 @@ export default function BusinessDashboardPage() {
       }
 
       if (json.success && json.data?.product) {
+        const isSold = prodStatus === 'Sold';
         const mapped = mapDbProductToMarketplaceProduct({
           ...json.data.product,
           business_name: currentBusiness.name,
@@ -798,6 +908,8 @@ export default function BusinessDashboardPage() {
           business_whatsapp: currentBusiness.whatsapp,
           business_is_verified: currentBusiness.cr14Verified,
           business_type: currentBusiness.businessType,
+          isSold,
+          status: prodStatus,
         });
         const nextProducts = [mapped, ...products.filter((p) => p.id !== mapped.id)];
         setProducts(nextProducts);
@@ -1171,6 +1283,9 @@ export default function BusinessDashboardPage() {
           business_type: editEntityType,
           whatsapp: finalWhatsapp,
           operating_hours: { summary: editHours.trim() },
+          logo_url: editLogoUrl,
+          cover_image: editCoverUrl,
+          image: editLogoUrl || currentBusiness.image,
         }),
       });
     } catch (err) {
@@ -1193,6 +1308,9 @@ export default function BusinessDashboardPage() {
               .split(',')
               .map((s) => s.trim())
               .filter(Boolean),
+            logoUrl: editLogoUrl || b.logoUrl,
+            image: editLogoUrl || b.image,
+            coverImage: editCoverUrl || b.coverImage,
           }
         : b
     );
@@ -1226,7 +1344,7 @@ export default function BusinessDashboardPage() {
             SC
           </div>
           <div>
-            <span className="block text-sm font-bold tracking-tight text-white">Sadza Connect</span>
+            <span className="block text-sm font-bold tracking-tight text-white">MySadza Connect</span>
             <span className="block text-[10px] font-semibold uppercase tracking-widest text-emerald-400">
               Merchant Workspace
             </span>
@@ -1648,41 +1766,65 @@ export default function BusinessDashboardPage() {
                     </div>
                   ) : (
                     <div className="mt-4 space-y-3">
-                      {myProducts.slice(0, 4).map((prod) => (
-                        <div
-                          key={prod.id}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={prod.image}
-                              alt={prod.title}
-                              className="h-12 w-12 rounded-lg object-cover border border-slate-200 shrink-0"
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-bold text-slate-950">
-                                {prod.title}
-                              </p>
-                              <p className="text-[11px] font-semibold text-emerald-700">
-                                ${prod.priceUsd.toLocaleString()} USD •{' '}
-                                {Math.round(prod.priceUsd * settings.usdToZigRate).toLocaleString()}{' '}
-                                ZiG
-                              </p>
+                      {myProducts.slice(0, 4).map((prod) => {
+                        const isSold = Boolean(prod.isSold || prod.status === 'Sold');
+                        return (
+                          <div
+                            key={prod.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="relative shrink-0">
+                                <img
+                                  src={prod.image}
+                                  alt={prod.title}
+                                  className={`h-12 w-12 rounded-lg object-cover border border-slate-200 shrink-0 ${
+                                    isSold ? 'opacity-70 grayscale-[30%]' : ''
+                                  }`}
+                                />
+                                {isSold && (
+                                  <span className="absolute -top-1 -left-1 rounded bg-red-600 px-1 py-0.2 text-[8px] font-black uppercase text-white shadow-xs">
+                                    SOLD
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-bold text-slate-950">
+                                  {prod.title}
+                                </p>
+                                <p className="text-[11px] font-semibold text-emerald-700">
+                                  ${prod.priceUsd.toLocaleString()} USD •{' '}
+                                  {Math.round(prod.priceUsd * settings.usdToZigRate).toLocaleString()}{' '}
+                                  ZiG
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isSold ? (
+                                <AdminBadge tone="danger">SOLD</AdminBadge>
+                              ) : (
+                                <AdminBadge tone="success">{prod.stockNote}</AdminBadge>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleProductSold(prod.id)}
+                                className="text-[10px] font-semibold px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 cursor-pointer"
+                                title={isSold ? 'Relist as available' : 'Mark product as sold'}
+                              >
+                                {isSold ? 'Relist' : 'Mark Sold'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenProductModal(prod)}
+                                className="rounded-lg p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition cursor-pointer"
+                                title="Edit Product Details"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <AdminBadge tone="success">{prod.stockNote}</AdminBadge>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenProductModal(prod)}
-                              className="rounded-lg p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition cursor-pointer"
-                              title="Edit Product Details"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </Panel>
@@ -2149,58 +2291,90 @@ export default function BusinessDashboardPage() {
                 </div>
               ) : (
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {myProducts.map((prod) => (
-                    <div
-                      key={prod.id}
-                      className="flex gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 transition hover:border-slate-300"
-                    >
-                      <img
-                        src={prod.image}
-                        alt={prod.title}
-                        className="h-24 w-24 rounded-xl object-cover border border-slate-200 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <Link
-                            href={`/marketplace/${prod.slug}`}
-                            className="truncate text-sm font-bold text-slate-950 hover:text-[#1e57eb]"
-                          >
-                            {prod.title}
-                          </Link>
-                          <div className="flex items-center gap-1 shrink-0">
+                  {myProducts.map((prod) => {
+                    const isSold = Boolean(prod.isSold || prod.status === 'Sold');
+                    return (
+                      <div
+                        key={prod.id}
+                        className={`flex gap-4 rounded-2xl border bg-slate-50/50 p-4 transition ${
+                          isSold ? 'border-rose-200/80 bg-rose-50/20' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="relative shrink-0">
+                          <img
+                            src={prod.image}
+                            alt={prod.title}
+                            className={`h-24 w-24 rounded-xl object-cover border border-slate-200 shrink-0 ${
+                              isSold ? 'opacity-75 grayscale-[25%]' : ''
+                            }`}
+                          />
+                          {isSold && (
+                            <span className="absolute top-1.5 left-1.5 rounded-md bg-red-600/95 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm">
+                              SOLD
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <Link
+                              href={`/marketplace/${prod.slug}`}
+                              className="truncate text-sm font-bold text-slate-950 hover:text-[#1e57eb]"
+                            >
+                              {prod.title}
+                            </Link>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenProductModal(prod)}
+                                className="rounded-lg p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition cursor-pointer"
+                                title="Edit Product Details"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProduct(prod.id)}
+                                className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs font-bold text-emerald-700">
+                            ${prod.priceUsd.toLocaleString()} USD{' '}
+                            <span className="font-normal text-slate-400">
+                              ({Math.round(prod.priceUsd * settings.usdToZigRate).toLocaleString()}{' '}
+                              ZiG)
+                            </span>
+                          </p>
+                          <p className="line-clamp-2 text-xs text-slate-500">{prod.description}</p>
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <AdminBadge tone="neutral">{prod.category}</AdminBadge>
+                              {isSold ? (
+                                <AdminBadge tone="danger">SOLD</AdminBadge>
+                              ) : (
+                                <AdminBadge tone="success">{prod.stockNote}</AdminBadge>
+                              )}
+                            </div>
                             <button
                               type="button"
-                              onClick={() => handleOpenProductModal(prod)}
-                              className="rounded-lg p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition cursor-pointer"
-                              title="Edit Product Details"
+                              onClick={() => handleToggleProductSold(prod.id)}
+                              className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                                isSold
+                                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                  : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                              }`}
+                              title={isSold ? 'Mark product available again' : 'Mark product as sold out'}
                             >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteProduct(prod.id)}
-                              className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
-                              title="Delete Product"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                              {isSold ? 'Mark Available' : 'Mark as Sold'}
                             </button>
                           </div>
                         </div>
-                        <p className="text-xs font-bold text-emerald-700">
-                          ${prod.priceUsd.toLocaleString()} USD{' '}
-                          <span className="font-normal text-slate-400">
-                            ({Math.round(prod.priceUsd * settings.usdToZigRate).toLocaleString()}{' '}
-                            ZiG)
-                          </span>
-                        </p>
-                        <p className="line-clamp-2 text-xs text-slate-500">{prod.description}</p>
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <AdminBadge tone="neutral">{prod.category}</AdminBadge>
-                          <AdminBadge tone="success">{prod.stockNote}</AdminBadge>
-                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </Panel>
@@ -2561,6 +2735,114 @@ export default function BusinessDashboardPage() {
                       hint="Updates sync immediately to your public listing and live preview."
                     />
                     <form onSubmit={handleSaveProfile} className="mt-5 space-y-4">
+                      {/* Storefront Visual Branding (Logo / Avatar & Cover Banner) */}
+                      <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 space-y-4">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                            Storefront Visual Branding
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Upload your business logo / profile avatar and header cover banner to represent your brand.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Business Logo / Profile Avatar */}
+                          <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+                            <span className="text-[11px] font-bold text-slate-700 block">
+                              Profile Picture / Brand Logo
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <div className="relative h-16 w-16 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                                {editLogoUrl ? (
+                                  <img
+                                    src={editLogoUrl}
+                                    alt="Business Logo"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-xl font-black text-slate-400">
+                                    {currentBusiness.name.charAt(0)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <input
+                                  ref={logoInputRef}
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  className="hidden"
+                                  onChange={handleLogoUpload}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => logoInputRef.current?.click()}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                                >
+                                  <Camera className="h-3.5 w-3.5 text-emerald-600" /> Upload Logo
+                                </button>
+                                {editLogoUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditLogoUrl('')}
+                                    className="block text-[11px] text-rose-600 hover:underline cursor-pointer"
+                                  >
+                                    Remove Logo
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-slate-400">Square PNG, JPG, or WebP up to 5MB.</p>
+                          </div>
+
+                          {/* Cover Banner */}
+                          <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+                            <span className="text-[11px] font-bold text-slate-700 block">
+                              Storefront Header Cover Banner
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <div className="relative h-16 w-24 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                                {editCoverUrl ? (
+                                  <img
+                                    src={editCoverUrl}
+                                    alt="Cover Banner"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <ImageIcon className="h-6 w-6 text-slate-300" />
+                                )}
+                              </div>
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <input
+                                  ref={coverInputRef}
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  className="hidden"
+                                  onChange={handleCoverUpload}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => coverInputRef.current?.click()}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                                >
+                                  <Upload className="h-3.5 w-3.5 text-[#1e57eb]" /> Upload Banner
+                                </button>
+                                {editCoverUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditCoverUrl('')}
+                                    className="block text-[11px] text-rose-600 hover:underline cursor-pointer"
+                                  >
+                                    Remove Banner
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-slate-400">Horizontal banner up to 5MB.</p>
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <AdminSelect
                           label="Entity Structure"
@@ -2659,21 +2941,45 @@ export default function BusinessDashboardPage() {
                       hint="Real-time preview of how buyers see your card."
                     />
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-4 overflow-hidden">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="inline-block rounded-md bg-[#eef4ff] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1e57eb]">
-                            {editCategory || currentBusiness.categoryName}
-                          </span>
-                          <h3 className="mt-1.5 text-base font-bold text-slate-950 break-words">
-                            {currentBusiness.name}
-                          </h3>
-                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            <span className="truncate">
-                              {editProvince || currentBusiness.province} •{' '}
-                              {editAddress || currentBusiness.address}
+                      {editCoverUrl && (
+                        <div className="-mx-5 -mt-5 mb-3 h-28 w-[calc(100%+2.5rem)] overflow-hidden border-b border-slate-200 bg-slate-100">
+                          <img
+                            src={editCoverUrl}
+                            alt="Cover Banner"
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="relative h-12 w-12 rounded-xl border border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
+                            {editLogoUrl ? (
+                              <img
+                                src={editLogoUrl}
+                                alt="Storefront Logo"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-base font-black text-slate-400">
+                                {currentBusiness.name.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="inline-block rounded-md bg-[#eef4ff] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1e57eb]">
+                              {editCategory || currentBusiness.categoryName}
                             </span>
-                          </p>
+                            <h3 className="mt-1 text-base font-bold text-slate-950 break-words">
+                              {currentBusiness.name}
+                            </h3>
+                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span className="truncate">
+                                {editProvince || currentBusiness.province} •{' '}
+                                {editAddress || currentBusiness.address}
+                              </span>
+                            </p>
+                          </div>
                         </div>
                         <AdminBadge tone={currentBusiness.cr14Verified ? 'success' : 'warning'}>
                           {currentBusiness.cr14Verified
@@ -3233,11 +3539,31 @@ export default function BusinessDashboardPage() {
               />
             </div>
 
-            <AdminInput
-              label="Stock & Dispatch Availability Note"
-              value={prodStockNote}
-              onChange={(e) => setProdStockNote(e.target.value)}
-            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <AdminInput
+                label="Stock & Dispatch Availability Note"
+                value={prodStockNote}
+                onChange={(e) => setProdStockNote(e.target.value)}
+                placeholder="e.g. In Stock • Same-day Harare Dispatch"
+              />
+
+              <AdminSelect
+                label="Listing Status (Available / Sold) *"
+                value={prodStatus}
+                onChange={(e) => {
+                  const val = e.target.value as 'Available' | 'Sold';
+                  setProdStatus(val);
+                  if (val === 'Sold') {
+                    setProdStockNote('Sold Out');
+                  } else if (prodStockNote === 'Sold Out') {
+                    setProdStockNote('In Stock');
+                  }
+                }}
+              >
+                <option value="Available">Available (In Stock / Active Sale)</option>
+                <option value="Sold">Sold (Mark as Sold Out)</option>
+              </AdminSelect>
+            </div>
 
             <ImageUploader
               label="Product Photos (Up to 5 Images)"
