@@ -32,6 +32,21 @@ import {
 } from '@/data/platformStore';
 import { mapDbBillToReceipt } from '@/lib/data/bill-mapper';
 
+function buildWhatsAppReceiptUrl(
+  phone: string,
+  biller: string,
+  amount: number | string,
+  currency: string,
+  accountNumber: string,
+  reference: string
+): string {
+  const clean = (phone || '').replace(/[^0-9]/g, '');
+  const sanitized = clean.startsWith('0') ? '263' + clean.slice(1) : clean.startsWith('263') ? clean : clean.length > 5 ? clean : '263772123456';
+  const amtStr = typeof amount === 'number' ? amount.toFixed(2) : amount;
+  const msg = `Sadza Connect Utility Receipt (${biller}): Paid ${currency} $${amtStr}. Reference: ${reference}. Account/Meter: ${accountNumber}. Status: Settled. Thank you!`;
+  return `https://wa.me/${sanitized}?text=${encodeURIComponent(msg)}`;
+}
+
 export default function BillPaymentsPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
@@ -58,11 +73,15 @@ export default function BillPaymentsPage() {
   const [accountNumber, setAccountNumber] = useState('ACC-883921');
   const [waterAmount, setWaterAmount] = useState('15');
   const [waterSuccess, setWaterSuccess] = useState(false);
+  const [latestWaterBillData, setLatestWaterBillData] = useState<any | null>(null);
+  const [waterCopied, setWaterCopied] = useState(false);
 
   // DSTV State
   const [smartcard, setSmartcard] = useState('1029384756');
   const [packageType, setPackageType] = useState('DStv Compact ($39/mo)');
   const [dstvSuccess, setDstvSuccess] = useState(false);
+  const [latestDstvBillData, setLatestDstvBillData] = useState<any | null>(null);
+  const [dstvCopied, setDstvCopied] = useState(false);
 
   // Simulated USSD Mobile Authorization Modal State
   const [ussdPromptOpen, setUssdPromptOpen] = useState(false);
@@ -231,16 +250,37 @@ export default function BillPaymentsPage() {
         setReceipts(nextReceipts);
         saveStoredUtilityReceipts(nextReceipts);
 
+        const waLink =
+          json.data.whatsapp_receipt_link ||
+          buildWhatsAppReceiptUrl(
+            payData.customer_phone,
+            payData.biller,
+            payData.amount,
+            payData.currency,
+            payData.account_number,
+            json.data.payment_reference || mapped.reference
+          );
+
         if (payData.serviceType === 'zesa') {
           setTokenResult(json.data.token || mapped.tokenOrConfirmation);
           setLatestBillData({
             ...json.data.bill,
-            whatsapp_receipt_link: json.data.whatsapp_receipt_link,
+            whatsapp_receipt_link: waLink,
           });
         } else if (payData.serviceType === 'water') {
           setWaterSuccess(true);
+          setLatestWaterBillData({
+            ...json.data.bill,
+            reference: json.data.payment_reference || mapped.reference,
+            whatsapp_receipt_link: waLink,
+          });
         } else if (payData.serviceType === 'dstv') {
           setDstvSuccess(true);
+          setLatestDstvBillData({
+            ...json.data.bill,
+            reference: json.data.payment_reference || mapped.reference,
+            whatsapp_receipt_link: waLink,
+          });
         }
       } else {
         // Fallback simulation
@@ -264,15 +304,27 @@ export default function BillPaymentsPage() {
     const seg5 = Math.floor(1000 + Math.random() * 9000);
     const token = `${seg1} ${seg2} ${seg3} ${seg4} ${seg5}`;
 
+    const refCode =
+      payData.serviceType === 'water'
+        ? `MUN-${Math.floor(100000 + Math.random() * 900000)}`
+        : payData.serviceType === 'dstv'
+        ? `DSTV-${Math.floor(100000 + Math.random() * 900000)}`
+        : `ZETDC-${Math.floor(100000 + Math.random() * 900000)}`;
+
     const newRec: UtilityReceipt = {
       id: `ut-${Date.now()}`,
-      reference: `ZETDC-${Math.floor(100000 + Math.random() * 900000)}`,
-      service: payData.serviceType === 'zesa' ? 'ZESA Prepaid Token' : payData.serviceType === 'water' ? 'Municipal Water' : 'DStv Subscription',
+      reference: refCode,
+      service:
+        payData.serviceType === 'zesa'
+          ? 'ZESA Prepaid Token'
+          : payData.serviceType === 'water'
+          ? 'Municipal Water'
+          : 'DStv Subscription',
       accountOrMeter: payData.account_number,
       customerPhone: payData.customer_phone,
       currency: payData.currency,
       amount: payData.amount,
-      tokenOrConfirmation: payData.serviceType === 'zesa' ? token : `REC-${Math.floor(100000 + Math.random() * 900000)}`,
+      tokenOrConfirmation: payData.serviceType === 'zesa' ? token : refCode,
       unitsOrPackage: payData.serviceType === 'zesa' ? `${calculatedKwh} kWh` : 'Settled & Verified',
       date: 'Just now',
       status: 'Completed',
@@ -282,12 +334,35 @@ export default function BillPaymentsPage() {
     setReceipts(next);
     saveStoredUtilityReceipts(next);
 
+    const waLink = buildWhatsAppReceiptUrl(
+      payData.customer_phone,
+      payData.biller,
+      payData.amount,
+      payData.currency,
+      payData.account_number,
+      refCode
+    );
+
     if (payData.serviceType === 'zesa') {
       setTokenResult(token);
+      setLatestBillData({
+        ...newRec,
+        whatsapp_receipt_link: waLink,
+      });
     } else if (payData.serviceType === 'water') {
       setWaterSuccess(true);
+      setLatestWaterBillData({
+        ...newRec,
+        reference: refCode,
+        whatsapp_receipt_link: waLink,
+      });
     } else if (payData.serviceType === 'dstv') {
       setDstvSuccess(true);
+      setLatestDstvBillData({
+        ...newRec,
+        reference: refCode,
+        whatsapp_receipt_link: waLink,
+      });
     }
   };
 
@@ -615,21 +690,83 @@ export default function BillPaymentsPage() {
               </p>
 
               {waterSuccess ? (
-                <div className="p-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-3">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Municipal Payment Recorded
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                    USD ${waterAmount} credited to account {accountNumber} ({council}).
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setWaterSuccess(false)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold"
-                  >
-                    Make Another Payment
-                  </button>
+                <div className="p-5 sm:p-6 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-4">
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>STATUS: SETTLED</span>
+                    </span>
+                    <span>ACCOUNT #{accountNumber}</span>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Official Council Settlement Reference:
+                    </div>
+                    <div className="mt-1 font-mono text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-wider">
+                      {latestWaterBillData?.reference || 'MUN-883921'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200/60 dark:border-emerald-900/40 p-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Local Authority:</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{council}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Amount Paid:</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">USD ${waterAmount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Payment Channel:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{paymentMethod}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-emerald-200/80 dark:border-emerald-800/60 text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      Municipal Ledger: Credited & Verified
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ref = latestWaterBillData?.reference || accountNumber;
+                        navigator.clipboard.writeText(ref);
+                        setWaterCopied(true);
+                        setTimeout(() => setWaterCopied(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{waterCopied ? 'Copied!' : 'Copy Reference'}</span>
+                    </button>
+                  </div>
+
+                  {latestWaterBillData?.whatsapp_receipt_link && (
+                    <div className="pt-2">
+                      <a
+                        href={latestWaterBillData.whatsapp_receipt_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Send Receipt to WhatsApp
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWaterSuccess(false);
+                        setLatestWaterBillData(null);
+                      }}
+                      className="w-full py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      Settle Another Account
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={initiateWaterPayment} className="space-y-4">
@@ -696,21 +833,79 @@ export default function BillPaymentsPage() {
               </p>
 
               {dstvSuccess ? (
-                <div className="p-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-3">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    DStv Subscription Renewed
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                    Smartcard #{smartcard} activated on {packageType}.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setDstvSuccess(false)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold"
-                  >
-                    Renew Another Smartcard
-                  </button>
+                <div className="p-5 sm:p-6 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-4">
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>STATUS: ACTIVATED</span>
+                    </span>
+                    <span>SMARTCARD #{smartcard}</span>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      DStv Activation Reference:
+                    </div>
+                    <div className="mt-1 font-mono text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-wider">
+                      {latestDstvBillData?.reference || 'DSTV-102938'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-white/70 dark:bg-slate-900/60 border border-emerald-200/60 dark:border-emerald-900/40 p-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Bouquet Package:</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{packageType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">Payment Channel:</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">{paymentMethod}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-emerald-200/80 dark:border-emerald-800/60 text-xs">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      Decoder Signal: Cleared & Active
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ref = latestDstvBillData?.reference || smartcard;
+                        navigator.clipboard.writeText(ref);
+                        setDstvCopied(true);
+                        setTimeout(() => setDstvCopied(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{dstvCopied ? 'Copied!' : 'Copy Reference'}</span>
+                    </button>
+                  </div>
+
+                  {latestDstvBillData?.whatsapp_receipt_link && (
+                    <div className="pt-2">
+                      <a
+                        href={latestDstvBillData.whatsapp_receipt_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Send Receipt to WhatsApp
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDstvSuccess(false);
+                        setLatestDstvBillData(null);
+                      }}
+                      className="w-full py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      Renew Another Smartcard
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={initiateDstvPayment} className="space-y-4">

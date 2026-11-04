@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   Printer,
   QrCode,
+  ExternalLink,
 } from 'lucide-react';
 import {
   ZIMBABWE_PROVINCES,
@@ -1144,6 +1145,16 @@ export default function UserDashboardPage() {
               >
                 <Copy className="h-4 w-4" /> Copy Token
               </AdminButton>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Sadza Connect Utility Receipt (${selectedReceipt.service}): Paid ${selectedReceipt.currency === 'USD' ? '$' + selectedReceipt.amount.toFixed(2) : selectedReceipt.amount + ' ZiG'}. Reference: ${selectedReceipt.reference}. Account/Meter: ${selectedReceipt.accountOrMeter}. Token/Voucher: ${selectedReceipt.tokenOrConfirmation}. Status: Settled. Thank you!`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-xs"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Send to WhatsApp
+              </a>
               <AdminButton onClick={() => window.print()}>
                 <Printer className="h-4 w-4" /> Print Receipt
               </AdminButton>

@@ -301,7 +301,13 @@ export function BillPaySection() {
                     </button>
 
                     <a
-                      href={`https://wa.me/?text=My%20ZESA%20Token:%20${encodeURIComponent(tokenGenerated)}`}
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        selectedUtility === 'water'
+                          ? `My Council Water Settlement Receipt: Account ${meterNumber}, Reference: ${tokenGenerated}`
+                          : selectedUtility === 'dstv'
+                          ? `My DStv Renewal Receipt: Smartcard ${meterNumber}, Reference: ${tokenGenerated}`
+                          : `My ZESA Token: ${tokenGenerated}`
+                      )}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-bold text-gold-400 hover:text-white transition-colors"
