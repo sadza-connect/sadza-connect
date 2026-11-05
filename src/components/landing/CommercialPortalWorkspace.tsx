@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Building2,
   Briefcase,
@@ -33,6 +34,7 @@ import {
   ExternalLink,
   Zap,
   UploadCloud,
+  Camera,
   Eye,
   Sparkles,
   ShoppingBag,
@@ -276,6 +278,7 @@ type FeedFocusTab =
   | 'events';
 
 export function CommercialPortalWorkspace() {
+  const router = useRouter();
   const { user } = useAuth();
 
   // Dynamic Platform Settings
@@ -475,8 +478,10 @@ export function CommercialPortalWorkspace() {
   const [newProdDesc, setNewProdDesc] = useState('');
   const [newProdImages, setNewProdImages] = useState<string[]>([]);
   const [newProdImageInput, setNewProdImageInput] = useState('');
-  const [newProdBusinessId, setNewProdBusinessId] = useState('');
+  const [newProdCondition, setNewProdCondition] = useState('Brand New');
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [quickViewImageIndex, setQuickViewImageIndex] = useState(0);
 
   // Quick Apply Job Modal State
@@ -740,24 +745,113 @@ export function CommercialPortalWorkspace() {
     setSearchQuery('');
   };
 
+  // Check for ?action=sell URL param to auto-prompt upload once authenticated
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'sell') {
+        if (!user) {
+          router.push('/login?redirect=' + encodeURIComponent('/?action=sell'));
+        } else if (accountMode === 'grace_expired') {
+          setPaymentModalOpen(true);
+        } else {
+          setUploadProductOpen(true);
+        }
+      }
+    }
+  }, [user, accountMode, router]);
+
   const handleUploadProductAction = () => {
+    // 1. Authentication Check: Must be logged in to upload
+    if (!user) {
+      router.push('/login?redirect=' + encodeURIComponent('/?action=sell'));
+      return;
+    }
+
+    // 2. Subscription / Free Trial Check: If grace period expired without payment, prompt payment modal
     if (accountMode === 'grace_expired') {
       setPaymentModalOpen(true);
       return;
     }
+
+    // 3. User is eligible (logged in and within 1-Month Free Trial or Paid Subscriber)
+    setUploadError(null);
     setUploadProductOpen(true);
+  };
+
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingPhoto(true);
+    setUploadError(null);
+
+    const availableSlots = 5 - newProdImages.length;
+    const filesToProcess = Array.from(files).slice(0, availableSlots);
+
+    for (const file of filesToProcess) {
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError(`Photo "${file.name}" exceeds maximum 10MB limit.`);
+        continue;
+      }
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('partition', 'marketplace-products');
+        const res = await fetch('/api/v1/storage/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const json = await res.json();
+        if (res.ok && (json.url || json.data?.url)) {
+          const photoUrl = json.url || json.data?.url;
+          setNewProdImages((prev) => (prev.length < 5 ? [...prev, photoUrl] : prev));
+        } else {
+          const reader = new FileReader();
+          reader.onload = (uploadEvt) => {
+            const dataUrl = uploadEvt.target?.result as string;
+            if (dataUrl) {
+              setNewProdImages((prev) => (prev.length < 5 ? [...prev, dataUrl] : prev));
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      } catch {
+        const reader = new FileReader();
+        reader.onload = (uploadEvt) => {
+          const dataUrl = uploadEvt.target?.result as string;
+          if (dataUrl) {
+            setNewProdImages((prev) => (prev.length < 5 ? [...prev, dataUrl] : prev));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    setIsUploadingPhoto(false);
+    e.target.value = '';
   };
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProdTitle.trim()) return;
+    if (!newProdTitle.trim()) {
+      setUploadError('Product title / specification is required.');
+      return;
+    }
+
+    if (!user) {
+      router.push('/login?redirect=' + encodeURIComponent('/?action=sell'));
+      return;
+    }
+
+    if (accountMode === 'grace_expired') {
+      setUploadProductOpen(false);
+      setPaymentModalOpen(true);
+      return;
+    }
 
     setIsSubmittingProduct(true);
-    const usd = parseFloat(newProdPriceUSD) || 25;
-    const targetBusiness =
-      businesses.find((b) => b.id === newProdBusinessId) ||
-      businesses[0];
+    setUploadError(null);
 
+    const usd = parseFloat(newProdPriceUSD) || 10;
     const finalImages = (
       newProdImages.length > 0
         ? newProdImages
@@ -772,17 +866,18 @@ export function CommercialPortalWorkspace() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          business_id: targetBusiness?.id,
-          business_slug: targetBusiness?.slug,
+          business_id: userBusiness?.id || undefined,
           name: newProdTitle.trim(),
           category: newProdCategory,
           price_usd: usd,
+          price_zig: Math.round(usd * 26.5),
           description:
             newProdDesc.trim() ||
-            `Supplied directly by ${targetBusiness?.name || 'Verified Commercial Supplier'} in ${newProdProvince}.`,
+            `Supplied directly by ${userBusiness?.name || (user as any)?.business_name || user?.fullName || 'Verified Storefront'} in ${newProdProvince}.`,
           images: finalImages,
           in_stock: true,
-          condition: 'Brand New',
+          stock_quantity: 1,
+          condition: newProdCondition || 'Brand New',
           is_featured: false,
         }),
       });
@@ -791,49 +886,23 @@ export function CommercialPortalWorkspace() {
       if (res.ok && json.data?.product) {
         const mapped = mapDbProductToMarketplaceProduct(json.data.product);
         setProducts((prev) => [mapped, ...prev.filter((p) => p.id !== mapped.id)]);
+        window.dispatchEvent(new CustomEvent('sadza-products-updated'));
+        setUploadProductOpen(false);
+        setNewProdTitle('');
+        setNewProdPriceUSD('');
+        setNewProdDesc('');
+        setNewProdImages([]);
+        setNewProdImageInput('');
+        setUploadError(null);
       } else {
-        const created: MarketplaceProduct = {
-          id: `p-${Date.now()}`,
-          slug: `prod-${Date.now()}`,
-          title: newProdTitle.trim() || 'Commercial Supply Item',
-          category: newProdCategory,
-          province: newProdProvince,
-          priceUsd: usd,
-          priceZig: Math.round(usd * 26.5),
-          unit: newProdUnit || 'Each',
-          movementBadge: 'Just Arrived',
-          postedAgo: 'Just now',
-          stockNote: newProdStock || 'In stock',
-          location: `${newProdProvince}, Zimbabwe`,
-          condition: 'Brand New',
-          sellerId: targetBusiness?.id || 'biz-current',
-          sellerSlug: targetBusiness?.slug || 'user-business',
-          sellerName: targetBusiness?.name || user?.fullName || 'Your Registered Business',
-          sellerType: 'Registered Company (Pvt Ltd)',
-          sellerPlan: accountMode === 'paid_subscriber' ? 'Paid Subscriber' : 'Month 1 Free Grace',
-          sellerPhone: targetBusiness?.phone || '263772111222',
-          sellerWhatsapp: targetBusiness?.phone || '263772111222',
-          sellerVerified: true,
-          image: finalImages[0],
-          images: finalImages,
-          description:
-            newProdDesc.trim() ||
-            `Supplied directly by ${targetBusiness?.name || 'Verified Commercial Supplier'} in ${newProdProvince}.`,
-          highlights: ['Uploaded directly via Sadza Connect Commercial Portal.'],
-          featured: false,
-        };
-        setProducts((prev) => [created, ...prev]);
+        const errorMsg = json?.error?.message || json?.message || 'Failed to save product to database.';
+        setUploadError(errorMsg);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create product:', err);
+      setUploadError(err?.message || 'An unexpected error occurred while saving product.');
     } finally {
       setIsSubmittingProduct(false);
-      setUploadProductOpen(false);
-      setNewProdTitle('');
-      setNewProdPriceUSD('');
-      setNewProdDesc('');
-      setNewProdImages([]);
-      setNewProdImageInput('');
     }
   };
 
@@ -3282,225 +3351,369 @@ export function CommercialPortalWorkspace() {
       )}
 
       {/* =====================================================================
-          MODAL 3: UPLOAD PRODUCT TO LIVE STREAM ("Products Coming & Going")
+          MODAL 3: UPLOAD PRODUCT TO LIVE MARKETPLACE
+          (Crisp alignment, responsive layout, verified seller & database sync)
       ===================================================================== */}
       {uploadProductOpen && (
         <Modal
           isOpen={uploadProductOpen}
           onClose={() => setUploadProductOpen(false)}
+          size="xl"
           title="Upload Product to Live Marketplace"
-          description="Available to businesses in their 1-Month Free Grace Period or Paid Subscribers."
+          description="Publish your commercial stock across Zimbabwe. Active during your 1-month free trial or paid subscription."
         >
-          <form onSubmit={handleCreateProduct} className="space-y-3.5">
-            {/* Listing Business Profile */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Listing Business Profile *
-              </label>
-              <select
-                value={newProdBusinessId}
-                onChange={(e) => {
-                  setNewProdBusinessId(e.target.value);
-                  const selected = businesses.find((b) => b.id === e.target.value);
-                  if (selected?.province) setNewProdProvince(selected.province);
-                }}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
-              >
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.province || 'Zimbabwe'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Input
-              label="Product Title / Specification *"
-              placeholder="e.g. 550W Monocrystalline Solar Panel or 5kVA Hybrid Inverter"
-              required
-              value={newProdTitle}
-              onChange={(e) => setNewProdTitle(e.target.value)}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Commercial Sector
-                </label>
-                <select
-                  value={newProdCategory}
-                  onChange={(e) => setNewProdCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
-                >
-                  {COMMERCIAL_SECTORS.filter((s) => s.id !== 'All').map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Province Location
-                </label>
-                <select
-                  value={newProdProvince}
-                  onChange={(e) => setNewProdProvince(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
-                >
-                  {CLEAN_PROVINCES.filter((p) => p !== 'All Provinces').map((prov) => (
-                    <option key={prov} value={prov}>
-                      {prov}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Price in USD ($) *"
-                type="number"
-                step="0.01"
-                placeholder="e.g. 180"
-                required
-                value={newProdPriceUSD}
-                onChange={(e) => setNewProdPriceUSD(e.target.value)}
-              />
-              <Input
-                label="Unit / Packaging *"
-                placeholder="e.g. Each / Per 50kg Bag"
-                required
-                value={newProdUnit}
-                onChange={(e) => setNewProdUnit(e.target.value)}
-              />
-            </div>
-
-            <Input
-              label="Stock Availability Note"
-              placeholder="e.g. 40 units in warehouse • Delivery available"
-              value={newProdStock}
-              onChange={(e) => setNewProdStock(e.target.value)}
-            />
-
-            {/* Product Photos (Each product accepts up to 5 images) */}
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3.5 bg-slate-50/70 dark:bg-slate-800/40 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-xs font-bold text-slate-900 dark:text-white">
-                    Product Photos (Up to 5 images)
-                  </label>
-                  <p className="text-[11px] text-slate-500">
-                    Each product can accept up to 5 images. Slot 1 is the primary showcase photo.
-                  </p>
+          <div className="p-5 sm:p-7 space-y-6">
+            {/* Storefront / Account Status Card */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-slate-50 to-emerald-50/40 dark:from-emerald-950/40 dark:via-slate-800/80 dark:to-slate-800 border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                  <Store className="h-5 w-5" />
                 </div>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                    newProdImages.length >= 5
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
-                  }`}
-                >
-                  {newProdImages.length}/5 photos
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Publishing Storefront
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
+                      <ShieldCheck className="h-3 w-3" />
+                      {accountMode === 'paid_subscriber' ? 'Paid Pro Subscriber' : '1-Month Free Trial Active'}
+                    </span>
+                  </div>
+                  <h4 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                    {userBusiness?.name || (user as any)?.business_name || user?.fullName || 'Verified Commercial Storefront'}
+                  </h4>
+                </div>
+              </div>
+
+              <div className="text-left sm:text-right shrink-0">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                  Marketplace Coverage
+                </span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {newProdProvince} • All 10 Provinces
                 </span>
               </div>
+            </div>
 
-              {/* Photo Input Row */}
-              {newProdImages.length < 5 && (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
+            {/* Error Banner */}
+            {uploadError && (
+              <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-xs">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-bold">Upload Notice: </span>
+                  {uploadError}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUploadError(null)}
+                  className="text-red-500 hover:text-red-700 p-0.5"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateProduct} className="space-y-5">
+              {/* Row 1: Product Title */}
+              <div>
+                <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                  Product Title &amp; Specification <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <ShoppingBag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={newProdTitle}
+                    onChange={(e) => setNewProdTitle(e.target.value)}
+                    placeholder="e.g. 550W Tier-1 Monocrystalline Solar Panel or 50kg Nitrogen Fertilizer"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 pl-10 pr-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Commercial Sector & Item Condition */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                    Commercial Sector <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newProdCategory}
+                    onChange={(e) => setNewProdCategory(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-600"
+                  >
+                    {COMMERCIAL_SECTORS.filter((s) => s.id !== 'All').map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                    Item Condition <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newProdCondition}
+                    onChange={(e) => setNewProdCondition(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-600"
+                  >
+                    <option value="Brand New">Brand New (Factory Sealed / Fresh Supply)</option>
+                    <option value="Pre-Owned / Refurbished">Pre-Owned / Refurbished (Tested Working)</option>
+                    <option value="Surplus Stock">Surplus Commercial Stock</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 3: Pricing (USD & ZiG) + Packaging Unit */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                    Price in USD ($) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500">
+                      $
+                    </span>
                     <input
-                      type="text"
-                      placeholder="Paste image URL (e.g. Unsplash or direct photo link)..."
-                      value={newProdImageInput}
-                      onChange={(e) => setNewProdImageInput(e.target.value)}
-                      className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="e.g. 185"
+                      value={newProdPriceUSD}
+                      onChange={(e) => setNewProdPriceUSD(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 pl-8 pr-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
                     />
-                    <button
-                      type="button"
-                      disabled={!newProdImageInput.trim() || newProdImages.length >= 5}
-                      onClick={() => {
-                        const trimmed = newProdImageInput.trim();
-                        if (trimmed && newProdImages.length < 5) {
-                          setNewProdImages([...newProdImages, trimmed]);
-                          setNewProdImageInput('');
-                        }
-                      }}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs shrink-0 transition cursor-pointer"
-                    >
-                      + Add Image
-                    </button>
                   </div>
+                  {newProdPriceUSD && parseFloat(newProdPriceUSD) > 0 && (
+                    <p className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      Live Conversion: ~ZiG {(parseFloat(newProdPriceUSD) * 26.5).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </p>
+                  )}
+                </div>
 
-                  {/* Preset photo tags */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] font-semibold text-slate-500">Quick presets:</span>
-                    {[
-                      { name: 'Solar Panel', url: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80' },
-                      { name: 'Solar Inverter', url: 'https://images.unsplash.com/photo-1548611716-ad888c3a50d2?auto=format&fit=crop&w=800&q=80' },
-                      { name: 'Agro Tractor', url: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=800&q=80' },
-                      { name: 'PPC Cement', url: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=800&q=80' },
-                      { name: 'Generator', url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80' },
-                    ].map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        disabled={newProdImages.length >= 5}
-                        onClick={() => {
-                          if (newProdImages.length < 5) {
-                            setNewProdImages([...newProdImages, preset.url]);
-                          }
-                        }}
-                        className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-medium text-slate-700 dark:text-slate-200 hover:border-emerald-600 hover:text-emerald-600 transition disabled:opacity-50 cursor-pointer"
+                <div>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                    Unit / Packaging <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Each, Per 50kg Bag, Carton of 12"
+                    value={newProdUnit}
+                    onChange={(e) => setNewProdUnit(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Province & Stock Note */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                    Province Location <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={newProdProvince}
+                    onChange={(e) => setNewProdProvince(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-600"
+                  >
+                    {CLEAN_PROVINCES.filter((p) => p !== 'All Provinces').map((prov) => (
+                      <option key={prov} value={prov}>
+                        {prov}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                    Stock Availability Note
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 50 units in stock • Free delivery in Harare"
+                    value={newProdStock}
+                    onChange={(e) => setNewProdStock(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Description */}
+              <div>
+                <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1.5">
+                  Product Description &amp; Technical Specifications
+                </label>
+                <textarea
+                  rows={3}
+                  value={newProdDesc}
+                  onChange={(e) => setNewProdDesc(e.target.value)}
+                  placeholder="Provide technical specifications, dimensions, warranty coverage, or collection address..."
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 resize-none"
+                />
+              </div>
+
+              {/* Row 6: Device Photo Upload & Image Gallery */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      Product Photos (Up to 5 images)
+                    </h5>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Upload clear photos directly from your device. First photo will be the main showcase card.
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                      newProdImages.length >= 5
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                    }`}
+                  >
+                    {newProdImages.length}/5 uploaded
+                  </span>
+                </div>
+
+                {/* Device Upload Drag-and-Drop Box */}
+                {newProdImages.length < 5 && (
+                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-emerald-300 dark:border-emerald-700/60 rounded-2xl bg-white dark:bg-slate-800/80 hover:bg-emerald-50/50 dark:hover:bg-slate-800 transition cursor-pointer group text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 mb-2 group-hover:scale-105 transition-transform">
+                      <Camera className="h-6 w-6" />
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      {isUploadingPhoto ? 'Uploading from device...' : 'Click to Upload from Device / Camera'}
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                      JPEG, PNG, WebP up to 10MB • Up to {5 - newProdImages.length} more photos
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={isUploadingPhoto}
+                      onChange={handlePhotoFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
+                {/* Uploaded Photos Grid (up to 5 slots) */}
+                {newProdImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+                    {newProdImages.map((img, idx) => (
+                      <div
+                        key={idx}
+                        className="relative group aspect-square rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-2xs"
                       >
-                        + {preset.name}
-                      </button>
+                        <Image src={img} alt={`Slot ${idx + 1}`} fill className="object-cover" />
+                        <div className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded backdrop-blur-xs">
+                          {idx === 0 ? '★ Primary Cover' : `Slot ${idx + 1}`}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNewProdImages(newProdImages.filter((_, i) => i !== idx))}
+                          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-red-600 text-white flex items-center justify-center opacity-90 hover:opacity-100 transition cursor-pointer shadow-sm"
+                          title="Remove photo"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Uploaded Photos Grid (up to 5 slots) */}
-              {newProdImages.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
-                  {newProdImages.map((img, idx) => (
-                    <div
-                      key={idx}
-                      className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
-                    >
-                      <Image src={img} alt={`Slot ${idx + 1}`} fill className="object-cover" />
-                      <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-xs">
-                        {idx === 0 ? '1/5 (Cover)' : `${idx + 1}/5`}
-                      </div>
+                {/* Optional URL input / presets helper */}
+                {newProdImages.length < 5 && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Or paste an image web link (e.g. https://...)..."
+                        value={newProdImageInput}
+                        onChange={(e) => setNewProdImageInput(e.target.value)}
+                        className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
+                      />
                       <button
                         type="button"
-                        onClick={() => setNewProdImages(newProdImages.filter((_, i) => i !== idx))}
-                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-red-600 text-white flex items-center justify-center opacity-80 hover:opacity-100 transition cursor-pointer"
-                        title="Remove photo"
+                        disabled={!newProdImageInput.trim() || newProdImages.length >= 5}
+                        onClick={() => {
+                          const trimmed = newProdImageInput.trim();
+                          if (trimmed && newProdImages.length < 5) {
+                            setNewProdImages([...newProdImages, trimmed]);
+                            setNewProdImageInput('');
+                          }
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs shrink-0 transition cursor-pointer"
                       >
-                        <X className="w-3 h-3" />
+                        Add Link
                       </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                size="md"
-                type="button"
-                onClick={() => setUploadProductOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button variant="primary" size="md" type="submit" disabled={isSubmittingProduct}>
-                {isSubmittingProduct ? 'Publishing SKU...' : 'Publish to Live Feed'}
-              </Button>
-            </div>
-          </form>
+                    {/* Presets */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[10px] font-semibold text-slate-500">Quick sample presets:</span>
+                      {[
+                        { name: 'Solar Panel', url: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80' },
+                        { name: 'Solar Inverter', url: 'https://images.unsplash.com/photo-1548611716-ad888c3a50d2?auto=format&fit=crop&w=800&q=80' },
+                        { name: 'Agro Tractor', url: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=800&q=80' },
+                        { name: 'PPC Cement', url: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=800&q=80' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          disabled={newProdImages.length >= 5}
+                          onClick={() => {
+                            if (newProdImages.length < 5) {
+                              setNewProdImages([...newProdImages, preset.url]);
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-medium text-slate-700 dark:text-slate-200 hover:border-emerald-600 hover:text-emerald-600 transition disabled:opacity-50 cursor-pointer"
+                        >
+                          + {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Action Buttons */}
+              <div className="pt-3 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  size="md"
+                  type="button"
+                  onClick={() => setUploadProductOpen(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  type="submit"
+                  disabled={isSubmittingProduct || isUploadingPhoto}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2"
+                >
+                  {isSubmittingProduct ? (
+                    <>
+                      <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      <span>Saving to Marketplace Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Publish Product to Marketplace</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </Modal>
       )}
 

@@ -21,14 +21,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const createProductSchema = z.object({
-  business_id: z.string().uuid().optional(),
+  business_id: z.string().optional(),
   business_slug: z.string().optional(),
   name: z.string().min(2, 'Product title is required'),
   description: z.string().optional(),
   category: z.string().optional(),
   price_usd: z.number().positive('Price must be greater than 0'),
   price_zig: z.number().optional(),
-  images: z.array(z.string()).max(5, 'Maximum of 5 images allowed per product').optional(),
+  images: z.array(z.string()).max(10, 'Maximum of 10 images allowed per product').optional(),
   in_stock: z.boolean().optional(),
   stock_quantity: z.number().int().nonnegative().optional(),
   condition: z.string().optional(),
@@ -117,29 +117,56 @@ export async function POST(req: NextRequest) {
       if (biz) targetBusinessId = biz.id;
     }
 
-    if (!targetBusinessId) {
-      // Find user's owned business
+    const isAdmin = user.role === 'admin';
+    let business = null;
+
+    if (targetBusinessId) {
+      business = await businessRepository.findById(targetBusinessId);
+    }
+
+    // If target business doesn't exist or isn't owned by this user (and user not admin), find or create user's business
+    if (!business || (!isAdmin && business.user_id !== user.id)) {
       const myBusinesses = await businessRepository.findByUserId(user.id);
       if (myBusinesses.length > 0) {
-        targetBusinessId = myBusinesses[0].id;
+        business = myBusinesses[0];
+        targetBusinessId = business.id;
+      } else {
+        // Auto-provision user's verified merchant storefront so products can save immediately
+        const newBiz = await businessRepository.create({
+          user_id: user.id,
+          name: (user as any).fullName || (user as any).name || 'Verified Merchant Store',
+          province: 'Harare',
+          city: 'Harare',
+          sector: body.category || 'General Commercial',
+          business_type: 'Sole Trader / Independent Merchant',
+          subscription_status: 'Month 1 Grace Period',
+          is_verified: true,
+          verification_status: 'Approved',
+          phone: (user as any).phone || null,
+          email: user.email ? (typeof user.email === 'string' ? user.email : (user.email as any).value || String(user.email)) : null,
+          whatsapp: (user as any).phone || null,
+        });
+        business = newBiz;
+        targetBusinessId = newBiz.id;
       }
     }
 
-    if (!targetBusinessId) {
-      throw new ValidationError('A valid business ID or slug is required to publish a product');
-    }
-
-    // Verify ownership or admin permission
-    const business = await businessRepository.findById(targetBusinessId);
     if (!business) {
-      throw new NotFoundError('Target business was not found');
+      throw new ValidationError('Could not establish an active business profile for this product upload.');
     }
 
-    const isAdmin = user.role === 'admin';
-    const isOwner = business.user_id === user.id;
+    // Enforce 1-Month Free Grace Period / Paid Subscription check
+    const isPaidSubscriber = business.subscription_status === 'Paid Subscriber';
+    const bizCreatedDate = business.created_at ? new Date(business.created_at).getTime() : Date.now();
+    const daysSinceCreation = Math.floor((Date.now() - bizCreatedDate) / (1000 * 60 * 60 * 24));
+    const isGraceExpired =
+      !isPaidSubscriber &&
+      (business.subscription_status === 'Expired' || daysSinceCreation >= 30);
 
-    if (!isAdmin && !isOwner) {
-      throw new AuthorizationError('You can only add products to your own registered business');
+    if (!isAdmin && isGraceExpired) {
+      throw new ValidationError(
+        'Your 1-Month Free Trial has expired. Please activate your monthly subscription ($15/mo) to publish products to the marketplace.'
+      );
     }
 
     // Dynamic Catalog Quota Enforcement
@@ -161,7 +188,7 @@ export async function POST(req: NextRequest) {
     }
 
     const product = await productRepository.create({
-      business_id: targetBusinessId,
+      business_id: business.id,
       name: body.name.trim(),
       description: body.description?.trim() || null,
       category: body.category?.trim() || business.sector || 'General Commercial',
