@@ -63,6 +63,7 @@ import {
   DEFAULT_PLATFORM_SETTINGS,
 } from '@/data/platformStore';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+import { cn } from '@/lib/utils/cn';
 
 export function getEffectiveBusinessPrice(b: BusinessListing, st: PlatformSettings) {
   if (b.customMonthlyPriceUsd !== undefined && b.customMonthlyPriceUsd !== null) {
@@ -85,6 +86,24 @@ export function getEffectiveBusinessPrice(b: BusinessListing, st: PlatformSettin
   return { price: p, isCustom: false, label: `$${p.toFixed(2)}/mo (Track A Corporate)` };
 }
 
+export interface ModerationReportItem {
+  id: string;
+  business_id: string | null;
+  listing_title: string;
+  listing_category: string;
+  listing_image: string | null;
+  reason: string;
+  complaint_details: string;
+  reporter_type: string;
+  reporter_name: string | null;
+  reporter_email: string | null;
+  reporter_phone: string | null;
+  status: string;
+  admin_notes: string | null;
+  enforcement_action: string | null;
+  created_at: string;
+}
+
 export default function AdminBusinessesPage() {
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
@@ -104,39 +123,12 @@ export default function AdminBusinessesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingBiz, setDeletingBiz] = useState<BusinessListing | null>(null);
 
-  // Moderation Queue State (Matching Figma sadza-connect-admin-verification.png)
-  const [moderationList, setModerationList] = useState([
-    {
-      id: 'mod-1',
-      title: '2 Bedroom House - Avondale',
-      category: 'Property Rentals',
-      image: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=150&q=80',
-      reason: 'Misleading information',
-      reporterType: 'User',
-      dateReported: '12 Oct 2026',
-      status: 'Under review',
-    },
-    {
-      id: 'mod-2',
-      title: 'iPhone 12 - 64GB',
-      category: 'Electronics',
-      image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=150&q=80',
-      reason: 'Suspected counterfeit',
-      reporterType: 'User',
-      dateReported: '12 Oct 2026',
-      status: 'Under review',
-    },
-    {
-      id: 'mod-3',
-      title: 'Used Toyota Vitz',
-      category: 'Vehicles',
-      image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=150&q=80',
-      reason: 'Prohibited item',
-      reporterType: 'User',
-      dateReported: '11 Oct 2026',
-      status: 'Under review',
-    },
-  ]);
+  // Database-backed Moderation Queue State
+  const [moderationList, setModerationList] = useState<ModerationReportItem[]>([]);
+  const [isModerationLoading, setIsModerationLoading] = useState(true);
+  const [inspectingReport, setInspectingReport] = useState<ModerationReportItem | null>(null);
+  const [enforcementNotes, setEnforcementNotes] = useState('');
+  const [isApplyingEnforcement, setIsApplyingEnforcement] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -167,42 +159,96 @@ export default function AdminBusinessesPage() {
     };
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadAdminBusinesses() {
-      setIsLoading(true);
-      try {
-        const res = await fetch('/api/v1/businesses?limit=100&include_expired=true', {
-          headers: getAuthHeaders(),
-          credentials: 'include',
-        });
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data?.businesses)) {
-          if (isMounted) {
-            const mapped = json.data.businesses.map(mapDbBusinessToListing);
-            setBusinesses(mapped);
-          }
-        } else if (isMounted) {
-          setBusinesses([]);
-        }
-      } catch (err) {
-        console.warn('Failed to load businesses from database:', err);
-      } finally {
-        if (isMounted) setIsLoading(false);
+  const loadAdminBusinesses = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/v1/businesses?limit=100&include_expired=true', {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.businesses)) {
+        const mapped = json.data.businesses.map(mapDbBusinessToListing);
+        setBusinesses(mapped);
+      } else {
+        setBusinesses([]);
       }
+    } catch (err) {
+      console.warn('Failed to load businesses from database:', err);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  const loadModerationQueue = async () => {
+    setIsModerationLoading(true);
+    try {
+      const res = await fetch('/api/v1/moderation', {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data?.reports)) {
+        setModerationList(json.data.reports);
+      } else {
+        setModerationList([]);
+      }
+    } catch (err) {
+      console.warn('Failed to load moderation queue from database:', err);
+    } finally {
+      setIsModerationLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadAdminBusinesses();
+    loadModerationQueue();
 
     const sync = () => {
       loadAdminBusinesses();
+      loadModerationQueue();
     };
     window.addEventListener('sadza-platform-updated', sync);
     return () => {
-      isMounted = false;
       window.removeEventListener('sadza-platform-updated', sync);
     };
   }, []);
+
+  const handleEnforcement = async (
+    reportId: string,
+    action: 'dismiss' | 'hide' | 'suspend',
+    overrideNotes?: string
+  ) => {
+    setIsApplyingEnforcement(true);
+    const notesToSave = overrideNotes !== undefined ? overrideNotes : enforcementNotes;
+    try {
+      const res = await fetch(`/api/v1/moderation/${reportId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          action,
+          admin_notes: notesToSave,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || 'Failed to execute enforcement');
+      }
+
+      showToast(`Enforcement applied: ${action.toUpperCase()} listing/merchant`);
+      setInspectingReport(null);
+      setEnforcementNotes('');
+
+      // Reload both businesses and moderation reports so the entire UI updates
+      await Promise.all([loadAdminBusinesses(), loadModerationQueue()]);
+      window.dispatchEvent(new CustomEvent('sadza-platform-updated'));
+    } catch (err: any) {
+      showToast(err.message || 'Error executing enforcement action');
+    } finally {
+      setIsApplyingEnforcement(false);
+    }
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -645,16 +691,21 @@ export default function AdminBusinessesPage() {
 
       {/* Moderation Queue Section (Matching Figma sadza-connect-admin-verification.png) */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
-        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
-            <Flag className="h-5 w-5" />
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+              <Flag className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Moderation Queue</h2>
+              <p className="text-xs text-slate-500">
+                Review reported listings, inspect consumer complaints, and take appropriate enforcement action.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Moderation Queue</h2>
-            <p className="text-xs text-slate-500">
-              Review reported listings and take appropriate enforcement action.
-            </p>
-          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            {moderationList.filter((m) => m.status === 'Under review').length} Pending Action
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -663,77 +714,142 @@ export default function AdminBusinessesPage() {
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <th className="px-4 py-3.5">Listing</th>
                 <th className="px-4 py-3.5">Reported reason</th>
-                <th className="px-4 py-3.5">Reporter type</th>
+                <th className="px-4 py-3.5">Reporter &amp; Contact</th>
                 <th className="px-4 py-3.5">Date reported</th>
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {moderationList.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 bg-slate-100">
-                        <Image src={item.image} alt={item.title} fill className="object-cover" />
+              {isModerationLoading ? (
+                [1, 2, 3].map((i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-slate-200 dark:bg-slate-800" />
+                        <div className="space-y-1.5">
+                          <div className="h-3.5 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-2.5 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{item.title}</p>
-                        <p className="text-[11px] text-slate-400">{item.category}</p>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                    {item.reason}
-                  </td>
-
-                  <td className="px-4 py-4 text-xs text-slate-500">{item.reporterType}</td>
-
-                  <td className="px-4 py-4 text-xs text-slate-500">{item.dateReported}</td>
-
-                  <td className="px-4 py-4">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
-                      {item.status}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModerationList((prev) => prev.filter((x) => x.id !== item.id));
-                          showToast(`Dismissed report for ${item.title}`);
-                        }}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-300 text-xs font-semibold"
-                      >
-                        Dismiss
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModerationList((prev) => prev.filter((x) => x.id !== item.id));
-                          showToast(`Hidden listing: ${item.title}`);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold"
-                      >
-                        Hide listing
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModerationList((prev) => prev.filter((x) => x.id !== item.id));
-                          showToast(`Suspended merchant listing: ${item.title}`);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold"
-                      >
-                        Suspend
-                      </button>
-                    </div>
+                    </td>
+                    <td className="px-4 py-4"><div className="h-3 w-28 bg-slate-200 dark:bg-slate-800 rounded" /></td>
+                    <td className="px-4 py-4"><div className="h-3 w-24 bg-slate-200 dark:bg-slate-800 rounded" /></td>
+                    <td className="px-4 py-4"><div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded" /></td>
+                    <td className="px-4 py-4"><div className="h-5 w-20 bg-slate-200 dark:bg-slate-800 rounded-full" /></td>
+                    <td className="px-4 py-4 text-right"><div className="h-7 w-24 bg-slate-200 dark:bg-slate-800 rounded-lg ml-auto" /></td>
+                  </tr>
+                ))
+              ) : moderationList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500 text-xs">
+                    No pending reports in the moderation queue. All marketplace listings are verified and compliant.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                moderationList.map((item) => {
+                  const isSuspended = item.status === 'Suspended';
+                  const isDismissed = item.status === 'Dismissed';
+                  const isHidden = item.status === 'Hidden';
+                  const isPending = item.status === 'Under review';
+
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 bg-slate-100">
+                            {item.listing_image ? (
+                              <Image src={item.listing_image} alt={item.listing_title} fill className="object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center bg-slate-200 text-slate-400">
+                                <Building2 className="h-5 w-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 dark:text-white">{item.listing_title}</p>
+                            <p className="text-[11px] text-slate-400">{item.listing_category}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <span className="font-semibold text-rose-700 dark:text-rose-400 text-xs">
+                          {item.reason}
+                        </span>
+                        <p className="text-[11px] text-slate-500 line-clamp-1 max-w-xs mt-0.5">
+                          {item.complaint_details}
+                        </p>
+                      </td>
+
+                      <td className="px-4 py-4 text-xs text-slate-600 dark:text-slate-400">
+                        <p className="font-medium text-slate-900 dark:text-white">
+                          {item.reporter_name || 'Anonymous User'}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          {item.reporter_email || item.reporter_phone || item.reporter_type}
+                        </p>
+                      </td>
+
+                      <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recent'}
+                      </td>
+
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1',
+                            isSuspended && 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300',
+                            isDismissed && 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+                            isHidden && 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300',
+                            isPending && 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/80 dark:text-yellow-300'
+                          )}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInspectingReport(item);
+                              setEnforcementNotes(item.admin_notes || '');
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1e57eb] hover:bg-[#1743d4] text-white text-xs font-bold transition-colors shadow-2xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View Complaint
+                          </button>
+                          {isPending && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={isApplyingEnforcement}
+                                onClick={() => handleEnforcement(item.id, 'dismiss', 'Dismissed following administrative review.')}
+                                className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
+                              >
+                                Dismiss
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isApplyingEnforcement}
+                                onClick={() => {
+                                  setInspectingReport(item);
+                                  setEnforcementNotes('Listing suspended for violation of marketplace policy.');
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
+                              >
+                                Suspend
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -1251,6 +1367,146 @@ export default function AdminBusinessesPage() {
           </button>
         </ModalFooter>
       </AdminModal>
+
+      {/* Complaint Inspector & Enforcement Modal */}
+      {inspectingReport && (
+        <AdminModal
+          open={!!inspectingReport}
+          onClose={() => setInspectingReport(null)}
+          title="Moderation Case File & Enforcement Desk"
+          size="lg"
+        >
+          <ModalBody>
+            <div className="space-y-5">
+              {/* Case Header */}
+              <div className="flex items-start justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+                <div className="flex items-center gap-3">
+                  <div className="relative h-14 w-14 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-white">
+                    {inspectingReport.listing_image ? (
+                      <Image
+                        src={inspectingReport.listing_image}
+                        alt={inspectingReport.listing_title}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400">
+                        <Building2 className="h-6 w-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                      {inspectingReport.listing_title}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Category: {inspectingReport.listing_category} · Case Ref: #{inspectingReport.id.slice(0, 8)}
+                    </p>
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                      Report Reason: {inspectingReport.reason}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                    {inspectingReport.status}
+                  </span>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {inspectingReport.created_at ? new Date(inspectingReport.created_at).toLocaleString() : 'Recent'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Reporter Credentials */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs">
+                <div>
+                  <span className="text-[11px] text-slate-400 font-semibold block uppercase">Reporter</span>
+                  <p className="font-bold text-slate-800 dark:text-white mt-0.5">
+                    {inspectingReport.reporter_name || 'Anonymous User'}
+                  </p>
+                  <p className="text-slate-500">{inspectingReport.reporter_type}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 font-semibold block uppercase">Contact Email</span>
+                  <p className="font-medium text-slate-700 dark:text-slate-300 mt-0.5 truncate">
+                    {inspectingReport.reporter_email || 'Not provided'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 font-semibold block uppercase">Phone / WhatsApp</span>
+                  <p className="font-medium text-slate-700 dark:text-slate-300 mt-0.5">
+                    {inspectingReport.reporter_phone || 'Not provided'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Full Complaint Statement */}
+              <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 space-y-1.5">
+                <span className="text-xs font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1.5">
+                  <Flag className="h-4 w-4 text-rose-600" /> Consumer Complaint Statement
+                </span>
+                <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+                  {inspectingReport.complaint_details}
+                </p>
+              </div>
+
+              {/* Admin Written Response & Enforcement Notes */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-800 dark:text-white block">
+                  Admin Enforcement Notes &amp; Action Rationale
+                </label>
+                <textarea
+                  rows={3}
+                  value={enforcementNotes}
+                  onChange={(e) => setEnforcementNotes(e.target.value)}
+                  placeholder="Record your investigation findings, reason for suspending or dismissing, or direct instructions for merchant follow-up..."
+                  className="w-full text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-slate-900 dark:text-white focus:border-[#1e57eb] focus:ring-1 focus:ring-[#1e57eb] outline-none"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Notes are permanently logged to the database case file and synchronized across the compliance desk.
+                </p>
+              </div>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex flex-wrap items-center justify-between w-full gap-2">
+              <button
+                type="button"
+                onClick={() => setInspectingReport(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Close Case
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isApplyingEnforcement}
+                  onClick={() => handleEnforcement(inspectingReport.id, 'dismiss')}
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700"
+                >
+                  Dismiss Report
+                </button>
+                <button
+                  type="button"
+                  disabled={isApplyingEnforcement}
+                  onClick={() => handleEnforcement(inspectingReport.id, 'hide')}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-xs font-bold text-white"
+                >
+                  Hide Listing
+                </button>
+                <button
+                  type="button"
+                  disabled={isApplyingEnforcement}
+                  onClick={() => handleEnforcement(inspectingReport.id, 'suspend')}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white flex items-center gap-1.5"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Suspend Merchant &amp; Listing
+                </button>
+              </div>
+            </div>
+          </ModalFooter>
+        </AdminModal>
+      )}
     </div>
   );
 }

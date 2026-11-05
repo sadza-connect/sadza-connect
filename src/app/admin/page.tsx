@@ -57,7 +57,7 @@ const MONTHLY_ENQUIRIES = [
 ];
 
 
-const RECENT_ENQUIRIES: Array<{
+interface InquiryItem {
   id: string;
   name: string;
   company: string;
@@ -66,7 +66,7 @@ const RECENT_ENQUIRIES: Array<{
   priority: 'Low' | 'Normal' | 'High';
   status: 'New' | 'In Progress' | 'Resolved';
   receivedAt: string;
-}> = [];
+}
 
 export default function AdminOverviewPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
@@ -76,8 +76,17 @@ export default function AdminOverviewPage() {
   const [advertsCount, setAdvertsCount] = useState(0);
   const [jobsCount, setJobsCount] = useState(0);
   const [usersCount, setUsersCount] = useState(0);
+  const [recentEnquiries, setRecentEnquiries] = useState<InquiryItem[]>([]);
   const [revenueUsd, setRevenueUsd] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -86,12 +95,31 @@ export default function AdminOverviewPage() {
       if (isMounted) setSettings(s);
 
       try {
-        const [bizRes, prodRes, advRes, jobRes, usrRes] = await Promise.allSettled([
-          fetch('/api/v1/businesses?limit=100').then((r) => r.json()),
-          fetch('/api/v1/products?limit=100').then((r) => r.json()),
-          fetch('/api/v1/adverts?limit=100').then((r) => r.json()),
-          fetch('/api/v1/jobs?limit=100').then((r) => r.json()),
-          fetch('/api/v1/users?limit=100').then((r) => r.json()),
+        const [bizRes, prodRes, advRes, jobRes, usrRes, msgRes] = await Promise.allSettled([
+          fetch('/api/v1/businesses?limit=100&include_expired=true', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
+          fetch('/api/v1/products?limit=100', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
+          fetch('/api/v1/adverts?limit=100', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
+          fetch('/api/v1/jobs?limit=100', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
+          fetch('/api/v1/users?limit=100', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
+          fetch('/api/v1/messages?limit=8', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
         ]);
 
         const bizData = bizRes.status === 'fulfilled' ? bizRes.value?.data || bizRes.value : null;
@@ -99,6 +127,7 @@ export default function AdminOverviewPage() {
         const advData = advRes.status === 'fulfilled' ? advRes.value?.data || advRes.value : null;
         const jobData = jobRes.status === 'fulfilled' ? jobRes.value?.data || jobRes.value : null;
         const usrData = usrRes.status === 'fulfilled' ? usrRes.value?.data || usrRes.value : null;
+        const msgData = msgRes.status === 'fulfilled' ? msgRes.value?.data || msgRes.value : null;
 
         if (isMounted) {
           if (Array.isArray(bizData?.businesses)) {
@@ -114,7 +143,7 @@ export default function AdminOverviewPage() {
               description: b.description || '',
               services: 'Supply, Sales, Delivery',
               openingHours: 'Mon - Fri',
-              subscriptionStatus: 'Month 1 Grace Period',
+              subscriptionStatus: (b.subscription_status || 'Month 1 Grace Period') as BusinessListing['subscriptionStatus'],
               graceDaysRemaining: 30,
               cr14Verified: b.is_verified || false,
               featured: b.is_featured || false,
@@ -130,6 +159,23 @@ export default function AdminOverviewPage() {
           setAdvertsCount(Array.isArray(advData?.adverts) ? advData.adverts.length : 0);
           setJobsCount(Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
           setUsersCount(Array.isArray(usrData?.users) ? usrData.users.length : 0);
+
+          if (Array.isArray(msgData?.messages) && msgData.messages.length > 0) {
+            setRecentEnquiries(
+              msgData.messages.map((m: any) => ({
+                id: m.id,
+                name: m.name,
+                company: m.topic || 'Commercial Inquiry',
+                email: m.email,
+                service: m.message ? (m.message.length > 45 ? m.message.slice(0, 45) + '...' : m.message) : m.topic,
+                priority: (m.priority === 'High' ? 'High' : m.priority === 'Low' ? 'Low' : 'Normal') as 'Low' | 'Normal' | 'High',
+                status: (m.status === 'Resolved' ? 'Resolved' : m.status === 'In Progress' ? 'In Progress' : 'New') as 'New' | 'In Progress' | 'Resolved',
+                receivedAt: m.created_at ? new Date(m.created_at).toLocaleDateString() : 'Recent',
+              }))
+            );
+          } else {
+            setRecentEnquiries([]);
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -138,6 +184,7 @@ export default function AdminOverviewPage() {
           setAdvertsCount(0);
           setJobsCount(0);
           setUsersCount(0);
+          setRecentEnquiries([]);
         }
       } finally {
         if (isMounted) {
@@ -391,7 +438,16 @@ export default function AdminOverviewPage() {
               </div>
             }
           />
-          {!hasEnquiries ? (
+          {isLoading ? (
+            <div className="flex items-end justify-between gap-3 h-[230px] pt-6 px-4 animate-pulse">
+              {[40, 65, 30, 85, 55, 95].map((h, idx) => (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full bg-[#c8d2e0]/60 rounded-t-md" style={{ height: `${h}%` }} />
+                  <div className="h-2.5 w-7 bg-[#c8d2e0]/60 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : !hasEnquiries ? (
             <div className="flex flex-col items-center justify-center h-[230px] pt-6 px-4 text-center">
               <p className="text-sm font-semibold text-[#0a1018]">No Inbound Enquiries Yet</p>
               <p className="mt-1 text-xs text-[#6b81a5] max-w-sm">
@@ -434,7 +490,16 @@ export default function AdminOverviewPage() {
             title="Platform Revenue Trend ($USD)"
             hint={`Subscriptions ($10/mo), Adverts ($20/mo) & Bill Commissions (${selectedRange.label})`}
           />
-          {revenueUsd === 0 ? (
+          {isLoading ? (
+            <div className="h-[230px] flex flex-col justify-end p-4 animate-pulse">
+              <div className="h-36 w-full bg-[#c8d2e0]/40 rounded-xl" />
+              <div className="flex justify-between mt-3 px-1">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-2.5 w-7 bg-[#c8d2e0]/60 rounded" />
+                ))}
+              </div>
+            </div>
+          ) : revenueUsd === 0 ? (
             <div className="flex flex-col items-center justify-center h-[230px] px-4 text-center">
               <p className="text-sm font-semibold text-[#0a1018]">No Revenue Recorded</p>
               <p className="mt-1 text-xs text-[#6b81a5] max-w-sm">
@@ -520,7 +585,19 @@ export default function AdminOverviewPage() {
               </Link>
             }
           />
-          {pageViewsBreakdown.every((pv) => pv.views === 0) ? (
+          {isLoading ? (
+            <div className="mt-5 space-y-4 animate-pulse">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <div className="h-3 w-28 bg-[#c8d2e0]/60 rounded" />
+                    <div className="h-3 w-12 bg-[#c8d2e0]/60 rounded" />
+                  </div>
+                  <div className="h-2.5 w-full bg-[#c8d2e0]/40 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : pageViewsBreakdown.every((pv) => pv.views === 0) ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <p className="text-sm font-semibold text-[#0a1018]">No Traffic Data Yet</p>
               <p className="mt-1 text-xs text-[#6b81a5]">
@@ -556,7 +633,19 @@ export default function AdminOverviewPage() {
             title="Demand by Platform Pillar"
             hint="Real share of customer transactions & leads"
           />
-          {pillarDemand.total === 0 ? (
+          {isLoading ? (
+            <div className="mt-5 space-y-4 animate-pulse">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <div className="h-3 w-32 bg-[#c8d2e0]/60 rounded" />
+                    <div className="h-3 w-10 bg-[#c8d2e0]/60 rounded" />
+                  </div>
+                  <div className="h-2.5 w-full bg-[#c8d2e0]/40 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : pillarDemand.total === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <p className="text-sm font-semibold text-[#0a1018]">No Platform Activity Yet</p>
               <p className="mt-1 text-xs text-[#6b81a5]">
@@ -589,7 +678,19 @@ export default function AdminOverviewPage() {
             title="Directory Sector Mix"
             hint="Active verified businesses by industry domain"
           />
-          {totalPortfolio === 0 ? (
+          {isLoading ? (
+            <div className="mt-5 flex items-center gap-5 animate-pulse">
+              <div className="h-32 w-32 rounded-full bg-[#c8d2e0]/50 shrink-0" />
+              <div className="w-full space-y-2.5">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <div className="h-3 w-24 bg-[#c8d2e0]/60 rounded" />
+                    <div className="h-3 w-8 bg-[#c8d2e0]/60 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : totalPortfolio === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <p className="text-sm font-semibold text-[#0a1018]">No Enterprises Registered</p>
               <p className="mt-1 text-xs text-[#6b81a5]">
@@ -668,7 +769,21 @@ export default function AdminOverviewPage() {
             Open Messages Inbox <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-        {RECENT_ENQUIRIES.length === 0 ? (
+        {isLoading ? (
+          <div className="p-6 space-y-3.5 animate-pulse">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-[#e6eaf1]">
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-44 bg-[#c8d2e0]/60 rounded" />
+                  <div className="h-2.5 w-56 bg-[#c8d2e0]/40 rounded" />
+                </div>
+                <div className="h-3 w-28 bg-[#c8d2e0]/50 rounded" />
+                <div className="h-5 w-16 bg-[#c8d2e0]/50 rounded-full" />
+                <div className="h-6 w-16 bg-[#c8d2e0]/50 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        ) : recentEnquiries.length === 0 ? (
           <div className="py-12 px-6 text-center">
             <p className="text-sm font-semibold text-[#0a1018]">No Inbound Enquiries Yet</p>
             <p className="mt-1 text-xs text-[#6b81a5]">
@@ -689,7 +804,7 @@ export default function AdminOverviewPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6eaf1]">
-                {RECENT_ENQUIRIES.map((msg) => (
+                {recentEnquiries.map((msg) => (
                   <tr key={msg.id} className="transition-colors hover:bg-[#f4f6f9]/60">
                     <td className="px-5 py-3.5 sm:px-6">
                       <p className="font-bold text-[#0a1018]">{msg.name}</p>
