@@ -178,6 +178,12 @@ export function Navbar() {
             Property &amp; Rentals
           </Link>
           <Link
+            href="/tourism"
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors whitespace-nowrap"
+          >
+            Tourism &amp; Stays
+          </Link>
+          <Link
             href="/jobs"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
@@ -495,6 +501,13 @@ export function Navbar() {
               className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
             >
               Property &amp; Rentals
+            </Link>
+            <Link
+              href="/tourism"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+            >
+              Tourism &amp; Stays
             </Link>
             <Link
               href="/jobs"

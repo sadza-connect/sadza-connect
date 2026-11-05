@@ -38,6 +38,7 @@ import {
   ShoppingBag,
   Home,
   Calendar,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
@@ -47,6 +48,10 @@ import {
   getStoredProperties,
   PropertyListing,
 } from '@/data/propertiesStore';
+import {
+  getStoredTourisms,
+  TourismListing,
+} from '@/data/tourismStore';
 import {
   getStoredEvents,
   EventItem,
@@ -266,6 +271,7 @@ type FeedFocusTab =
   | 'businesses'
   | 'adverts'
   | 'properties'
+  | 'tourism'
   | 'jobs'
   | 'events';
 
@@ -358,8 +364,9 @@ export function CommercialPortalWorkspace() {
   >('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Properties & Events State
+  // Properties, Tourism & Events State
   const [properties, setProperties] = useState<PropertyListing[]>([]);
+  const [tourisms, setTourisms] = useState<TourismListing[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
 
   // Adverts State & Filtering Mode
@@ -414,13 +421,16 @@ export function CommercialPortalWorkspace() {
   useEffect(() => {
     const loadPropsAndEvents = () => {
       setProperties(getStoredProperties());
+      setTourisms(getStoredTourisms());
       setEvents(getStoredEvents());
     };
     loadPropsAndEvents();
     window.addEventListener('sadza-properties-updated', loadPropsAndEvents);
+    window.addEventListener('sadza-tourism-updated', loadPropsAndEvents);
     window.addEventListener('sadza-events-updated', loadPropsAndEvents);
     return () => {
       window.removeEventListener('sadza-properties-updated', loadPropsAndEvents);
+      window.removeEventListener('sadza-tourism-updated', loadPropsAndEvents);
       window.removeEventListener('sadza-events-updated', loadPropsAndEvents);
     };
   }, []);
@@ -657,6 +667,20 @@ export function CommercialPortalWorkspace() {
       return matchProv && matchQuery;
     });
   }, [properties, selectedProvince, searchQuery]);
+
+  // Filtered Tourism & Stays (Lodges, BnBs, Hotels, Cottages)
+  const filteredTourisms = useMemo(() => {
+    return tourisms.filter((t) => {
+      const matchProv = selectedProvince === 'All Provinces' || t.province === selectedProvince;
+      const matchQuery =
+        !searchQuery.trim() ||
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.destinationArea.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.addressOrLocation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.category.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchProv && matchQuery;
+    });
+  }, [tourisms, selectedProvince, searchQuery]);
 
   // Filtered Events & Expos
   const filteredEvents = useMemo(() => {
@@ -1172,6 +1196,7 @@ export function CommercialPortalWorkspace() {
                 { id: 'businesses', label: `Businesses (${filteredBusinesses.length})` },
                 { id: 'adverts', label: `Adverts & Deals (${paidAdverts.length})` },
                 { id: 'properties', label: `Property & Rentals (${filteredProperties.length})` },
+                { id: 'tourism', label: `Tourism (${filteredTourisms.length})` },
                 { id: 'jobs', label: `Jobs (${filteredJobs.length})` },
                 { id: 'events', label: `Events (${filteredEvents.length})` },
               ] as const
@@ -1355,6 +1380,7 @@ export function CommercialPortalWorkspace() {
                       { id: 'businesses', label: `Businesses (${filteredBusinesses.length})` },
                       { id: 'adverts', label: `Adverts & Deals (${paidAdverts.length})` },
                       { id: 'properties', label: `Property & Rentals (${filteredProperties.length})` },
+                      { id: 'tourism', label: `Tourism (${filteredTourisms.length})` },
                       { id: 'jobs', label: `Jobs (${filteredJobs.length})` },
                       { id: 'events', label: `Events (${filteredEvents.length})` },
                     ] as const
@@ -2305,6 +2331,121 @@ export function CommercialPortalWorkspace() {
                           >
                             <MessageCircle className="h-3.5 w-3.5" />
                             <span>WhatsApp</span>
+                          </a>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------------
+                FEED SECTION: TOURISM & HOSPITALITY (LODGES, BNBS, HOTELS)
+            --------------------------------------------------------------- */}
+            {(feedFocus === 'all' || feedFocus === 'tourism') && (
+              <div
+                id="tourism"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+              >
+                <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex items-center justify-between gap-3 bg-amber-50/50 dark:bg-amber-950/20">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <Compass className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                        Tourism &amp; Hospitality Retreats
+                      </h2>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      Safari lodges, boutique BnBs, resort hotels, chalets &amp; houseboats
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/tourism"
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors shrink-0"
+                  >
+                    <span>All Retreats</span>
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </div>
+
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredTourisms.length === 0 ? (
+                    <div className="p-8 text-center space-y-2">
+                      <Compass className="h-8 w-8 text-slate-400 mx-auto" />
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        No tourism retreats match this filter
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Check back soon or list your lodge, BnB or hotel on Sadza Connect.
+                      </p>
+                    </div>
+                  ) : (
+                    (feedFocus === 'tourism' ? filteredTourisms : filteredTourisms.slice(0, 3)).map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <div className="flex items-start gap-4 min-w-0">
+                          <div className="relative h-20 w-24 sm:h-24 sm:w-32 rounded-xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
+                            <Image
+                              src={item.images[0] || 'https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=800&q=80'}
+                              alt={item.name}
+                              fill
+                              className="object-cover"
+                            />
+                            <div className="absolute top-1.5 left-1.5 bg-black/75 backdrop-blur-xs text-[10px] font-bold text-white px-2 py-0.5 rounded">
+                              {item.category}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 text-xs font-bold">
+                                USD ${item.pricePerNightUSD} / night
+                              </span>
+                              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                ~ZiG {(item.pricePerNightUSD * 26.5).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </span>
+                              <span className="text-xs text-slate-400">• {item.destinationArea}</span>
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                                ★ {item.rating.toFixed(1)}
+                              </span>
+                            </div>
+
+                            <h3 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-1">
+                              {item.name}
+                            </h3>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                              <span className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-200">
+                                <MapPin className="h-3.5 w-3.5 text-amber-600" />
+                                {item.addressOrLocation}, {item.province}
+                              </span>
+                              <span>•</span>
+                              <span>Host: {item.hostName}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 sm:self-center">
+                          <Link
+                            href="/tourism"
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 px-3.5 py-2 text-xs font-bold transition-colors"
+                          >
+                            Explore
+                          </Link>
+                          <a
+                            href={`https://wa.me/${item.whatsapp}?text=${encodeURIComponent(
+                              `Hello ${item.hostName}, I am inquiring about booking "${item.name}" in ${item.destinationArea} via Sadza Connect Tourism.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 text-xs font-bold transition-transform active:scale-95 shadow-sm"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            <span>Book Desk</span>
                           </a>
                         </div>
                       </div>

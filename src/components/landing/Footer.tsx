@@ -117,6 +117,14 @@ export function Footer() {
               </li>
               <li>
                 <Link
+                  href="/tourism"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Tourism &amp; Hospitality
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/jobs"
                   className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
