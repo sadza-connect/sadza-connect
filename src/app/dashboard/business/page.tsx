@@ -33,6 +33,7 @@ import {
   Camera,
   Upload,
   Image as ImageIcon,
+  Ticket,
 } from 'lucide-react';
 import {
   ZIMBABWE_PROVINCES,
@@ -59,6 +60,12 @@ import {
   getDeletedAdvertIds,
   DEFAULT_PAID_ADVERTS,
   PaidAdvertItem,
+  loadStoredAdverts,
+  loadStoredRedemptions,
+  saveStoredRedemption,
+  deleteStoredRedemption,
+  PromoRedemptionRecord,
+  findAdvertByPromoCode,
 } from '@/data/advertsStore';
 import {
   Panel,
@@ -94,6 +101,7 @@ type DashboardTab =
   | 'overview'
   | 'products'
   | 'adverts'
+  | 'coupons'
   | 'jobs'
   | 'reviews'
   | 'profile'
@@ -140,6 +148,20 @@ export default function BusinessDashboardPage() {
   const [invoices, setInvoices] = useState<BusinessSubscriptionInvoice[]>([]);
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Promo Code Validator State
+  const [redemptions, setRedemptions] = useState<PromoRedemptionRecord[]>([]);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [validationResult, setValidationResult] = useState<{
+    status: 'idle' | 'valid' | 'invalid';
+    advert?: PaidAdvertItem;
+    canonicalCode?: string;
+    alreadyRedeemed?: PromoRedemptionRecord;
+    error?: string;
+  }>({ status: 'idle' });
+  const [redemptionCustomer, setRedemptionCustomer] = useState('');
+  const [redemptionNotes, setRedemptionNotes] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
 
   // Onboarding Gating & Draft Progress State
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressInfo | null>(null);
@@ -402,6 +424,12 @@ export default function BusinessDashboardPage() {
       } catch {
         if (isMounted) setApplications([]);
       }
+      // Load Redemptions
+      try {
+        if (isMounted) setRedemptions(loadStoredRedemptions());
+      } catch {
+        if (isMounted) setRedemptions([]);
+      }
     };
 
     const updateOnboarding = () => {
@@ -417,11 +445,13 @@ export default function BusinessDashboardPage() {
     updateOnboarding();
     window.addEventListener('sadza-platform-updated', syncAll);
     window.addEventListener('sadza-adverts-updated', syncAll);
+    window.addEventListener('sadza-redemptions-updated', syncAll);
     window.addEventListener('sadza-onboarding-updated', updateOnboarding);
     return () => {
       isMounted = false;
       window.removeEventListener('sadza-platform-updated', syncAll);
       window.removeEventListener('sadza-adverts-updated', syncAll);
+      window.removeEventListener('sadza-redemptions-updated', syncAll);
       window.removeEventListener('sadza-onboarding-updated', updateOnboarding);
     };
   }, []);
@@ -671,6 +701,122 @@ export default function BusinessDashboardPage() {
         inv.businessName.toLowerCase() === currentBusiness.name.toLowerCase()
     );
   }, [invoices, currentBusiness]);
+
+  const myRedemptions = useMemo(() => {
+    if (!currentBusiness) return redemptions;
+    return redemptions.filter(
+      (r) =>
+        r.businessName.toLowerCase() === currentBusiness.name.toLowerCase() ||
+        myAdverts.some((ad) => ad.id === r.advertId)
+    );
+  }, [redemptions, currentBusiness, myAdverts]);
+
+  const totalRedeemedSavings = useMemo(() => {
+    return myRedemptions.reduce((acc, r) => acc + (r.discountSavingsUSD || 0), 0);
+  }, [myRedemptions]);
+
+  const totalRedeemedRevenue = useMemo(() => {
+    return myRedemptions.reduce((acc, r) => acc + (r.promoPriceUSD || 0), 0);
+  }, [myRedemptions]);
+
+  const handleValidatePromoCode = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const raw = promoCodeInput.trim();
+    if (!raw) {
+      toast({ title: 'Please enter a promo reference code', variant: 'error' });
+      return;
+    }
+
+    const allAvailableAds = adverts.length > 0 ? adverts : loadStoredAdverts();
+    const { advert, canonicalCode } = findAdvertByPromoCode(raw, allAvailableAds);
+
+    if (!advert) {
+      setValidationResult({
+        status: 'invalid',
+        error: `Reference code "${raw}" does not match any active commercial advert on Sadza Connect.`,
+      });
+      toast({
+        title: 'Reference Code Not Found',
+        description: 'No active sponsored promotion matches this reference code.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const existingRedemption = redemptions.find(
+      (r) => r.code === canonicalCode || r.advertId === advert.id
+    );
+
+    setValidationResult({
+      status: 'valid',
+      advert,
+      canonicalCode,
+      alreadyRedeemed: existingRedemption,
+    });
+
+    if (existingRedemption) {
+      toast({
+        title: 'Offer Already Redeemed',
+        description: `This code was previously marked as redeemed on ${new Date(existingRedemption.redeemedAt).toLocaleDateString()}.`,
+        variant: 'warning',
+      });
+    } else {
+      toast({
+        title: 'Promotion Verified',
+        description: `Offer "${advert.headline}" from ${advert.businessName} is active and ready to claim.`,
+        variant: 'success',
+      });
+    }
+  };
+
+  const handleConfirmRedemption = () => {
+    if (!validationResult.advert || !validationResult.canonicalCode) return;
+    setIsRedeeming(true);
+
+    const ad = validationResult.advert;
+    const savings =
+      ad.originalPriceUSD && ad.promoPriceUSD
+        ? Math.max(0, ad.originalPriceUSD - ad.promoPriceUSD)
+        : 0;
+
+    const newRecord: PromoRedemptionRecord = {
+      id: `red-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      code: validationResult.canonicalCode,
+      advertId: ad.id,
+      advertHeadline: ad.headline,
+      businessName: ad.businessName,
+      customerIdentifier: redemptionCustomer.trim() || undefined,
+      originalPriceUSD: ad.originalPriceUSD,
+      promoPriceUSD: ad.promoPriceUSD,
+      discountSavingsUSD: savings,
+      notes: redemptionNotes.trim() || undefined,
+      redeemedAt: new Date().toISOString(),
+    };
+
+    saveStoredRedemption(newRecord);
+    setIsRedeeming(false);
+    setValidationResult({
+      status: 'valid',
+      advert: ad,
+      canonicalCode: validationResult.canonicalCode,
+      alreadyRedeemed: newRecord,
+    });
+    setRedemptionCustomer('');
+    setRedemptionNotes('');
+
+    toast({
+      title: 'Deal Redeemed Successfully!',
+      description: `Promo ${validationResult.canonicalCode} has been recorded in your verified redemption audit log.`,
+      variant: 'success',
+    });
+  };
+
+  const handleDeleteRedemption = (id: string) => {
+    if (confirm('Are you sure you want to remove this redemption record from your log?')) {
+      deleteStoredRedemption(id);
+      toast({ title: 'Redemption record removed', variant: 'info' });
+    }
+  };
 
   if (!currentBusiness) {
     return null;
@@ -1324,6 +1470,12 @@ export default function BusinessDashboardPage() {
     { id: 'overview', label: 'Overview & KPIs', icon: TrendingUp },
     { id: 'products', label: 'Products Catalogue', badge: myProducts.length, icon: Package },
     { id: 'adverts', label: 'Sponsored Adverts', badge: myAdverts.length, icon: Megaphone },
+    {
+      id: 'coupons',
+      label: 'Promo Code Validator',
+      badge: myRedemptions.length > 0 ? myRedemptions.length : undefined,
+      icon: Ticket,
+    },
     { id: 'jobs', label: 'Jobs & Applicant CVs', badge: myJobs.length, icon: Briefcase },
     {
       id: 'reviews',
@@ -2443,7 +2595,408 @@ export default function BusinessDashboardPage() {
                   ))}
                 </div>
               )}
+
+              {/* Quick Validator CTA banner */}
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white font-bold shadow-sm shrink-0">
+                    <Ticket className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-950">Promo Code & Deal Verification</h4>
+                    <p className="text-xs text-slate-600">
+                      Customers claiming your offers will provide reference codes (e.g. <code>SC-PROMO-...</code>). Verify and redeem them in your validator desk.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('coupons')}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm transition-all shrink-0 cursor-pointer"
+                >
+                  <Ticket className="h-4 w-4" />
+                  <span>Open Code Validator</span>
+                </button>
+              </div>
             </Panel>
+          )}
+
+          {/* TAB: PROMO CODE & COUPON VALIDATOR */}
+          {activeTab === 'coupons' && (
+            <div className="space-y-6">
+              <Panel>
+                <PanelHeading
+                  title="Merchant Promo Code & Offer Validator"
+                  hint="Validate customer reference codes sent via WhatsApp, confirm promotional pricing & discounts, and record deal redemptions."
+                  action={
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Live Fraud Protection
+                      </span>
+                    </div>
+                  }
+                />
+
+                {/* Top Metrics Row */}
+                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                  <StatCard
+                    label="Verified Redemptions"
+                    value={myRedemptions.length}
+                    hint="Offers claimed & completed"
+                    icon={CheckCircle2}
+                  />
+                  <StatCard
+                    label="Total Customer Savings"
+                    value={`$${totalRedeemedSavings.toFixed(2)}`}
+                    hint="Promotional discount granted"
+                    icon={TrendingUp}
+                  />
+                  <StatCard
+                    label="Promo Sales Revenue"
+                    value={`$${totalRedeemedRevenue.toFixed(2)}`}
+                    hint="Driven by sponsored adverts"
+                    icon={CreditCard}
+                  />
+                  <StatCard
+                    label="Active Store Offers"
+                    value={myAdverts.length}
+                    hint="Live campaigns on platform"
+                    icon={Megaphone}
+                  />
+                </div>
+
+                {/* Interactive Validator Console */}
+                <div className="mt-6 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/50 p-5 sm:p-6 shadow-sm">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white font-bold shadow-xs">
+                      <Ticket className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-950">
+                        Customer Deal Code Verification Console
+                      </h3>
+                      <p className="text-xs text-slate-600">
+                        When a buyer sends a WhatsApp enquiry with code <code>(Ref: SC-PROMO-...)</code>, paste or type it here to verify its legitimacy and deal terms.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleValidatePromoCode} className="mt-4 flex flex-col sm:flex-row gap-2.5">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={promoCodeInput}
+                        onChange={(e) => {
+                          setPromoCodeInput(e.target.value);
+                          if (validationResult.status !== 'idle') {
+                            setValidationResult({ status: 'idle' });
+                          }
+                        }}
+                        placeholder="Enter Promo Code (e.g. SC-PROMO-AD-1 or AD-1)..."
+                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-mono font-bold text-slate-900 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 uppercase"
+                      />
+                      {promoCodeInput && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPromoCodeInput('');
+                            setValidationResult({ status: 'idle' });
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-6 py-2.5 text-sm font-bold shadow-sm transition active:scale-95 cursor-pointer"
+                    >
+                      <Ticket className="h-4 w-4" />
+                      <span>Verify Code</span>
+                    </button>
+                  </form>
+
+                  {/* Quick test pills from merchant's active campaigns */}
+                  {myAdverts.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                      <span className="font-medium text-slate-700">Quick Test Your Ads:</span>
+                      {myAdverts.map((ad) => {
+                        const code = `SC-PROMO-${ad.id.toUpperCase()}`;
+                        return (
+                          <button
+                            key={ad.id}
+                            type="button"
+                            onClick={() => {
+                              setPromoCodeInput(code);
+                              const { advert, canonicalCode } = findAdvertByPromoCode(code, adverts);
+                              const existing = redemptions.find((r) => r.code === canonicalCode);
+                              setValidationResult({
+                                status: advert ? 'valid' : 'invalid',
+                                advert,
+                                canonicalCode,
+                                alreadyRedeemed: existing,
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-mono text-[11px] font-bold transition cursor-pointer"
+                          >
+                            <span>{code}</span>
+                            <span className="text-[10px] text-amber-700 truncate max-w-[120px]">({ad.headline})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Validation Result Box */}
+                  {validationResult.status === 'valid' && validationResult.advert && (
+                    <div className="mt-5 rounded-xl border border-emerald-300 bg-white p-5 shadow-xs space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                              Verified Official Promotion
+                            </span>
+                            <p className="font-mono text-sm font-extrabold text-slate-900">
+                              {validationResult.canonicalCode}
+                            </p>
+                          </div>
+                        </div>
+                        <AdminBadge tone="warning">
+                          {validationResult.advert.promoBadge || 'SPECIAL OFFER'}
+                        </AdminBadge>
+                      </div>
+
+                      {/* Advert Headline & Details */}
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {validationResult.advert.image && (
+                          <img
+                            src={validationResult.advert.image}
+                            alt={validationResult.advert.headline}
+                            className="h-20 w-20 rounded-xl object-cover border border-slate-200 shrink-0"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <h4 className="text-sm font-bold text-slate-950">
+                            {validationResult.advert.headline}
+                          </h4>
+                          <p className="text-xs text-slate-600 line-clamp-2">
+                            {validationResult.advert.offerText}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-500">
+                            <span>
+                              <strong>Business:</strong> {validationResult.advert.businessName}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              <strong>Validity:</strong> {validationResult.advert.validUntil}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pricing Breakdown Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl bg-slate-50 p-3.5 border border-slate-200/80">
+                        <div>
+                          <span className="text-[11px] font-semibold text-slate-500 block">Standard Tariff</span>
+                          <span className="text-base font-bold text-slate-400 line-through">
+                            ${validationResult.advert.originalPriceUSD?.toFixed(2) || '0.00'} USD
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-bold text-emerald-700 block">Promotional Deal Rate</span>
+                          <span className="text-lg font-black text-emerald-700">
+                            ${validationResult.advert.promoPriceUSD?.toFixed(2) || '0.00'} USD
+                          </span>
+                          {validationResult.advert.priceZiG && (
+                            <span className="block text-[10px] text-slate-500 font-medium">
+                              (~{validationResult.advert.priceZiG.toLocaleString()} ZiG)
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-bold text-amber-700 block">Customer Instant Saving</span>
+                          <span className="text-base font-black text-amber-600">
+                            ${(
+                              (validationResult.advert.originalPriceUSD || 0) -
+                              (validationResult.advert.promoPriceUSD || 0)
+                            ).toFixed(2)}{' '}
+                            USD
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Redemption Status / Form */}
+                      {validationResult.alreadyRedeemed ? (
+                        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2">
+                          <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                            <Clock className="h-4 w-4 text-amber-600" />
+                            <span>This promotional code was already redeemed.</span>
+                          </div>
+                          <p className="text-xs text-amber-800">
+                            Redeemed on{' '}
+                            <strong>{new Date(validationResult.alreadyRedeemed.redeemedAt).toLocaleString('en-GB')}</strong>
+                            {validationResult.alreadyRedeemed.customerIdentifier && (
+                              <> for customer <strong>{validationResult.alreadyRedeemed.customerIdentifier}</strong></>
+                            )}
+                            {validationResult.alreadyRedeemed.notes && (
+                              <span className="block mt-1 italic text-slate-600">
+                                Notes: &quot;{validationResult.alreadyRedeemed.notes}&quot;
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pt-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Customer Name or Phone Number (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={redemptionCustomer}
+                                onChange={(e) => setRedemptionCustomer(e.target.value)}
+                                placeholder="e.g. Tendai M. (+263 77 123 4567)"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Settlement / Receipt Notes (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={redemptionNotes}
+                                onChange={(e) => setRedemptionNotes(e.target.value)}
+                                placeholder="e.g. Paid via EcoCash USD, collected in Harare"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-2">
+                            <button
+                              type="button"
+                              onClick={handleConfirmRedemption}
+                              disabled={isRedeeming}
+                              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-50"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span>{isRedeeming ? 'Recording...' : 'Confirm & Redeem Deal'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Invalid Result Display */}
+                  {validationResult.status === 'invalid' && (
+                    <div className="mt-5 rounded-xl border border-rose-300 bg-rose-50 p-4 space-y-1">
+                      <div className="flex items-center gap-2 text-rose-900 font-bold text-xs">
+                        <X className="h-4 w-4 text-rose-600" />
+                        <span>Code Not Recognized</span>
+                      </div>
+                      <p className="text-xs text-rose-700">
+                        {validationResult.error || 'The reference code provided does not match any current active advert.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Audit Log / History Table */}
+                <div className="mt-8 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-950">
+                        Verified Redemption Log ({myRedemptions.length})
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Historical audit trail of all customer coupons and promotional deals redeemed for this business.
+                      </p>
+                    </div>
+                  </div>
+
+                  {myRedemptions.length === 0 ? (
+                    <div className="mt-4">
+                      <EmptyState
+                        icon={Ticket}
+                        title="No promo codes redeemed yet"
+                        description="When customers claim deals from your sponsored adverts via WhatsApp, verify their reference codes above to record them here."
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="border-b border-slate-200 bg-slate-50 font-bold text-slate-700">
+                            <tr>
+                              <th className="px-4 py-3">Reference Code</th>
+                              <th className="px-4 py-3">Offer Headline</th>
+                              <th className="px-4 py-3">Customer Info</th>
+                              <th className="px-4 py-3">Deal Value</th>
+                              <th className="px-4 py-3">Discount Saved</th>
+                              <th className="px-4 py-3">Redeemed At</th>
+                              <th className="px-4 py-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                            {myRedemptions.map((record) => (
+                              <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="px-4 py-3 font-mono font-bold text-amber-700">
+                                  {record.code}
+                                </td>
+                                <td className="px-4 py-3 font-semibold max-w-[200px] truncate">
+                                  {record.advertHeadline}
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">
+                                  {record.customerIdentifier || 'Walk-in / WhatsApp Buyer'}
+                                  {record.notes && (
+                                    <span className="block text-[10px] text-slate-400 truncate max-w-[150px]">
+                                      {record.notes}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 font-bold text-emerald-700">
+                                  ${record.promoPriceUSD ? record.promoPriceUSD.toFixed(2) : '0.00'}
+                                </td>
+                                <td className="px-4 py-3 font-bold text-amber-600">
+                                  -${record.discountSavingsUSD ? record.discountSavingsUSD.toFixed(2) : '0.00'}
+                                </td>
+                                <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                  {new Date(record.redeemedAt).toLocaleDateString('en-GB', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteRedemption(record.id)}
+                                    className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer transition"
+                                    title="Remove Record"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Panel>
+            </div>
           )}
 
           {/* TAB 4: JOBS & APPLICANT CVs */}

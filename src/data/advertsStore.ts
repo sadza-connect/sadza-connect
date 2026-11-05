@@ -129,3 +129,93 @@ export function saveStoredAdverts(adverts: PaidAdvertItem[]): void {
     // ignore storage errors
   }
 }
+
+export interface PromoRedemptionRecord {
+  id: string;
+  code: string;
+  advertId: string;
+  advertHeadline: string;
+  businessName: string;
+  customerIdentifier?: string;
+  originalPriceUSD?: number;
+  promoPriceUSD?: number;
+  discountSavingsUSD?: number;
+  notes?: string;
+  redeemedAt: string;
+}
+
+const PROMO_REDEMPTIONS_KEY = 'sadza_promo_redemptions_v1';
+
+export function loadStoredRedemptions(): PromoRedemptionRecord[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PROMO_REDEMPTIONS_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredRedemption(record: PromoRedemptionRecord): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = loadStoredRedemptions();
+    const updated = [record, ...current.filter((r) => r.id !== record.id)];
+    localStorage.setItem(PROMO_REDEMPTIONS_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-redemptions-updated'));
+  } catch {}
+}
+
+export function deleteStoredRedemption(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = loadStoredRedemptions();
+    const updated = current.filter((r) => r.id !== id);
+    localStorage.setItem(PROMO_REDEMPTIONS_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-redemptions-updated'));
+  } catch {}
+}
+
+export function normalizePromoCode(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/^#/, '')
+    .replace(/^REF:\s*/, '')
+    .trim();
+}
+
+export function findAdvertByPromoCode(
+  rawCode: string,
+  advertsList: PaidAdvertItem[]
+): { advert?: PaidAdvertItem; canonicalCode: string } {
+  const norm = normalizePromoCode(rawCode);
+  if (!norm) return { canonicalCode: '' };
+
+  let targetId = '';
+  if (norm.startsWith('SC-PROMO-')) {
+    targetId = norm.replace('SC-PROMO-', '');
+  } else if (norm.startsWith('SC-')) {
+    targetId = norm.replace('SC-', '');
+  } else if (norm.startsWith('PROMO-')) {
+    targetId = norm.replace('PROMO-', '');
+  } else {
+    targetId = norm;
+  }
+
+  const found = advertsList.find(
+    (ad) =>
+      ad.id.toUpperCase() === targetId ||
+      ad.id.toUpperCase() === norm ||
+      `SC-PROMO-${ad.id.toUpperCase()}` === norm
+  );
+
+  return {
+    advert: found,
+    canonicalCode: found ? `SC-PROMO-${found.id.toUpperCase()}` : norm,
+  };
+}
+

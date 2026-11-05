@@ -597,7 +597,7 @@ export default function AdvertsDirectoryPage() {
                           ad.businessName
                         )},%20I'm%20claiming%20your%20advert%20offer%20"${encodeURIComponent(
                           ad.headline
-                        )}"%20on%20Sadza%20Connect.`}
+                        )}"%20(Ref:%20SC-PROMO-${ad.id.toUpperCase()})%20on%20Sadza%20Connect.`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-3.5 py-2 text-xs font-bold shadow-sm shadow-orange-500/20 transition-all active:scale-95"

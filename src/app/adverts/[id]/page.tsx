@@ -164,8 +164,9 @@ export default function AdvertDetailPage() {
   };
 
   const cleanWaNumber = (phone: string) => phone.replace(/[^0-9]/g, '');
+  const promoRefCode = `SC-PROMO-${advert.id.toUpperCase()}`;
   const waUrl = `https://wa.me/${cleanWaNumber(advert.whatsapp)}?text=${encodeURIComponent(
-    `Hello ${advert.businessName}, I saw your sponsored offer "${advert.headline}" on Sadza Connect and would like more details.`
+    `Hello ${advert.businessName}, I am claiming your offer "${advert.headline}" (Ref: ${promoRefCode}) on Sadza Connect.`
   )}`;
 
   const savingsUSD =
@@ -441,7 +442,7 @@ export default function AdvertDetailPage() {
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-sm shadow-md shadow-orange-500/20 transition active:scale-[0.99]"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    Enquire on WhatsApp
+                    Claim Offer on WhatsApp
                   </a>
 
                   <a

@@ -1692,9 +1692,9 @@ export function CommercialPortalWorkspace() {
                               <a
                                 href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
                                   ad.businessName
-                                )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
+                                )},%20I'm%20claiming%20your%20advert%20offer%20"${encodeURIComponent(
                                   ad.headline
-                                )}"%20on%20Sadza%20Connect.`}
+                                )}"%20(Ref:%20SC-PROMO-${ad.id.toUpperCase()})%20on%20Sadza%20Connect.`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-xs transition-all active:scale-95"
@@ -2818,9 +2818,9 @@ export function CommercialPortalWorkspace() {
                             <a
                               href={`https://wa.me/${sanitizePhoneNumber(ad.whatsapp)}?text=Hi%20${encodeURIComponent(
                                 ad.businessName
-                              )},%20I'm%20inquiring%20about%20your%20sponsored%20advert%20"${encodeURIComponent(
+                              )},%20I'm%20claiming%20your%20advert%20offer%20"${encodeURIComponent(
                                 ad.headline
-                              )}"%20on%20Sadza%20Connect.`}
+                              )}"%20(Ref:%20SC-PROMO-${ad.id.toUpperCase()})%20on%20Sadza%20Connect.`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-2.5 py-1 text-xs font-bold shadow-sm shadow-orange-500/20 transition-all active:scale-95"
