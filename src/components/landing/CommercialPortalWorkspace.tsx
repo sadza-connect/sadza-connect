@@ -41,6 +41,8 @@ import {
   Home,
   Calendar,
   Compass,
+  UserCheck,
+  User,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
@@ -263,6 +265,8 @@ const LATEST_JOBS: JobItem[] = [];
 
 type AccountViewMode =
   | 'visitor'
+  | 'admin'
+  | 'regular_user'
   | 'grace_active'
   | 'grace_expiring'
   | 'grace_expired'
@@ -308,11 +312,23 @@ export function CommercialPortalWorkspace() {
       return;
     }
 
+    const isAdmin =
+      user.role === 'admin' ||
+      user.role === 'super_admin' ||
+      user.role?.toLowerCase().includes('admin');
+
+    if (isAdmin) {
+      setAccountMode('admin');
+      setUserBusiness(null);
+      return;
+    }
+
     const isBusiness =
       user.role === 'business' || user.role === 'merchant' || user.accountType === 'business';
 
     if (!isBusiness) {
-      setAccountMode('visitor');
+      setAccountMode('regular_user');
+      setUserBusiness(null);
       return;
     }
 
@@ -1006,6 +1022,86 @@ export function CommercialPortalWorkspace() {
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-2xs">
         <div className="w-full max-w-[1760px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-3.5">
           {/* Contextual Banner based on Account / Grace Period State */}
+          {accountMode === 'admin' && (
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 px-5 py-4 shadow-sm">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-white">
+                      Super Admin Mode — Executive Governance &amp; Command Center
+                    </span>
+                    <span className="rounded-full bg-indigo-500/20 border border-indigo-400/40 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-indigo-300">
+                      Full Administrative Access
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                    You are logged in with executive governance privileges. Review merchant KYC submissions (CR14/ZIMRA), configure platform pricing &amp; tariffs, and monitor commercial telemetry.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>Admin Command HQ</span>
+                </Link>
+                <Link
+                  href="/admin/settings"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-400/30 bg-slate-800/80 hover:bg-slate-700 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors"
+                >
+                  <SlidersHorizontal className="h-4 w-4 text-indigo-300" />
+                  <span>Platform Settings</span>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {accountMode === 'regular_user' && (
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 px-5 py-4">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1e57eb] text-white shadow-xs">
+                  <UserCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                      Welcome, {user?.fullName || 'Verified Shopper'} — Zimbabwe Commercial Directory &amp; Marketplace
+                    </span>
+                    <span className="rounded-full bg-blue-100 dark:bg-blue-900/60 border border-blue-200 dark:border-blue-700 px-3 py-0.5 text-xs font-bold text-blue-800 dark:text-blue-300">
+                      Consumer Account
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                    Explore verified Zimbabwean suppliers, compare dual-currency USD/ZiG rates, or post commercial RFQs. Run a business or side-hustle? You can list your enterprise with a {settings.freeGracePeriodDays}-day free trial.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <Link
+                  href="/dashboard/user"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e57eb] hover:bg-blue-700 text-white px-4 py-2.5 text-xs sm:text-sm font-bold shadow-xs transition-colors"
+                >
+                  <User className="h-4 w-4" />
+                  <span>My Account Dashboard</span>
+                </Link>
+                <Link
+                  href="/onboarding/business"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors"
+                >
+                  <Store className="h-4 w-4 text-emerald-600" />
+                  <span>List a Business ({settings.freeGracePeriodDays} Days Free)</span>
+                </Link>
+              </div>
+            </div>
+          )}
+
           {accountMode === 'visitor' && (
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 px-5 py-4">
               <div className="flex items-start sm:items-center gap-3.5">
@@ -2862,74 +2958,220 @@ export function CommercialPortalWorkspace() {
               </div>
             </div>
 
-            {/* Card 2: How Business Registration & 1-Month Grace Period Works */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
-                  <ShieldCheck className="h-5 w-5" />
+            {/* Card 2: Contextual Role & Policy Card */}
+            {accountMode === 'admin' ? (
+              <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800/80 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 dark:from-indigo-950/30 dark:via-slate-900 dark:to-slate-900 p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      Executive Admin HQ
+                    </h3>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">Governance &amp; Operations</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                    Business Listing Policy
-                  </h3>
-                  <p className="text-xs text-slate-500">Transparent 30-Day Grace Model</p>
+
+                <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Review CR14 &amp; ZIMRA KYC filings</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Configure subscription tariffs &amp; ZiG rate</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Monitor advert redemptions &amp; telemetry</span>
+                  </li>
+                </ul>
+
+                <div className="pt-1 flex flex-col gap-2">
+                  <Link
+                    href="/admin"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-3.5 text-xs font-bold transition-colors"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Open Admin Console</span>
+                  </Link>
+                  <Link
+                    href="/admin/businesses"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-800 dark:text-slate-200 py-2 px-3.5 text-xs font-semibold transition-colors"
+                  >
+                    <span>Manage Storefront Listings</span>
+                  </Link>
                 </div>
               </div>
+            ) : accountMode === 'regular_user' ? (
+              <div className="rounded-2xl border border-blue-200 dark:border-blue-800/60 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#1e57eb]">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      Shopper Protection
+                    </h3>
+                    <p className="text-xs text-slate-500">Verified Zimbabwean Trade</p>
+                  </div>
+                </div>
 
-              <ol className="space-y-3 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                    1
-                  </span>
-                  <span>
-                    <strong className="text-slate-900 dark:text-white">Month 1 Free Grace:</strong>{' '}
-                    Every new business gets 30 days of free directory listing and product uploads upon registration.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                    2
-                  </span>
-                  <span>
-                    <strong className="text-slate-900 dark:text-white">Automated Reminders:</strong>{' '}
-                    Receive dashboard, email, and WhatsApp notices 7 days and 3 days before your grace period expires.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                    3
-                  </span>
-                  <span>
-                    <strong className="text-slate-900 dark:text-white">Monthly Subscription:</strong>{' '}
-                    Continue after Day 30 for{' '}
-                    <strong className="text-emerald-700 dark:text-emerald-400">$15/month</strong>{' '}
-                    (EcoCash, InnBucks, or Card) to keep products &amp; adverts active.
-                  </span>
-                </li>
-              </ol>
+                <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Two-Tier CR14 &amp; ZIMRA verified merchants</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Dual-currency pricing in USD &amp; ZiG</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Direct WhatsApp &amp; phone contacts</span>
+                  </li>
+                </ul>
 
-              <div className="pt-1 flex flex-col gap-2.5">
-                <Link
-                  href="/signup?role=business"
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-3.5 text-xs sm:text-sm font-bold transition-colors"
-                >
-                  <span>Start 1-Month Free Grace</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPaymentPlan('monthly_listing');
-                    setPaymentSuccess(false);
-                    setPaymentModalOpen(true);
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 py-2.5 px-3.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
-                >
-                  <CreditCard className="h-4 w-4 text-emerald-600" />
-                  <span>Make Business Payment</span>
-                </button>
+                <div className="pt-1 flex flex-col gap-2">
+                  <Link
+                    href="/dashboard/user"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#1e57eb] hover:bg-blue-700 text-white py-2.5 px-3.5 text-xs font-bold transition-colors"
+                  >
+                    <span>My Account &amp; Activity</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                  <Link
+                    href="/onboarding/business"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 py-2 px-3.5 text-xs font-semibold transition-colors"
+                  >
+                    <Store className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Register Business ({settings.freeGracePeriodDays} Days Free)</span>
+                  </Link>
+                </div>
               </div>
-            </div>
+            ) : userBusiness ? (
+              <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/80 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
+                    <Store className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white truncate">
+                      {userBusiness.name}
+                    </h3>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+                      {accountMode === 'paid_subscriber' ? 'Paid Pro Storefront' : `${userBusiness.graceDaysRemaining ?? settings.freeGracePeriodDays} Days Trial Left`}
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Directory profile live across 10 provinces</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Direct buyer WhatsApp enquiries active</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Coupon validator desk unlocked</span>
+                  </li>
+                </ul>
+
+                <div className="pt-1 flex flex-col gap-2">
+                  <Link
+                    href="/dashboard/business"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-3.5 text-xs font-bold transition-colors"
+                  >
+                    <span>Manage Storefront &amp; Stock</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPaymentPlan('monthly_listing');
+                      setPaymentSuccess(false);
+                      setPaymentModalOpen(true);
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 py-2 px-3.5 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <CreditCard className="h-4 w-4 text-emerald-600" />
+                    <span>Subscription Settlement</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                      Business Listing Policy
+                    </h3>
+                    <p className="text-xs text-slate-500">Transparent {settings.freeGracePeriodDays}-Day Grace Model</p>
+                  </div>
+                </div>
+
+                <ol className="space-y-3 text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                  <li className="flex items-start gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                      1
+                    </span>
+                    <span>
+                      <strong className="text-slate-900 dark:text-white">Month 1 Free Grace:</strong>{' '}
+                      Every new business gets {settings.freeGracePeriodDays} days of free directory listing and product uploads upon registration.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                      2
+                    </span>
+                    <span>
+                      <strong className="text-slate-900 dark:text-white">Automated Reminders:</strong>{' '}
+                      Receive dashboard, email, and WhatsApp notices 7 days and 3 days before your grace period expires.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                      3
+                    </span>
+                    <span>
+                      <strong className="text-slate-900 dark:text-white">Monthly Subscription:</strong>{' '}
+                      Continue after Day {settings.freeGracePeriodDays} for{' '}
+                      <strong className="text-emerald-700 dark:text-emerald-400">${settings.monthlySubscriptionPriceUsd}/month</strong>{' '}
+                      (EcoCash, InnBucks, or Card) to keep products &amp; adverts active.
+                    </span>
+                  </li>
+                </ol>
+
+                <div className="pt-1 flex flex-col gap-2.5">
+                  <Link
+                    href="/signup?role=business"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-3.5 text-xs sm:text-sm font-bold transition-colors"
+                  >
+                    <span>Start {settings.freeGracePeriodDays}-Day Free Grace</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPaymentPlan('monthly_listing');
+                      setPaymentSuccess(false);
+                      setPaymentModalOpen(true);
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 py-2.5 px-3.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    <CreditCard className="h-4 w-4 text-emerald-600" />
+                    <span>Make Business Payment</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Card 3: Quick Utility & Trade Desk */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-3.5">

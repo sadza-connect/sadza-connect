@@ -356,7 +356,7 @@ export function Navbar() {
               {/* User Account / Profile Identity */}
               <Link
                 href={
-                  user?.role === 'admin'
+                  user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin')
                     ? '/admin'
                     : user?.role === 'merchant' || user?.role === 'business' || user?.accountType === 'business'
                     ? '/dashboard/business'
@@ -542,10 +542,12 @@ export function Navbar() {
             {isAuthenticated && (
               <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
                 <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  {user?.role === 'admin' ? 'Administration & Overviews' : 'My Account Workspace'}
+                  {user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin')
+                    ? 'Administration & Overviews'
+                    : 'My Account Workspace'}
                 </div>
                 <div className="flex flex-col gap-1 mt-1">
-                  {user?.role === 'admin' ? (
+                  {user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin') ? (
                     <>
                       <Link
                         href="/admin"
