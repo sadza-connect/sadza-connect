@@ -852,9 +852,14 @@ export function CommercialPortalWorkspace() {
     setUploadError(null);
 
     const usd = parseFloat(newProdPriceUSD) || 10;
+    const currentList = [...newProdImages];
+    const pendingUrl = newProdImageInput.trim();
+    if (pendingUrl && currentList.length < 5 && !currentList.includes(pendingUrl)) {
+      currentList.push(pendingUrl);
+    }
     const finalImages = (
-      newProdImages.length > 0
-        ? newProdImages
+      currentList.length > 0
+        ? currentList
         : [
             'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80',
           ]
@@ -3609,7 +3614,16 @@ export function CommercialPortalWorkspace() {
                         key={idx}
                         className="relative group aspect-square rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-2xs"
                       >
-                        <Image src={img} alt={`Slot ${idx + 1}`} fill className="object-cover" />
+                        <img
+                          src={img}
+                          alt={`Slot ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            // If an image URL fails to load, gracefully fall back
+                            (e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+                          }}
+                        />
                         <div className="absolute top-1.5 left-1.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded backdrop-blur-xs">
                           {idx === 0 ? '★ Primary Cover' : `Slot ${idx + 1}`}
                         </div>
@@ -3635,6 +3649,16 @@ export function CommercialPortalWorkspace() {
                         placeholder="Or paste an image web link (e.g. https://...)..."
                         value={newProdImageInput}
                         onChange={(e) => setNewProdImageInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const trimmed = newProdImageInput.trim();
+                            if (trimmed && newProdImages.length < 5) {
+                              setNewProdImages([...newProdImages, trimmed]);
+                              setNewProdImageInput('');
+                            }
+                          }
+                        }}
                         className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600"
                       />
                       <button
@@ -3652,6 +3676,31 @@ export function CommercialPortalWorkspace() {
                         Add Link
                       </button>
                     </div>
+
+                    {/* Instant Live Preview while typing/pasting URL */}
+                    {newProdImageInput.trim() && (
+                      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                        <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-emerald-300 dark:border-emerald-700 bg-slate-200 shrink-0">
+                          <img
+                            src={newProdImageInput.trim()}
+                            alt="Live URL Preview"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+                            }}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                            ✓ Live Image Preview Ready
+                          </p>
+                          <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate">
+                            Click &quot;Add Link&quot; or press Enter to add to your product gallery.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Presets */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">

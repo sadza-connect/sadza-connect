@@ -285,6 +285,12 @@ export function ImageUploader({
               type="text"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddUrl();
+                }
+              }}
               placeholder="https://images.unsplash.com/..."
               className="flex-1 rounded-lg border border-[#c8d2e0] bg-white px-3 py-1.5 text-xs text-[#0a1018] placeholder:text-[#6b81a5] focus:border-[#1e57eb] focus:outline-none"
             />
@@ -292,6 +298,12 @@ export function ImageUploader({
               type="text"
               value={captionInput}
               onChange={(e) => setCaptionInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddUrl();
+                }
+              }}
               placeholder="Caption (optional)"
               className="w-full sm:w-48 rounded-lg border border-[#c8d2e0] bg-white px-3 py-1.5 text-xs text-[#0a1018] placeholder:text-[#6b81a5] focus:border-[#1e57eb] focus:outline-none"
             />
@@ -299,6 +311,28 @@ export function ImageUploader({
               <Check className="h-3.5 w-3.5" /> Set Image
             </AdminButton>
           </div>
+
+          {urlInput.trim() && (
+            <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#bcd7ff]">
+              <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-slate-300 bg-slate-100 shrink-0">
+                <img
+                  src={urlInput.trim()}
+                  alt="Live URL Preview"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80';
+                  }}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-emerald-700">✓ Live Image Preview Found</p>
+                <p className="text-[11px] text-[#465a7e] truncate">
+                  Click &quot;Set Image&quot; or press Enter to add this photo to your product gallery.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="pt-1.5">
             <p className="text-[11px] font-semibold text-[#465a7e] mb-1.5">
