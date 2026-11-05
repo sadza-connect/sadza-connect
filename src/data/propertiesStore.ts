@@ -314,3 +314,39 @@ export function togglePropertyOccupancy(propertyId: string): void {
   }
 }
 
+export function deleteStoredProperty(propertyId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredProperties();
+    const updated = existing.filter((p) => p.id !== propertyId);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-properties-updated'));
+  } catch (err) {
+    console.error('Failed to delete property:', err);
+  }
+}
+
+export function togglePropertyVerification(propertyId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredProperties();
+    const updated = existing.map((p) => (p.id === propertyId ? { ...p, isVerified: !p.isVerified } : p));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-properties-updated'));
+  } catch (err) {
+    console.error('Failed to toggle property verification:', err);
+  }
+}
+
+export function togglePropertyFeatured(propertyId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredProperties();
+    const updated = existing.map((p) => (p.id === propertyId ? { ...p, isFeatured: !p.isFeatured } : p));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-properties-updated'));
+  } catch (err) {
+    console.error('Failed to toggle property featured:', err);
+  }
+}
+

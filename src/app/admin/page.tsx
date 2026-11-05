@@ -14,6 +14,9 @@ import {
   ReceiptText,
   IdCard,
   MessageSquare,
+  Home,
+  Compass,
+  Briefcase,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -35,6 +38,8 @@ import {
   getStoredUsers,
 } from '@/data/platformStore';
 import { loadStoredAdverts } from '@/data/advertsStore';
+import { getStoredProperties } from '@/data/propertiesStore';
+import { getStoredTourisms } from '@/data/tourismStore';
 import { BusinessListing } from '@/lib/data/zimbabwe';
 
 type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
@@ -74,6 +79,8 @@ export default function AdminOverviewPage() {
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [productsCount, setProductsCount] = useState(0);
   const [advertsCount, setAdvertsCount] = useState(0);
+  const [propertiesCount, setPropertiesCount] = useState(0);
+  const [tourismsCount, setTourismsCount] = useState(0);
   const [jobsCount, setJobsCount] = useState(0);
   const [usersCount, setUsersCount] = useState(0);
   const [recentEnquiries, setRecentEnquiries] = useState<InquiryItem[]>([]);
@@ -160,6 +167,11 @@ export default function AdminOverviewPage() {
           setJobsCount(Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
           setUsersCount(Array.isArray(usrData?.users) ? usrData.users.length : 0);
 
+          const propList = getStoredProperties();
+          const tourList = getStoredTourisms();
+          setPropertiesCount(propList.length);
+          setTourismsCount(tourList.length);
+
           if (Array.isArray(msgData?.messages) && msgData.messages.length > 0) {
             setRecentEnquiries(
               msgData.messages.map((m: any) => ({
@@ -182,6 +194,8 @@ export default function AdminOverviewPage() {
           setBusinesses([]);
           setProductsCount(0);
           setAdvertsCount(0);
+          setPropertiesCount(getStoredProperties().length);
+          setTourismsCount(getStoredTourisms().length);
           setJobsCount(0);
           setUsersCount(0);
           setRecentEnquiries([]);
@@ -200,12 +214,17 @@ export default function AdminOverviewPage() {
     sync();
     window.addEventListener('sadza-platform-updated', sync);
     window.addEventListener('sadza-adverts-updated', sync);
+    window.addEventListener('sadza-properties-updated', sync);
+    window.addEventListener('sadza-tourism-updated', sync);
     return () => {
       isMounted = false;
       window.removeEventListener('sadza-platform-updated', sync);
       window.removeEventListener('sadza-adverts-updated', sync);
+      window.removeEventListener('sadza-properties-updated', sync);
+      window.removeEventListener('sadza-tourism-updated', sync);
     };
   }, []);
+
 
   const selectedRange = useMemo(
     () => TIME_RANGES.find((r) => r.value === timeRange) ?? TIME_RANGES[1],
@@ -241,16 +260,18 @@ export default function AdminOverviewPage() {
   const pageViewsBreakdown = useMemo(() => {
     const directoryViews = businesses.length * 14;
     const marketplaceViews = productsCount * 12;
-    const billPayViews = 0;
+    const propertiesViews = propertiesCount * 11;
+    const tourismsViews = tourismsCount * 9;
     const advertsViews = advertsCount * 10;
     const jobsViews = jobsCount * 8;
-    const total = directoryViews + marketplaceViews + billPayViews + advertsViews + jobsViews;
+    const total = directoryViews + marketplaceViews + propertiesViews + tourismsViews + advertsViews + jobsViews;
 
     const raw = [
       { section: 'Business Directory', views: directoryViews },
       { section: 'B2B Marketplace', views: marketplaceViews },
+      { section: 'Properties & Rentals', views: propertiesViews },
+      { section: 'Tourism & Stays', views: tourismsViews },
       { section: 'Sponsored Adverts', views: advertsViews },
-      { section: 'ZESA & Bill Pay', views: billPayViews },
       { section: 'Jobs & Careers', views: jobsViews },
     ];
 
@@ -258,7 +279,7 @@ export default function AdminOverviewPage() {
       ...item,
       share: total > 0 ? Math.round((item.views / total) * 100) : 0,
     }));
-  }, [businesses.length, productsCount, advertsCount, jobsCount]);
+  }, [businesses.length, productsCount, propertiesCount, tourismsCount, advertsCount, jobsCount]);
 
   const hasEnquiries = useMemo(
     () => MONTHLY_ENQUIRIES.some((m) => m.enquiries > 0 || m.quotes > 0),
@@ -268,9 +289,11 @@ export default function AdminOverviewPage() {
   const pillarDemand = useMemo(() => {
     const quoteDemand = businesses.reduce((sum, b) => sum + (b.inquiries || 0), 0);
     const productsDemand = productsCount;
+    const propertiesDemand = propertiesCount;
+    const tourismsDemand = tourismsCount;
     const advertsDemand = advertsCount;
     const jobsDemand = jobsCount;
-    const total = quoteDemand + productsDemand + advertsDemand + jobsDemand;
+    const total = quoteDemand + productsDemand + propertiesDemand + tourismsDemand + advertsDemand + jobsDemand;
 
     if (total === 0) return { total: 0, items: [] };
 
@@ -279,11 +302,14 @@ export default function AdminOverviewPage() {
       items: [
         { label: 'Supplier Inquiries & Quotes', val: Math.round((quoteDemand / total) * 100), count: quoteDemand, color: '#1e57eb' },
         { label: 'Marketplace Catalogue Products', val: Math.round((productsDemand / total) * 100), count: productsDemand, color: '#0d9488' },
+        { label: 'Properties & Rental Units', val: Math.round((propertiesDemand / total) * 100), count: propertiesDemand, color: '#0284c7' },
+        { label: 'Tourism & Lodge Stays', val: Math.round((tourismsDemand / total) * 100), count: tourismsDemand, color: '#059669' },
         { label: 'Sponsored Adverts Active', val: Math.round((advertsDemand / total) * 100), count: advertsDemand, color: '#dd6e02' },
         { label: 'Talent & Open Vacancies', val: Math.round((jobsDemand / total) * 100), count: jobsDemand, color: '#7c3aed' },
       ],
     };
-  }, [businesses, productsCount, advertsCount, jobsCount]);
+  }, [businesses, productsCount, propertiesCount, tourismsCount, advertsCount, jobsCount]);
+
 
   return (
     <div className="space-y-6">
@@ -338,10 +364,10 @@ export default function AdminOverviewPage() {
         />
         <StatCard
           label="Catalogue & Sponsored Deals"
-          value={scale(productsCount + advertsCount)}
+          value={scale(productsCount + advertsCount + propertiesCount + tourismsCount)}
           delta={14}
           trend="up"
-          hint={`${productsCount} Marketplace Products · ${advertsCount} Active Adverts`}
+          hint={`${productsCount} Products · ${propertiesCount} Rentals · ${tourismsCount} Stays`}
           icon={ShoppingBag}
           loading={isLoading}
         />
@@ -378,24 +404,25 @@ export default function AdminOverviewPage() {
             icon: Megaphone,
           },
           {
-            label: 'Receipts & Print',
-            sub: 'QR Receipts & ZESA Logs',
-            href: '/admin/bill-payments',
-            icon: ReceiptText,
+            label: 'Properties & Rentals',
+            sub: 'Landlord Unlocks & Leases',
+            href: '/admin/properties',
+            icon: Home,
           },
           {
-            label: 'PVC ID Cards',
-            sub: 'Front/Back 3D Generator',
-            href: '/admin/id-cards',
-            icon: IdCard,
+            label: 'Tourism & Lodges',
+            sub: 'Safari Camps & Stays',
+            href: '/admin/tourism',
+            icon: Compass,
           },
           {
-            label: 'Users & Broadcasts',
-            sub: 'Accounts & Alerts',
-            href: '/admin/users',
-            icon: Users,
+            label: 'Careers & Jobs',
+            sub: 'Vacancies & Applications',
+            href: '/admin/jobs',
+            icon: Briefcase,
           },
         ].map((item) => {
+
           const Icon = item.icon;
           return (
             <Link

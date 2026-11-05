@@ -6,6 +6,8 @@ import {
   Package,
   Megaphone,
   Briefcase,
+  Building2,
+  Compass,
   ReceiptText,
   IdCard,
   MessageSquare,
@@ -26,6 +28,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { label: 'Businesses & KYC', href: '/admin/businesses', icon: FileCheck },
   { label: 'Marketplace Stock', href: '/admin/marketplace', icon: Package },
   { label: 'Sponsored Adverts', href: '/admin/adverts', icon: Megaphone },
+  { label: 'Properties & Rentals', href: '/admin/properties', icon: Building2 },
+  { label: 'Tourism & Lodges', href: '/admin/tourism', icon: Compass },
   { label: 'Careers & Jobs', href: '/admin/jobs', icon: Briefcase },
   { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { label: 'Users & Accounts', href: '/admin/users', icon: Users },
@@ -35,3 +39,4 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { label: 'ID Cards', href: '/admin/id-cards', icon: IdCard, comingSoon: true },
   { label: 'Messages & Chat', href: '/admin/messages', icon: MessageSquare, comingSoon: true },
 ];
+

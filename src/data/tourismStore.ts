@@ -336,3 +336,40 @@ export function saveStoredTourism(item: TourismListing): void {
     console.error('Failed to save tourism listing to localStorage:', err);
   }
 }
+
+export function deleteStoredTourism(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredTourisms();
+    const updated = existing.filter((t) => t.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-tourism-updated'));
+  } catch (err) {
+    console.error('Failed to delete tourism listing:', err);
+  }
+}
+
+export function toggleTourismVerification(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredTourisms();
+    const updated = existing.map((t) => (t.id === id ? { ...t, isVerified: !t.isVerified } : t));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-tourism-updated'));
+  } catch (err) {
+    console.error('Failed to toggle verification:', err);
+  }
+}
+
+export function toggleTourismFeatured(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getStoredTourisms();
+    const updated = existing.map((t) => (t.id === id ? { ...t, isFeatured: !t.isFeatured } : t));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('sadza-tourism-updated'));
+  } catch (err) {
+    console.error('Failed to toggle featured:', err);
+  }
+}
+
