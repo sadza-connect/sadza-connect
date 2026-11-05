@@ -2,11 +2,9 @@ import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   BarChart3,
-  LayoutTemplate,
   FileCheck,
   Package,
   Megaphone,
-  ShoppingBag,
   Briefcase,
   ReceiptText,
   IdCard,
@@ -33,9 +31,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { label: 'Users & Accounts', href: '/admin/users', icon: Users },
   { label: 'System Settings', href: '/admin/settings', icon: Settings },
   // Phase 2 Modules (On Hold)
-  { label: 'Orders & Escrow', href: '/admin/orders', icon: ShoppingBag, comingSoon: true },
   { label: 'Bill Payments (ZESA)', href: '/admin/bill-payments', icon: ReceiptText, comingSoon: true },
   { label: 'ID Cards', href: '/admin/id-cards', icon: IdCard, comingSoon: true },
   { label: 'Messages & Chat', href: '/admin/messages', icon: MessageSquare, comingSoon: true },
-  { label: 'Editorial CMS', href: '/admin/content', icon: LayoutTemplate, comingSoon: true },
 ];

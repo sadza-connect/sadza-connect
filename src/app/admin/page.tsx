@@ -11,7 +11,6 @@ import {
   Filter,
   ArrowUpRight,
   Megaphone,
-  FileCheck,
   ReceiptText,
   IdCard,
   MessageSquare,
@@ -310,15 +309,9 @@ export default function AdminOverviewPage() {
         />
       </div>
 
-      {/* Quick Executive Suite Shortcuts (All Capabilities from Template) */}
+      {/* Quick Executive Suite Shortcuts */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          {
-            label: 'Page Content CMS',
-            sub: 'Edit Home, About & Contact',
-            href: '/admin/content',
-            icon: FileCheck,
-          },
           {
             label: 'Businesses & KYC',
             sub: 'CR14 & 30-Day Grace',
@@ -326,10 +319,16 @@ export default function AdminOverviewPage() {
             icon: Building2,
           },
           {
-            label: 'Products & Photos',
+            label: 'Marketplace Stock',
             sub: 'Device Image Uploader',
             href: '/admin/marketplace',
             icon: ShoppingBag,
+          },
+          {
+            label: 'Sponsored Adverts',
+            sub: 'Deals & Coupon Validator',
+            href: '/admin/adverts',
+            icon: Megaphone,
           },
           {
             label: 'Receipts & Print',
@@ -344,10 +343,10 @@ export default function AdminOverviewPage() {
             icon: IdCard,
           },
           {
-            label: 'Email Broadcasts',
-            sub: '5 Pre-Built Templates',
+            label: 'Users & Broadcasts',
+            sub: 'Accounts & Alerts',
             href: '/admin/users',
-            icon: Megaphone,
+            icon: Users,
           },
         ].map((item) => {
           const Icon = item.icon;
