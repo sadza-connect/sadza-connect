@@ -9,6 +9,8 @@ import {
   Lock,
   Truck,
   DollarSign,
+  CheckCircle2,
+  ShieldAlert,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -18,6 +20,7 @@ import {
   AdminButton,
   AdminInput,
   AdminTextarea,
+  AdminBadge,
 } from '@/components/admin/AdminUI';
 import { ImageUploader, type UploadedMediaItem } from '@/components/admin/ImageUploader';
 import { useToast } from '@/components/providers/ToastProvider';
@@ -27,6 +30,7 @@ import {
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettings,
 } from '@/data/platformStore';
+import { PLATFORM_PRICING } from '@/lib/constants/pricing';
 
 type SectionId =
   | 'profile'
@@ -40,12 +44,13 @@ type SectionId =
 const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: 'profile', label: 'Company profile', icon: Building2 },
   { id: 'contact', label: 'Contact details', icon: Phone },
-  { id: 'pricing', label: 'Subscriptions & Rates', icon: DollarSign },
+  { id: 'pricing', label: 'Fees & Rates (Static)', icon: Lock },
   { id: 'shipping', label: 'Shipping & Logistics', icon: Truck },
   { id: 'verification', label: 'Verification portals', icon: ShieldCheck },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Lock },
 ];
+
 
 function Toggle({
   label,
@@ -282,13 +287,13 @@ export default function AdminSettingsPage() {
   const [isRotatingPassword, setIsRotatingPassword] = useState(false);
 
   async function handleSave(sectionLabel: string) {
-    const usdToZig = parseFloat(pricing.zigExchangeRate) || 26.5;
-    const listingUsd = parseFloat(pricing.corporateListingUsd || pricing.standardListingUsd) || 15;
-    const soloUsd = parseFloat(pricing.soloListingUsd) || 5;
-    const coopUsd = parseFloat(pricing.coopListingUsd) || 10;
-    const corporateUsd = parseFloat(pricing.corporateListingUsd) || 15;
-    const advertUsd = parseFloat(pricing.sponsoredAdvertUsd) || 20;
-    const graceDays = parseInt(pricing.graceDays, 10) || 30;
+    const usdToZig = PLATFORM_PRICING.STATUTORY.REFERENCE_USD_TO_ZIG;
+    const listingUsd = PLATFORM_PRICING.SUBSCRIPTIONS.STANDARD_MONTHLY_USD;
+    const soloUsd = PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_B_SOLO_OPERATOR_USD;
+    const coopUsd = PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_C_COOPERATIVE_USD;
+    const corporateUsd = PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_A_CORPORATE_USD;
+    const advertUsd = PLATFORM_PRICING.SINGLE_SPONSORED_ADVERT_USD;
+    const graceDays = PLATFORM_PRICING.GRACE_PERIOD.DAYS;
 
     const updatedPlatformSettings: PlatformSettings = {
       siteName: profile.name,
@@ -299,15 +304,15 @@ export default function AdminSettingsPage() {
       soloMonthlyPriceUsd: soloUsd,
       coopMonthlyPriceUsd: coopUsd,
       corporateMonthlyPriceUsd: corporateUsd,
-      tierStarterName: pricing.tierStarterName,
-      tierStarterLimit: parseInt(pricing.tierStarterLimit, 10) || 25,
-      tierStarterPriceUsd: parseFloat(pricing.tierStarterPriceUsd) || 15.0,
-      tierGrowthName: pricing.tierGrowthName,
-      tierGrowthLimit: parseInt(pricing.tierGrowthLimit, 10) || 100,
-      tierGrowthPriceUsd: parseFloat(pricing.tierGrowthPriceUsd) || 25.0,
-      tierEnterpriseName: pricing.tierEnterpriseName,
-      tierEnterpriseLimit: parseInt(pricing.tierEnterpriseLimit, 10) || 300,
-      tierEnterprisePriceUsd: parseFloat(pricing.tierEnterprisePriceUsd) || 50.0,
+      tierStarterName: 'Starter Storefront',
+      tierStarterLimit: 25,
+      tierStarterPriceUsd: 15.0,
+      tierGrowthName: 'Growth Storefront',
+      tierGrowthLimit: 100,
+      tierGrowthPriceUsd: 25.0,
+      tierEnterpriseName: 'Enterprise Wholesaler',
+      tierEnterpriseLimit: 300,
+      tierEnterprisePriceUsd: 50.0,
       sponsoredAdvertPriceUsd: advertUsd,
       freeGracePeriodDays: graceDays,
       supportWhatsApp: contact.whatsapp,
@@ -322,11 +327,11 @@ export default function AdminSettingsPage() {
       aboutHeadline: profile.tagline,
       aboutMission: profile.mission,
       aboutVision: profile.vision,
-      vatPct: parseFloat(pricing.vatPct) || 15,
-      zesaServiceFeePct: parseFloat(pricing.zesaServiceFeePct) || 1.5,
+      vatPct: PLATFORM_PRICING.STATUTORY.ZIMBABWE_VAT_PCT,
+      zesaServiceFeePct: PLATFORM_PRICING.COMMISSIONS.ZESA_UTILITY_SERVICE_FEE_PCT,
       ecocashMerchantCode: pricing.ecocashMerchantCode,
       innbucksMerchantCode: pricing.innbucksMerchantCode,
-      homepageSlotsCap: parseInt(pricing.homepageSlotsCap, 10) || 6,
+      homepageSlotsCap: 6,
       shipping,
       verification,
       notifications,
@@ -344,38 +349,17 @@ export default function AdminSettingsPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          usd_to_zig_rate: usdToZig,
-          monthly_subscription_price_usd: listingUsd,
-          sponsored_advert_price_usd: advertUsd,
-          free_grace_period_days: graceDays,
           support_whatsapp: contact.whatsapp || undefined,
           support_phone: contact.phone || undefined,
           support_email: contact.email && contact.email.includes('@') ? contact.email.trim() : undefined,
           hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
           harare_address: `${contact.line1}, ${contact.city}`,
           operating_hours: contact.hours || undefined,
-          tier_starter_name: pricing.tierStarterName,
-          tier_starter_limit: parseInt(pricing.tierStarterLimit, 10) || 25,
-          tier_starter_price_usd: parseFloat(pricing.tierStarterPriceUsd) || 15.0,
-          tier_growth_name: pricing.tierGrowthName,
-          tier_growth_limit: parseInt(pricing.tierGrowthLimit, 10) || 100,
-          tier_growth_price_usd: parseFloat(pricing.tierGrowthPriceUsd) || 25.0,
-          tier_enterprise_name: pricing.tierEnterpriseName,
-          tier_enterprise_limit: parseInt(pricing.tierEnterpriseLimit, 10) || 300,
-          tier_enterprise_price_usd: parseFloat(pricing.tierEnterprisePriceUsd) || 50.0,
           extra_config: {
             profile,
             shipping,
             verification,
             notifications,
-            soloMonthlyPriceUsd: soloUsd,
-            coopMonthlyPriceUsd: coopUsd,
-            corporateMonthlyPriceUsd: corporateUsd,
-            vatPct: parseFloat(pricing.vatPct) || 15,
-            zesaServiceFeePct: parseFloat(pricing.zesaServiceFeePct) || 1.5,
-            ecocashMerchantCode: pricing.ecocashMerchantCode,
-            innbucksMerchantCode: pricing.innbucksMerchantCode,
-            homepageSlotsCap: parseInt(pricing.homepageSlotsCap, 10) || 6,
           },
         }),
       });
@@ -644,197 +628,149 @@ export default function AdminSettingsPage() {
           )}
 
           {active === 'pricing' && (
-            <Panel>
-              <PanelHeading
-                title="Subscriptions, Adverts & Multi-Currency Settlement"
-                hint="Control track-based listing fees (Track A Corporate, Track B Solo Operator, Track C Cooperative), sponsored adverts, and USD/ZiG settlement."
-              />
-              <div className="mt-5 space-y-6">
-                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                      $
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-800">
-                      Track-Specific Monthly Business Listing Rates (Admin Controlled)
-                    </h4>
+            <div className="space-y-6">
+              <Panel>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-5 h-5 text-emerald-600" />
+                      <h3 className="text-base font-bold text-slate-900">
+                        Official Platform Financial Schedule &amp; Fixed Tariffs
+                      </h3>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Standard, immutable platform financial architecture synchronized with Flutterwave, EcoCash, and InnBucks gateway integrations.
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Set the default monthly listing subscription price according to the business&apos;s legal track. You can also set a custom pricing override for any specific business in Business Management.
-                  </p>
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <AdminInput
-                      label="Track A: Corporate (Pvt Ltd / PBC) ($ USD/mo)"
-                      type="number"
-                      value={pricing.corporateListingUsd}
-                      onChange={(e) => setPricing((p) => ({ ...p, corporateListingUsd: e.target.value }))}
-                    />
-                    <AdminInput
-                      label="Track B: Solo Operator / Trader ($ USD/mo)"
-                      type="number"
-                      value={pricing.soloListingUsd}
-                      onChange={(e) => setPricing((p) => ({ ...p, soloListingUsd: e.target.value }))}
-                    />
-                    <AdminInput
-                      label="Track C: Cooperative / NGO ($ USD/mo)"
-                      type="number"
-                      value={pricing.coopListingUsd}
-                      onChange={(e) => setPricing((p) => ({ ...p, coopListingUsd: e.target.value }))}
-                    />
+                  <AdminBadge tone="success" dot>
+                    Locked &amp; Verified
+                  </AdminBadge>
+                </div>
+
+                {/* Important Integrity Callout */}
+                <div className="mt-5 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 text-xs text-amber-900 flex items-start gap-3">
+                  <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold">
+                      Immutable Financial Configuration (Flutterwave Gateway Compliance)
+                    </p>
+                    <p className="text-amber-800 leading-relaxed">
+                      All platform membership fees, storefront product limits, advert campaign packages, and tenant unlock rates are fixed in code. Modifications from the admin console are disabled to ensure strict commercial reconciliation and prevent unauthorized rate adjustments.
+                    </p>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
-                      📦
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-800">
-                      Storefront Catalog Quotas &amp; Tier Pricing (Anti-Spam &amp; Self-Service Expansion)
-                    </h4>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Define maximum marketplace product listings allowed per subscription tier and their monthly USD rates. Newly registered businesses start on the Starter tier (free during grace period).
-                  </p>
-
-                  <div className="mt-4 space-y-3">
-                    {/* Starter Storefront */}
-                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3">
-                      <AdminInput
-                        label="Starter Tier Name"
-                        value={pricing.tierStarterName}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierStarterName: e.target.value }))}
-                      />
-                      <AdminInput
-                        label="Product Quota Limit"
-                        type="number"
-                        min={1}
-                        value={pricing.tierStarterLimit}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierStarterLimit: e.target.value }))}
-                      />
-                      <AdminInput
-                        label="Monthly Subscription ($ USD/mo)"
-                        type="number"
-                        step="0.01"
-                        value={pricing.tierStarterPriceUsd}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierStarterPriceUsd: e.target.value }))}
-                      />
+                {/* Section 1: Business Memberships & Grace Period */}
+                <div className="mt-6 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>1. Business Directory &amp; Membership Subscriptions</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Month 1 Onboarding</span>
+                      <div className="mt-1 text-2xl font-black text-emerald-600">$0.00 Free</div>
+                      <p className="mt-1 text-xs text-slate-600 font-medium">{PLATFORM_PRICING.GRACE_PERIOD.DAYS}-Day Full Grace Period</p>
                     </div>
 
-                    {/* Growth Storefront */}
-                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3">
-                      <AdminInput
-                        label="Growth Tier Name"
-                        value={pricing.tierGrowthName}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierGrowthName: e.target.value }))}
-                      />
-                      <AdminInput
-                        label="Product Quota Limit"
-                        type="number"
-                        min={1}
-                        value={pricing.tierGrowthLimit}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierGrowthLimit: e.target.value }))}
-                      />
-                      <AdminInput
-                        label="Monthly Subscription ($ USD/mo)"
-                        type="number"
-                        step="0.01"
-                        value={pricing.tierGrowthPriceUsd}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierGrowthPriceUsd: e.target.value }))}
-                      />
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Track A: Corporate</span>
+                      <div className="mt-1 text-2xl font-black text-slate-900">${PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_A_CORPORATE_USD} <span className="text-xs font-normal text-slate-500">USD/mo</span></div>
+                      <p className="mt-1 text-xs text-slate-600">Pvt Ltd, PBC, Wholesalers</p>
                     </div>
 
-                    {/* Enterprise Wholesaler */}
-                    <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3">
-                      <AdminInput
-                        label="Enterprise Tier Name"
-                        value={pricing.tierEnterpriseName}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierEnterpriseName: e.target.value }))}
-                      />
-                      <AdminInput
-                        label="Product Quota Limit"
-                        type="number"
-                        min={1}
-                        value={pricing.tierEnterpriseLimit}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierEnterpriseLimit: e.target.value }))}
-                      />
-                      <AdminInput
-                        label="Monthly Subscription ($ USD/mo)"
-                        type="number"
-                        step="0.01"
-                        value={pricing.tierEnterprisePriceUsd}
-                        onChange={(e) => setPricing((p) => ({ ...p, tierEnterprisePriceUsd: e.target.value }))}
-                      />
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Track B: Solo Operator</span>
+                      <div className="mt-1 text-2xl font-black text-slate-900">${PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_B_SOLO_OPERATOR_USD} <span className="text-xs font-normal text-slate-500">USD/mo</span></div>
+                      <p className="mt-1 text-xs text-slate-600">Sole Proprietors &amp; Artisans</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Track C: Cooperative</span>
+                      <div className="mt-1 text-2xl font-black text-slate-900">${PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_C_COOPERATIVE_USD} <span className="text-xs font-normal text-slate-500">USD/mo</span></div>
+                      <p className="mt-1 text-xs text-slate-600">Agro-Collectives &amp; NGOs</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <AdminInput
-                    label="Onboarding Grace Period (Days)"
-                    type="number"
-                    value={pricing.graceDays}
-                    onChange={(e) => setPricing((p) => ({ ...p, graceDays: e.target.value }))}
-                  />
-                  <AdminInput
-                    label="Sponsored Advert Slot ($ USD / mo)"
-                    type="number"
-                    value={pricing.sponsoredAdvertUsd}
-                    onChange={(e) => setPricing((p) => ({ ...p, sponsoredAdvertUsd: e.target.value }))}
-                  />
-                  <AdminInput
-                    label="Homepage Pinned Adverts Cap"
-                    type="number"
-                    value={pricing.homepageSlotsCap}
-                    onChange={(e) => setPricing((p) => ({ ...p, homepageSlotsCap: e.target.value }))}
-                  />
+                {/* Section 2: Storefront Catalog Quotas */}
+                <div className="mt-6 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>2. Storefront Catalog Quotas &amp; Tier Pricing</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {PLATFORM_PRICING.STOREFRONT_TIERS.map((tier) => (
+                      <div key={tier.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-900">{tier.name}</span>
+                          <span className="text-xs font-bold text-emerald-600">${tier.priceUsd} USD/mo</span>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-600">
+                          Quota: <strong className="text-slate-900">Up to {tier.productQuota} products</strong>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-500">{tier.description}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <AdminInput
-                    label="Reference USD → ZiG Rate"
-                    value={pricing.zigExchangeRate}
-                    onChange={(e) => setPricing((p) => ({ ...p, zigExchangeRate: e.target.value }))}
-                  />
-                  <AdminInput
-                    label="Standard VAT Rate (%)"
-                    type="number"
-                    value={pricing.vatPct}
-                    onChange={(e) => setPricing((p) => ({ ...p, vatPct: e.target.value }))}
-                  />
+                {/* Section 3: Advert Packages */}
+                <div className="mt-6 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>3. Classified &amp; Business Advert Packages (/adverts)</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {PLATFORM_PRICING.ADVERT_PACKAGES.map((pkg) => (
+                      <div key={pkg.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-900">{pkg.name}</span>
+                            <span className="text-xs font-bold text-amber-600">
+                              {pkg.priceUsd === 0 ? '$0 Free' : `$${pkg.priceUsd} /mo`}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 text-xs font-semibold text-slate-700">
+                            ⚡ {pkg.advertLimitText}
+                          </div>
+                          <p className="mt-1 text-[11px] text-slate-500">{pkg.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 border-t border-slate-100 pt-4">
-                  <AdminInput
-                    label="EcoCash Biller Merchant Code"
-                    value={pricing.ecocashMerchantCode}
-                    onChange={(e) =>
-                      setPricing((p) => ({ ...p, ecocashMerchantCode: e.target.value }))
-                    }
-                  />
-                  <AdminInput
-                    label="InnBucks Corporate Code"
-                    value={pricing.innbucksMerchantCode}
-                    onChange={(e) =>
-                      setPricing((p) => ({ ...p, innbucksMerchantCode: e.target.value }))
-                    }
-                  />
-                  <AdminInput
-                    label="ZESA / Utility Service Fee (%)"
-                    value={pricing.zesaServiceFeePct}
-                    onChange={(e) =>
-                      setPricing((p) => ({ ...p, zesaServiceFeePct: e.target.value }))
-                    }
-                  />
-                </div>
+                {/* Section 4: Real Estate & Core Platform Terms */}
+                <div className="mt-6 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <span>4. Core Platform Tariffs &amp; Commission Rules</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Property Phone Unlock</span>
+                      <div className="mt-1 text-2xl font-black text-slate-900">${PLATFORM_PRICING.PROPERTY_PHONE_UNLOCK_FEE_USD}.00 <span className="text-xs font-normal text-slate-500">USD</span></div>
+                      <p className="mt-1 text-xs text-slate-600">Paid by inquiring tenant per listing</p>
+                    </div>
 
-                <div className="flex justify-end pt-2">
-                  <AdminButton onClick={() => handleSave('Commercial Pricing & Rates')}>
-                    Save Commercial Pricing
-                  </AdminButton>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Marketplace Commission</span>
+                      <div className="mt-1 text-2xl font-black text-emerald-600">0.0% <span className="text-xs font-normal text-slate-500">Zero Commission</span></div>
+                      <p className="mt-1 text-xs text-slate-600">Direct WhatsApp trade &amp; settlement</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">ZESA Utility Token Fee</span>
+                      <div className="mt-1 text-2xl font-black text-slate-900">{PLATFORM_PRICING.COMMISSIONS.ZESA_UTILITY_SERVICE_FEE_PCT}%</div>
+                      <p className="mt-1 text-xs text-slate-600">Token processing surcharge</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Statutory VAT</span>
+                      <div className="mt-1 text-2xl font-black text-slate-900">{PLATFORM_PRICING.STATUTORY.ZIMBABWE_VAT_PCT}%</div>
+                      <p className="mt-1 text-xs text-slate-600">Official Zimbabwe Tax Baseline</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </Panel>
+              </Panel>
+            </div>
           )}
 
           {active === 'shipping' && (

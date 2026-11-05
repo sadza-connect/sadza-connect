@@ -13,11 +13,10 @@ import { AuthorizationError } from '@/shared/errors/AppError';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Notice: Financial pricing fields (monthly_subscription_price_usd, sponsored_advert_price_usd,
+// tier prices, grace period) are hardcoded and static for payment gateway integrity (Flutterwave sync).
+// They cannot be modified via API.
 const updateSettingsSchema = z.object({
-  usd_to_zig_rate: z.number().positive().optional(),
-  monthly_subscription_price_usd: z.number().positive().optional(),
-  sponsored_advert_price_usd: z.number().positive().optional(),
-  free_grace_period_days: z.number().int().nonnegative().optional(),
   support_whatsapp: z.string().optional(),
   support_phone: z.string().optional(),
   support_email: z.string().email().optional(),
@@ -26,15 +25,13 @@ const updateSettingsSchema = z.object({
   operating_hours: z.string().optional(),
   tier_starter_name: z.string().optional(),
   tier_starter_limit: z.number().int().positive().optional(),
-  tier_starter_price_usd: z.number().nonnegative().optional(),
   tier_growth_name: z.string().optional(),
   tier_growth_limit: z.number().int().positive().optional(),
-  tier_growth_price_usd: z.number().nonnegative().optional(),
   tier_enterprise_name: z.string().optional(),
   tier_enterprise_limit: z.number().int().positive().optional(),
-  tier_enterprise_price_usd: z.number().nonnegative().optional(),
   extra_config: z.record(z.any()).optional(),
 });
+
 
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
