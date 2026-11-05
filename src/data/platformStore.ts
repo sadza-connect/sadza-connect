@@ -326,3 +326,94 @@ export function toggleSavedProductId(id: string): string[] {
   saveItem(KEYS.SAVED_PRODUCT_IDS, next);
   return next;
 }
+
+export interface AdvertPackage {
+  id: string;
+  name: string;
+  priceUsd: number;
+  pricePeriod: string;
+  advertLimitText: string;
+  frequencyText: string;
+  monthlyCount: number;
+  description: string;
+  badge?: string;
+  popular?: boolean;
+  features: string[];
+}
+
+export const ADVERT_PACKAGES: AdvertPackage[] = [
+  {
+    id: 'free_starter',
+    name: 'Free Starter Trial',
+    priceUsd: 0,
+    pricePeriod: 'forever free',
+    advertLimitText: '2 Free Adverts',
+    frequencyText: '2 adverts total',
+    monthlyCount: 2,
+    badge: 'Free Trial',
+    description: 'Test the platform, post your initial commercial flyers or deals, and receive direct WhatsApp customer inquiries without spending a cent.',
+    features: [
+      '2 Free promotional adverts',
+      'Public listing in Adverts Directory (/adverts)',
+      'Direct WhatsApp click-to-chat inquiry button',
+      'Upload promo flyer, poster, or banner (JPG, PNG, WebP)',
+      'Province and commercial sector targeting',
+      'Zero commission on sales made via your advert',
+    ],
+  },
+  {
+    id: 'starter_15',
+    name: 'Starter Advert Tier',
+    priceUsd: 15,
+    pricePeriod: '/ month',
+    advertLimitText: '2 Adverts / Week (8 / Month)',
+    frequencyText: '2 times per week',
+    monthlyCount: 8,
+    description: 'Affordable consistency for local shops, sole proprietors, and artisans to keep fresh weekly offers in front of Zimbabwean shoppers.',
+    features: [
+      '2 Adverts per week (8 total adverts / month)',
+      'Prominent placement in Adverts Directory',
+      'Rotating placement in Homepage Sponsored column',
+      'Direct WhatsApp & telephone sales inquiries',
+      'Easy renewal via EcoCash USD, InnBucks, or Card',
+    ],
+  },
+  {
+    id: 'growth_25',
+    name: 'Growth Advert Tier',
+    priceUsd: 25,
+    pricePeriod: '/ month',
+    advertLimitText: '3 Adverts / Week (12 / Month)',
+    frequencyText: '3 times per week',
+    monthlyCount: 12,
+    popular: true,
+    badge: 'Most Popular',
+    description: 'Designed for active retailers, boutiques, electronics dealers, and auto parts suppliers running mid-week specials and weekend clearances.',
+    features: [
+      '3 Adverts per week (12 total adverts / month)',
+      'Priority placement in Adverts Directory & Homepage sidebar',
+      'Custom promo badges (Bulk Deal, Price Discount, Special Package)',
+      'Direct WhatsApp inquiries straight to your sales desk',
+      'Track clicks and customer engagement in real-time',
+    ],
+  },
+  {
+    id: 'premium_40',
+    name: 'Premium Pro Unlimited',
+    priceUsd: 40,
+    pricePeriod: '/ month',
+    advertLimitText: 'Unlimited Adverts (Post Every Day!)',
+    frequencyText: 'Unlimited daily posting',
+    monthlyCount: 999,
+    badge: 'Best Value',
+    description: 'Complete freedom to advertise every single day of the month. Perfect for supermarkets, wholesalers, solar distributors, and property agents.',
+    features: [
+      'Unlimited adverts every single day (30+ adverts / month)',
+      'Top Featured Gold badge & permanent pinned placement',
+      'Maximum visibility across Homepage, Marketplace & Adverts portal',
+      'Publish daily specials, flash sales, and contractor clearances',
+      'Priority WhatsApp desk support from Sadza Connect team',
+    ],
+  },
+];
+

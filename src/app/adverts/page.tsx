@@ -36,6 +36,7 @@ import {
 } from '@/data/advertsStore';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { ADVERT_PACKAGES, AdvertPackage } from '@/data/platformStore';
 
 const OFFER_TYPES = [
   'All Offer Types',
@@ -53,7 +54,8 @@ export default function AdvertsDirectoryPage() {
   const [selectedOfferType, setSelectedOfferType] = useState<string>('All Offer Types');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Create Advert Modal State
+  // Package & Create Advert Modal State
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('free_starter');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState<PaidAdvertItem['businessType']>('Registered Company (Pvt Ltd)');
@@ -66,7 +68,8 @@ export default function AdvertsDirectoryPage() {
   const [promoPriceUSD, setPromoPriceUSD] = useState('');
   const [validUntil, setValidUntil] = useState('Valid 14 days');
   const [whatsapp, setWhatsapp] = useState('263772111222');
-  const [paymentMethod, setPaymentMethod] = useState<'ecocash' | 'innbucks' | 'card'>('ecocash');
+  const [paymentMethod, setPaymentMethod] = useState<'ecocash' | 'innbucks' | 'card' | 'instant_demo'>('ecocash');
+  const [customerPhone, setCustomerPhone] = useState('0771234567');
   const [publishSuccess, setPublishSuccess] = useState(false);
   const [advertImage, setAdvertImage] = useState<string>('');
   const advertFileInputRef = useRef<HTMLInputElement>(null);
@@ -109,10 +112,21 @@ export default function AdvertsDirectoryPage() {
     fetchLiveAdverts();
     const handleSync = () => fetchLiveAdverts();
     window.addEventListener('sadza-adverts-updated', handleSync);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const pkg = params.get('package');
+      if (pkg && ADVERT_PACKAGES.some((p) => p.id === pkg)) {
+        setSelectedPackageId(pkg);
+        setCreateModalOpen(true);
+      }
+    }
+
     return () => {
       window.removeEventListener('sadza-adverts-updated', handleSync);
     };
   }, []);
+
 
   const filteredAdverts = useMemo(() => {
     return adverts.filter((ad) => {
@@ -170,7 +184,14 @@ export default function AdvertsDirectoryPage() {
       console.error('Failed to publish advert to database:', err);
     }
 
-    // Also record subscription invoice for the $20 advert promotion
+    // Also record subscription invoice based on selected Advert Package ($0, $15, $25, $40)
+    const activePkg = ADVERT_PACKAGES.find((p) => p.id === selectedPackageId) || ADVERT_PACKAGES[0];
+    const packageFee = activePkg.priceUsd;
+    const planDescription =
+      packageFee === 0
+        ? 'Free Starter Advert Package (2 Free Adverts)'
+        : `${activePkg.name} ($${activePkg.priceUsd}/mo - ${activePkg.advertLimitText})`;
+
     try {
       await fetch('/api/v1/invoices', {
         method: 'POST',
@@ -178,9 +199,18 @@ export default function AdvertsDirectoryPage() {
         credentials: 'include',
         body: JSON.stringify({
           business_name: businessName.trim() || 'Verified Zimbabwean Enterprise',
-          plan_type: 'Sponsored Product Advert ($20/mo)',
-          amount_usd: 20,
-          payment_method: paymentMethod === 'ecocash' ? 'EcoCash USD' : paymentMethod === 'innbucks' ? 'InnBucks' : 'Visa / Mastercard',
+          plan_type: planDescription,
+          amount_usd: packageFee,
+          payment_method:
+            packageFee === 0
+              ? 'Free Trial'
+              : paymentMethod === 'ecocash'
+              ? 'EcoCash USD'
+              : paymentMethod === 'innbucks'
+              ? 'InnBucks'
+              : paymentMethod === 'card'
+              ? 'Visa / Mastercard'
+              : 'Instant Demo',
           status: 'Paid',
         }),
       });
@@ -240,14 +270,55 @@ export default function AdvertsDirectoryPage() {
                     setPublishSuccess(false);
                     setCreateModalOpen(true);
                   }}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3.5 text-sm font-bold shadow-sm transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white px-5 py-3.5 text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>Publish a Paid Business Advert ($20)</span>
+                  <span>Publish Advert / Choose Package</span>
                 </button>
-                <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
-                  Appears on Homepage Right Sidebar &amp; Adverts Directory
+                <div className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
+                  Free Starter (2 Adverts) • $15/mo • $25/mo • $40/mo
                 </div>
+              </div>
+            </div>
+
+            {/* 4 Advert Packages Quick Bar */}
+            <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between">
+                <span>Available Advertising Packages:</span>
+                <Link href="/pricing" className="text-emerald-600 dark:text-emerald-400 hover:underline">
+                  Compare Package Details →
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {ADVERT_PACKAGES.map((pkg) => {
+                  const isSelected = selectedPackageId === pkg.id;
+                  return (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPackageId(pkg.id);
+                        setPublishSuccess(false);
+                        setCreateModalOpen(true);
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 shadow-xs ring-1 ring-emerald-500'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
+                        <span>{pkg.name}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
+                          ${pkg.priceUsd} {pkg.priceUsd > 0 ? '/mo' : ''}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-1 truncate">
+                        ⚡ {pkg.advertLimitText}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -543,13 +614,13 @@ export default function AdvertsDirectoryPage() {
         </div>
       </main>
 
-      {/* Publish Paid Business Advert Modal */}
+      {/* Publish Advert Modal with Package Selection */}
       {createModalOpen && (
         <Modal
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
-          title="Publish Sponsored Business Advert"
-          description="Your advert will immediately appear in the Homepage Right Sidebar and in the All Adverts Directory."
+          title="Publish Classified or Business Advert"
+          description="Choose your advertising package and publish your promotional flyer or deal live across Zimbabwe."
         >
           {publishSuccess ? (
             <div className="py-6 text-center space-y-4">
@@ -557,10 +628,10 @@ export default function AdvertsDirectoryPage() {
                 <CheckCircle2 className="h-8 w-8" />
               </div>
               <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                Sponsored Advert Published Live!
+                Advert Published Successfully!
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
-                Your promotion is now live in the Adverts Directory and on the Homepage Sponsored Sidebar.
+                Your promotion is now live in the Zimbabwe Adverts Directory and rotates on the Homepage Portal.
               </p>
               <div className="flex justify-center gap-3 pt-2">
                 <Button variant="outline" size="md" onClick={() => setCreateModalOpen(false)}>
@@ -574,7 +645,40 @@ export default function AdvertsDirectoryPage() {
               </div>
             </div>
           ) : (
-            <form onSubmit={handlePublishAdvert} className="space-y-3.5">
+            <form onSubmit={handlePublishAdvert} className="space-y-4">
+              {/* Step 1: Package Selector */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Select Advert Package *
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {ADVERT_PACKAGES.map((pkg) => {
+                    const isSelected = selectedPackageId === pkg.id;
+                    return (
+                      <div
+                        key={pkg.id}
+                        onClick={() => setSelectedPackageId(pkg.id)}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/40 ring-1 ring-emerald-500'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-slate-900 dark:text-white">{pkg.name}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                            ${pkg.priceUsd} {pkg.priceUsd > 0 ? '/mo' : ''}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {pkg.advertLimitText}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <Input
                 label="Registered Business Name"
                 placeholder="e.g. Midlands Solar & Power Systems"
@@ -711,23 +815,92 @@ export default function AdvertsDirectoryPage() {
                 />
               </div>
 
-              <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Sponsored Advert Placement Fee (30 Days):
-                </span>
-                <span className="font-display text-base font-extrabold text-emerald-600">
-                  USD $20.00 / 530 ZiG
-                </span>
-              </div>
+              {/* Package Fee & Payment Selection */}
+              {(() => {
+                const activePkg = ADVERT_PACKAGES.find((p) => p.id === selectedPackageId) || ADVERT_PACKAGES[0];
+                const isFree = activePkg.priceUsd === 0;
 
-              <div className="pt-2 flex justify-end gap-2">
-                <Button variant="outline" size="md" type="button" onClick={() => setCreateModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" size="md" type="submit">
-                  Pay &amp; Publish Advert Live
-                </Button>
-              </div>
+                return (
+                  <div className="space-y-3 pt-1">
+                    <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3.5 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white">
+                          Selected Package: {activePkg.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Quota: {activePkg.advertLimitText}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-display text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                          {isFree ? '100% Free' : `USD $${activePkg.priceUsd}.00`}
+                        </span>
+                        {!isFree && (
+                          <div className="text-[10px] text-slate-500 font-semibold">
+                            ~{(activePkg.priceUsd * 26.5).toFixed(0)} ZiG
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {!isFree && (
+                      <div className="space-y-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 p-3.5">
+                        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                          Payment Method (Instant Zimbabwe Gateway)
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: 'ecocash', label: 'EcoCash USD' },
+                            { id: 'innbucks', label: 'InnBucks' },
+                            { id: 'card', label: 'Card' },
+                            { id: 'instant_demo', label: '⚡ Instant Test' },
+                          ].map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setPaymentMethod(m.id as any)}
+                              className={`py-2 px-2.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                                paymentMethod === m.id
+                                  ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
+                                  : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {paymentMethod === 'ecocash' && (
+                          <div className="pt-1">
+                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                              EcoCash Mobile Number
+                            </label>
+                            <input
+                              type="text"
+                              value={customerPhone}
+                              onChange={(e) => setCustomerPhone(e.target.value)}
+                              placeholder="077 ••• •••"
+                              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-900 dark:text-white"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">
+                              You will receive an EcoCash USSD push prompt on your mobile phone to approve ${activePkg.priceUsd}.00 USD.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex justify-end gap-2">
+                      <Button variant="outline" size="md" type="button" onClick={() => setCreateModalOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button variant="primary" size="md" type="submit" className="font-bold">
+                        {isFree ? 'Publish Free Advert Now' : `Pay $${activePkg.priceUsd}.00 & Publish Advert`}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
             </form>
           )}
         </Modal>

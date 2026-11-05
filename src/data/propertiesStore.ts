@@ -198,6 +198,73 @@ export const DEFAULT_PROPERTIES: PropertyListing[] = [
 ];
 
 const STORAGE_KEY = 'sadza_properties_v1';
+export const PROPERTY_CONTACT_UNLOCK_FEE_USD = 2.0;
+export const PROPERTY_CONTACT_UNLOCK_FEE_ZIG = 53.0;
+export const UNLOCKED_PROPERTIES_STORAGE_KEY = 'sadza_unlocked_properties_v1';
+
+export interface UnlockedContactRecord {
+  propertyId: string;
+  unlockedAt: string;
+  phone: string;
+  whatsapp: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+}
+
+export function maskPhoneNumber(phone: string): string {
+  if (!phone) return '+263 77 ••• •••';
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('+263') && cleaned.length >= 7) {
+    return `${cleaned.slice(0, 7)} ••• •••`;
+  }
+  if (cleaned.startsWith('07') && cleaned.length >= 4) {
+    return `${cleaned.slice(0, 4)} ••• •••`;
+  }
+  return '+263 77 ••• •••';
+}
+
+export function getUnlockedContacts(): Record<string, UnlockedContactRecord> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(UNLOCKED_PROPERTIES_STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+export function isPropertyContactUnlocked(propertyId: string): boolean {
+  if (typeof window === 'undefined' || !propertyId) return false;
+  const map = getUnlockedContacts();
+  return Boolean(map[propertyId]);
+}
+
+export function saveUnlockedContact(
+  propertyId: string,
+  phone: string,
+  whatsapp: string,
+  paymentMethod = 'instant_demo',
+  paymentReference?: string
+): void {
+  if (typeof window === 'undefined' || !propertyId) return;
+  try {
+    const map = getUnlockedContacts();
+    map[propertyId] = {
+      propertyId,
+      unlockedAt: new Date().toISOString(),
+      phone,
+      whatsapp,
+      paymentMethod,
+      paymentReference: paymentReference || `PROP-UNL-${Date.now().toString(36).toUpperCase()}`,
+    };
+    localStorage.setItem(UNLOCKED_PROPERTIES_STORAGE_KEY, JSON.stringify(map));
+    window.dispatchEvent(new Event('sadza-properties-updated'));
+    window.dispatchEvent(new Event('sadza-unlocked-updated'));
+  } catch (err) {
+    console.error('Failed to save unlocked property contact:', err);
+  }
+}
 
 export function getStoredProperties(): PropertyListing[] {
   if (typeof window === 'undefined') return DEFAULT_PROPERTIES;
@@ -246,3 +313,4 @@ export function togglePropertyOccupancy(propertyId: string): void {
     console.error('Failed to toggle property occupancy:', err);
   }
 }
+

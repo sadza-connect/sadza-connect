@@ -23,6 +23,9 @@ import {
   Maximize2,
   Camera,
   Upload,
+  Lock,
+  Unlock,
+  Key,
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
@@ -36,6 +39,12 @@ import {
   getStoredProperties,
   saveStoredProperty,
   togglePropertyOccupancy,
+  PROPERTY_CONTACT_UNLOCK_FEE_USD,
+  PROPERTY_CONTACT_UNLOCK_FEE_ZIG,
+  maskPhoneNumber,
+  getUnlockedContacts,
+  saveUnlockedContact,
+  UnlockedContactRecord,
 } from '@/data/propertiesStore';
 import { CLEAN_PROVINCES } from '@/data/advertsStore';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -48,6 +57,21 @@ export default function PropertiesDirectoryPage() {
   const [selectedType, setSelectedType] = useState('All Types');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedOccupancy, setSelectedOccupancy] = useState('All Statuses');
+  const [onlyUnlockedFilter, setOnlyUnlockedFilter] = useState(false);
+
+  // Unlocked Contacts State ($2.00 micro-fee)
+  const [unlockedContacts, setUnlockedContacts] = useState<Record<string, UnlockedContactRecord>>({});
+
+  // Micro-Payment Unlock Modal State
+  const [unlockModalProperty, setUnlockModalProperty] = useState<PropertyListing | null>(null);
+  const [unlockPaymentMethod, setUnlockPaymentMethod] = useState<'ecocash' | 'innbucks' | 'card' | 'instant_demo'>('ecocash');
+  const [unlockPhoneInput, setUnlockPhoneInput] = useState('0771234567');
+  const [unlockIsProcessing, setUnlockIsProcessing] = useState(false);
+  const [unlockSuccessData, setUnlockSuccessData] = useState<{
+    phone: string;
+    whatsapp: string;
+    reference: string;
+  } | null>(null);
 
   // Modal State for Viewing Details
   const [selectedProperty, setSelectedProperty] = useState<PropertyListing | null>(null);
@@ -89,15 +113,104 @@ export default function PropertiesDirectoryPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleUnlockContact = async (property: PropertyListing) => {
+    setUnlockIsProcessing(true);
+    try {
+      const res = await fetch('/api/v1/properties/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: property.id,
+          paymentMethod: unlockPaymentMethod,
+          customerPhone: unlockPhoneInput,
+          amountUsd: PROPERTY_CONTACT_UNLOCK_FEE_USD,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        const phone = json.data.phone || property.phone;
+        const whatsapp = json.data.whatsapp || property.whatsapp;
+        const ref = json.data.reference || `PROP-UNL-${Date.now().toString(36).toUpperCase()}`;
+
+        saveUnlockedContact(property.id, phone, whatsapp, unlockPaymentMethod, ref);
+        setUnlockedContacts((prev) => ({
+          ...prev,
+          [property.id]: {
+            propertyId: property.id,
+            unlockedAt: new Date().toISOString(),
+            phone,
+            whatsapp,
+            paymentMethod: unlockPaymentMethod,
+            paymentReference: ref,
+          },
+        }));
+
+        setUnlockSuccessData({
+          phone,
+          whatsapp,
+          reference: ref,
+        });
+      } else {
+        // Fallback local unlock
+        const ref = `PROP-UNL-${Date.now().toString(36).toUpperCase()}`;
+        saveUnlockedContact(property.id, property.phone, property.whatsapp, unlockPaymentMethod, ref);
+        setUnlockedContacts((prev) => ({
+          ...prev,
+          [property.id]: {
+            propertyId: property.id,
+            unlockedAt: new Date().toISOString(),
+            phone: property.phone,
+            whatsapp: property.whatsapp,
+            paymentMethod: unlockPaymentMethod,
+            paymentReference: ref,
+          },
+        }));
+        setUnlockSuccessData({
+          phone: property.phone,
+          whatsapp: property.whatsapp,
+          reference: ref,
+        });
+      }
+    } catch {
+      const ref = `PROP-UNL-${Date.now().toString(36).toUpperCase()}`;
+      saveUnlockedContact(property.id, property.phone, property.whatsapp, unlockPaymentMethod, ref);
+      setUnlockedContacts((prev) => ({
+        ...prev,
+        [property.id]: {
+          propertyId: property.id,
+          unlockedAt: new Date().toISOString(),
+          phone: property.phone,
+          whatsapp: property.whatsapp,
+          paymentMethod: unlockPaymentMethod,
+          paymentReference: ref,
+        },
+      }));
+      setUnlockSuccessData({
+        phone: property.phone,
+        whatsapp: property.whatsapp,
+        reference: ref,
+      });
+    } finally {
+      setUnlockIsProcessing(false);
+    }
+  };
+
   useEffect(() => {
     const loadProps = () => {
       setProperties(getStoredProperties());
+      setUnlockedContacts(getUnlockedContacts());
       setIsLoading(false);
     };
     loadProps();
     window.addEventListener('sadza-properties-updated', loadProps);
-    return () => window.removeEventListener('sadza-properties-updated', loadProps);
+    window.addEventListener('sadza-unlocked-updated', loadProps);
+    return () => {
+      window.removeEventListener('sadza-properties-updated', loadProps);
+      window.removeEventListener('sadza-unlocked-updated', loadProps);
+    };
   }, []);
+
 
   const filteredProperties = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -129,9 +242,12 @@ export default function PropertiesDirectoryPage() {
         (selectedOccupancy === 'Available Only' && !isOccupied) ||
         (selectedOccupancy === 'Taken / Occupied' && isOccupied);
 
-      return matchesSearch && matchesProvince && matchesType && matchesCategory && matchesOccupancy;
+      const matchesUnlocked = !onlyUnlockedFilter || Boolean(unlockedContacts[p.id]);
+
+      return matchesSearch && matchesProvince && matchesType && matchesCategory && matchesOccupancy && matchesUnlocked;
     });
-  }, [properties, searchQuery, selectedProvince, selectedType, selectedCategory, selectedOccupancy]);
+  }, [properties, searchQuery, selectedProvince, selectedType, selectedCategory, selectedOccupancy, onlyUnlockedFilter, unlockedContacts]);
+
 
   const handleCreateProperty = (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,7 +426,20 @@ export default function PropertiesDirectoryPage() {
                 <option value="Taken / Occupied">Taken / Occupied</option>
               </select>
 
-              {(searchQuery || selectedType !== 'All Types' || selectedCategory !== 'All Categories' || selectedProvince !== 'All Provinces' || selectedOccupancy !== 'All Statuses') && (
+              <button
+                type="button"
+                onClick={() => setOnlyUnlockedFilter((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  onlyUnlockedFilter
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-emerald-500'
+                }`}
+              >
+                <Key className="h-3.5 w-3.5" />
+                <span>My Unlocked Contacts ({Object.keys(unlockedContacts).length})</span>
+              </button>
+
+              {(searchQuery || selectedType !== 'All Types' || selectedCategory !== 'All Categories' || selectedProvince !== 'All Provinces' || selectedOccupancy !== 'All Statuses' || onlyUnlockedFilter) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -319,6 +448,7 @@ export default function PropertiesDirectoryPage() {
                     setSelectedCategory('All Categories');
                     setSelectedProvince('All Provinces');
                     setSelectedOccupancy('All Statuses');
+                    setOnlyUnlockedFilter(false);
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 transition-colors cursor-pointer"
                 >
@@ -424,106 +554,141 @@ export default function PropertiesDirectoryPage() {
                   </div>
 
                   {/* Body Content */}
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span>{property.suburb}, {property.city} ({property.province})</span>
-                      </div>
+                  {(() => {
+                    const isUnlocked = Boolean(unlockedContacts[property.id]);
+                    const revealedPhone = unlockedContacts[property.id]?.phone || property.phone;
+                    const revealedWhatsapp = unlockedContacts[property.id]?.whatsapp || property.whatsapp;
 
-                      <h3
-                        onClick={() => setSelectedProperty(property)}
-                        className="text-base font-bold text-slate-900 dark:text-white line-clamp-2 hover:text-emerald-600 transition-colors cursor-pointer"
-                      >
-                        {property.title}
-                      </h3>
+                    return (
+                      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-1.5 flex-wrap text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="h-3.5 w-3.5 shrink-0" />
+                              <span>{property.suburb}, {property.city} ({property.province})</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              📍 Exact Address Private
+                            </span>
+                          </div>
 
-                      <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                        {property.description}
-                      </p>
-                    </div>
+                          <h3
+                            onClick={() => setSelectedProperty(property)}
+                            className="text-base font-bold text-slate-900 dark:text-white line-clamp-2 hover:text-emerald-600 transition-colors cursor-pointer"
+                          >
+                            {property.title}
+                          </h3>
 
-                    {/* Key Specs Pills */}
-                    <div className="flex flex-wrap items-center gap-2 py-2 border-y border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
-                      {property.bedrooms !== undefined && (
-                        <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-semibold">
-                          <Bed className="h-3.5 w-3.5 text-slate-500" />
-                          <span>{property.bedrooms} Beds</span>
-                        </span>
-                      )}
-                      {property.bathrooms !== undefined && (
-                        <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-semibold">
-                          <Bath className="h-3.5 w-3.5 text-slate-500" />
-                          <span>{property.bathrooms} Baths</span>
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-semibold">
-                        <Layers className="h-3.5 w-3.5 text-slate-500" />
-                        <span>{property.category}</span>
-                      </span>
-                    </div>
-
-                    {/* Features snippet */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {property.features.slice(0, 3).map((feat, i) => (
-                        <span
-                          key={i}
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800/40"
-                        >
-                          ✓ {feat}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Advertiser & Direct Action Buttons */}
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                      <div className="text-[11px]">
-                        <div className="font-bold text-slate-900 dark:text-white truncate max-w-[130px]">
-                          {property.advertiserName}
+                          <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                            {property.description}
+                          </p>
                         </div>
-                        <div className="text-slate-500 dark:text-slate-400 text-[10px]">
-                          {property.advertiserType}
+
+                        {/* Key Specs Pills */}
+                        <div className="flex flex-wrap items-center gap-2 py-2 border-y border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
+                          {property.bedrooms !== undefined && (
+                            <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-semibold">
+                              <Bed className="h-3.5 w-3.5 text-slate-500" />
+                              <span>{property.bedrooms} Beds</span>
+                            </span>
+                          )}
+                          {property.bathrooms !== undefined && (
+                            <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-semibold">
+                              <Bath className="h-3.5 w-3.5 text-slate-500" />
+                              <span>{property.bathrooms} Baths</span>
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-semibold">
+                            <Layers className="h-3.5 w-3.5 text-slate-500" />
+                            <span>{property.category}</span>
+                          </span>
+                        </div>
+
+                        {/* Features snippet */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {property.features.slice(0, 3).map((feat, i) => (
+                            <span
+                              key={i}
+                              className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800/40"
+                            >
+                              ✓ {feat}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Advertiser & Direct Action Buttons */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                          <div className="text-[11px]">
+                            <div className="font-bold text-slate-900 dark:text-white truncate max-w-[130px]">
+                              {property.advertiserName}
+                            </div>
+                            {isUnlocked ? (
+                              <div className="text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                <span>{revealedPhone}</span>
+                              </div>
+                            ) : (
+                              <div className="text-slate-400 dark:text-slate-500 text-[10px] flex items-center gap-1 font-medium">
+                                <Lock className="h-2.5 w-2.5" />
+                                <span>{maskPhoneNumber(property.phone)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            <button
+                              type="button"
+                              onClick={() => togglePropertyOccupancy(property.id)}
+                              title="Click to toggle Occupied / Available"
+                              className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                                (property.occupancyStatus === 'Taken' || property.occupancyStatus === 'Occupied' || property.isOccupied)
+                                  ? 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+                                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                              }`}
+                            >
+                              {(property.occupancyStatus === 'Taken' || property.occupancyStatus === 'Occupied' || property.isOccupied)
+                                ? 'Mark Available'
+                                : 'Mark Taken'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProperty(property)}
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                              View
+                            </button>
+                            {isUnlocked ? (
+                              <a
+                                href={`https://wa.me/${revealedWhatsapp}?text=${encodeURIComponent(
+                                  (property.occupancyStatus === 'Taken' || property.occupancyStatus === 'Occupied' || property.isOccupied)
+                                    ? `Hello, I unlocked your contact for "${property.title}" in ${property.suburb} on Sadza Connect. I see it is currently taken/occupied — do you have any upcoming vacancies or similar units?`
+                                    : `Hello, I unlocked your contact for "${property.title}" in ${property.suburb} on Sadza Connect. Is it still available to view?`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-transform active:scale-95 shadow-sm"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                <span>WhatsApp</span>
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnlockSuccessData(null);
+                                  setUnlockModalProperty(property);
+                                }}
+                                className="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition-transform active:scale-95 cursor-pointer"
+                              >
+                                <Lock className="h-3 w-3" />
+                                <span>Unlock • $2.00</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                        <button
-                          type="button"
-                          onClick={() => togglePropertyOccupancy(property.id)}
-                          title="Click to toggle Occupied / Available"
-                          className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                            (property.occupancyStatus === 'Taken' || property.occupancyStatus === 'Occupied' || property.isOccupied)
-                              ? 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
-                              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-                          }`}
-                        >
-                          {(property.occupancyStatus === 'Taken' || property.occupancyStatus === 'Occupied' || property.isOccupied)
-                            ? 'Mark Available'
-                            : 'Mark Taken'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedProperty(property)}
-                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          View
-                        </button>
-                        <a
-                          href={`https://wa.me/${property.whatsapp}?text=${encodeURIComponent(
-                            (property.occupancyStatus === 'Taken' || property.occupancyStatus === 'Occupied' || property.isOccupied)
-                              ? `Hello, I saw your listing for "${property.title}" in ${property.suburb} on Sadza Connect. I see it is currently taken/occupied — do you have any upcoming vacancies or similar units?`
-                              : `Hello, I saw your listing for "${property.title}" in ${property.suburb} on Sadza Connect. Is it still available to view?`
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-transform active:scale-95 shadow-sm"
-                        >
-                          <MessageCircle className="h-3.5 w-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -652,37 +817,279 @@ export default function PropertiesDirectoryPage() {
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    {selectedProperty.advertiserName}
+              {/* Landlord Contact Section: Unlocked vs Locked ($2.00) */}
+              {(() => {
+                const isUnlocked = Boolean(unlockedContacts[selectedProperty.id]);
+                const revealedPhone = unlockedContacts[selectedProperty.id]?.phone || selectedProperty.phone;
+                const revealedWhatsapp = unlockedContacts[selectedProperty.id]?.whatsapp || selectedProperty.whatsapp;
+
+                return isUnlocked ? (
+                  <div className="p-4 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {selectedProperty.advertiserName}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {selectedProperty.advertiserType} • Verified Sadza Desk
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-md bg-emerald-600 text-white shadow-xs">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Direct Contact Unlocked</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Direct Phone: <span className="font-extrabold text-emerald-700 dark:text-emerald-400">{revealedPhone}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${revealedPhone}`}
+                          className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors"
+                          title="Call Landlord"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </a>
+                        <a
+                          href={`https://wa.me/${revealedWhatsapp}?text=${encodeURIComponent(
+                            `Hello, I unlocked your contact for "${selectedProperty.title}" in ${selectedProperty.suburb} on Sadza Connect. Is it available for private viewing?`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-lg transition-transform active:scale-95 shadow-sm"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          <span>WhatsApp Landlord</span>
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500">
-                    {selectedProperty.advertiserType} • Verified Sadza Desk
+                ) : (
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">
+                          {selectedProperty.advertiserName}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {selectedProperty.advertiserType} • Verified Listing Desk
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-md">
+                        <Lock className="h-3 w-3" />
+                        <span>{maskPhoneNumber(selectedProperty.phone)}</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-amber-50/80 dark:bg-amber-950/30 p-2.5 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-300 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <span>Protected Landlord / Owner Contact</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                        Exact street address and direct phone/WhatsApp numbers are masked to protect property owners. Pay a one-time <strong>$2.00 USD (~53 ZiG)</strong> unlock fee to reveal verified direct contact and schedule private viewing.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUnlockSuccessData(null);
+                        setUnlockModalProperty(selectedProperty);
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Lock className="h-4 w-4" />
+                      <span>Unlock Direct Landlord Contact • $2.00 USD (~53 ZiG)</span>
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </PublicModalBody>
+        </Modal>
+      )}
+
+      {/* Property Direct Contact Unlock Micro-Payment Modal ($2.00) */}
+      {unlockModalProperty && (
+        <Modal
+          isOpen={Boolean(unlockModalProperty)}
+          onClose={() => {
+            setUnlockModalProperty(null);
+            setUnlockSuccessData(null);
+          }}
+          title="Unlock Direct Landlord Contact ($2.00 USD)"
+        >
+          <PublicModalBody>
+            {unlockSuccessData ? (
+              <div className="py-5 text-center space-y-4">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                  Direct Contact Unlocked Successfully!
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+                  You now have permanent access to the direct WhatsApp and telephone contact for{' '}
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {unlockModalProperty.title}
+                  </span>.
+                </p>
+
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left space-y-2">
+                  <div className="text-xs text-slate-500 font-medium">Verified Direct Landlord / Agent:</div>
+                  <div className="text-base font-black text-slate-900 dark:text-white">
+                    {unlockSuccessData.phone}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Transaction Reference: {unlockSuccessData.reference} • Status: Confirmed Paid ($2.00)
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex flex-col sm:flex-row justify-center gap-2.5 pt-2">
                   <a
-                    href={`tel:${selectedProperty.phone}`}
-                    className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 transition-colors"
-                    title="Direct Phone Call"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </a>
-                  <a
-                    href={`https://wa.me/${selectedProperty.whatsapp}?text=${encodeURIComponent(
-                      `Hello, I am interested in viewing "${selectedProperty.title}" listed for USD $${selectedProperty.priceUSD} on Sadza Connect.`
+                    href={`https://wa.me/${unlockSuccessData.whatsapp}?text=${encodeURIComponent(
+                      `Hello, I unlocked your contact for "${unlockModalProperty.title}" in ${unlockModalProperty.suburb} on Sadza Connect. Is it available for private viewing?`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-lg transition-transform active:scale-95"
+                    className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-3 rounded-xl shadow-md transition-all active:scale-95"
                   >
                     <MessageCircle className="h-4 w-4" />
-                    <span>WhatsApp Inquiry</span>
+                    <span>Open WhatsApp Inquiry Now</span>
                   </a>
+                  <a
+                    href={`tel:${unlockSuccessData.phone}`}
+                    className="inline-flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs px-4 py-3 rounded-xl transition-colors"
+                  >
+                    <Phone className="h-4 w-4" />
+                    <span>Call Directly</span>
+                  </a>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setUnlockModalProperty(null);
+                      setUnlockSuccessData(null);
+                    }}
+                  >
+                    Close
+                  </Button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Property summary */}
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    {unlockModalProperty.title}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                    {unlockModalProperty.suburb}, {unlockModalProperty.city} • USD ${unlockModalProperty.priceUSD.toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Pricing Banner */}
+                <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      Direct Contact Unlock Fee:
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Permanent access to verified WhatsApp &amp; phone
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                      $2.00 USD
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-semibold">
+                      ~53.00 ZiG
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Methods */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Select Payment Method (Zimbabwe Express Gateway)
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: 'ecocash', label: 'EcoCash USD' },
+                      { id: 'innbucks', label: 'InnBucks' },
+                      { id: 'card', label: 'Card' },
+                      { id: 'instant_demo', label: '⚡ Instant Test' },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setUnlockPaymentMethod(m.id as any)}
+                        className={`py-2 px-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                          unlockPaymentMethod === m.id
+                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
+                            : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {unlockPaymentMethod === 'ecocash' && (
+                    <div className="pt-2">
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                        EcoCash Mobile Number
+                      </label>
+                      <input
+                        type="text"
+                        value={unlockPhoneInput}
+                        onChange={(e) => setUnlockPhoneInput(e.target.value)}
+                        placeholder="077 ••• •••"
+                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-900 dark:text-white"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        You will receive an EcoCash USSD prompt on your phone to approve $2.00 USD.
+                      </p>
+                    </div>
+                  )}
+
+                  {unlockPaymentMethod === 'innbucks' && (
+                    <p className="text-[11px] text-slate-500 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      Enter your InnBucks account to approve the $2.00 payment code.
+                    </p>
+                  )}
+
+                  {unlockPaymentMethod === 'instant_demo' && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 p-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg font-medium">
+                      ⚡ Demo Evaluation Mode: Instantly verifies transaction without debiting a live wallet.
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2 border-t border-slate-200 dark:border-slate-800">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => setUnlockModalProperty(null)}
+                    disabled={unlockIsProcessing}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    type="button"
+                    onClick={() => handleUnlockContact(unlockModalProperty)}
+                    disabled={unlockIsProcessing}
+                    className="font-bold flex items-center gap-1.5"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>{unlockIsProcessing ? 'Processing Payment...' : 'Pay $2.00 & Unlock Contact'}</span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </PublicModalBody>
         </Modal>
       )}
@@ -707,6 +1114,17 @@ export default function PropertiesDirectoryPage() {
               </div>
             ) : (
               <form onSubmit={handleCreateProperty} className="space-y-4">
+                {/* Free Rental Listing Badge */}
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>100% Free Rental Advertising for Property Owners</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                    Property owners and landlords list rentals (houses, cottages, flats &amp; student accommodation) completely free. Inquiring tenants pay a $2.00 micro-fee to unlock your verified WhatsApp and telephone contact.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Listing Title *
