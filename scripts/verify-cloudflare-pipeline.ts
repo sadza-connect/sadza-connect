@@ -98,7 +98,7 @@ async function runTests() {
   console.log('▶ [TEST 2] Testing Marketplace Product Image upload to Cloudflare R2...');
   const sampleProductJpg = createSampleJpeg();
   const formProduct = new FormData();
-  formProduct.append('file', new Blob([sampleProductJpg], { type: 'image/jpeg' }), 'solar-inverter-5kva.jpg');
+  formProduct.append('file', new Blob([new Uint8Array(sampleProductJpg)], { type: 'image/jpeg' }), 'solar-inverter-5kva.jpg');
   formProduct.append('partition', 'marketplace-products');
   formProduct.append('is_public', 'true');
 
@@ -127,7 +127,7 @@ async function runTests() {
   console.log('▶ [TEST 3] Testing Statutory KYC Document Upload & AES-256-GCM Encryption...');
   const confidentialPdf = createSamplePdf('CONFIDENTIAL DIRECTORS NATIONAL ID & CR14 CERTIFICATE - NOT FOR PUBLIC DISCLOSURE');
   const formKyc = new FormData();
-  formKyc.append('file', new Blob([confidentialPdf], { type: 'application/pdf' }), 'director-id-scan.pdf');
+  formKyc.append('file', new Blob([new Uint8Array(confidentialPdf)], { type: 'application/pdf' }), 'director-id-scan.pdf');
   formKyc.append('partition', 'kyc-documents');
   formKyc.append('is_public', 'false');
 
@@ -175,7 +175,7 @@ async function runTests() {
   console.log('▶ [TEST 4] Testing Business Logo & Profile Avatar Upload to Cloudflare R2...');
   const sampleAvatarJpg = createSampleJpeg();
   const formAvatar = new FormData();
-  formAvatar.append('file', new Blob([sampleAvatarJpg], { type: 'image/jpeg' }), 'merchant-store-logo.jpg');
+  formAvatar.append('file', new Blob([new Uint8Array(sampleAvatarJpg)], { type: 'image/jpeg' }), 'merchant-store-logo.jpg');
   formAvatar.append('partition', 'business-logos');
   formAvatar.append('is_public', 'true');
 
@@ -193,9 +193,36 @@ async function runTests() {
     console.log(`  ✔ PASS: Storefront Logo physically confirmed in Cloudflare R2! (${r2Head.ContentLength} bytes)\n`);
   }
 
+  // TEST 5: Normal User Profile Avatar Upload to Cloudflare R2 (partition: avatars)
+  console.log('▶ [TEST 5] Testing Normal User Profile Avatar Upload to Cloudflare R2...');
+  const sampleUserAvatar = createSampleJpeg();
+  const formUserAvatar = new FormData();
+  formUserAvatar.append('file', new Blob([new Uint8Array(sampleUserAvatar)], { type: 'image/jpeg' }), 'user-profile-avatar.jpg');
+  formUserAvatar.append('partition', 'avatars');
+  formUserAvatar.append('is_public', 'true');
+
+  const resUserAvatar = await fetch('http://localhost:3000/api/v1/storage/upload', {
+    method: 'POST',
+    body: formUserAvatar,
+  });
+  const jsonUserAvatar = await resUserAvatar.json();
+
+  if (resUserAvatar.ok && jsonUserAvatar.data?.key) {
+    const userAvatarKey = jsonUserAvatar.data.key;
+    const userAvatarUrl = jsonUserAvatar.data.url;
+    console.log(`  ✔ Upload API Response: 201 Created`);
+    console.log(`  ✔ Avatar Storage Key: ${userAvatarKey}`);
+    console.log(`  ✔ Public CDN URL: ${userAvatarUrl}`);
+    const r2Head = await s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: userAvatarKey }));
+    console.log(`  ✔ PASS: Normal User Avatar physically confirmed in Cloudflare R2! (${r2Head.ContentLength} bytes, Type: ${r2Head.ContentType})\n`);
+  } else {
+    console.error('  ✘ FAIL: User avatar upload failed:', jsonUserAvatar);
+  }
+
   console.log('===============================================================');
   console.log('             ALL VERIFICATION TESTS COMPLETED SUCCESSFULLY!    ');
   console.log('===============================================================');
 }
 
 runTests().catch(console.error);
+

@@ -16,6 +16,10 @@ export const dynamic = 'force-dynamic';
 const updateUserSchema = z.object({
   role: z.enum(['admin', 'merchant', 'customer']).optional(),
   status: z.enum(['active', 'suspended', 'pending_verification']).optional(),
+  avatar_url: z.string().nullable().optional(),
+  full_name: z.string().optional(),
+  phone_number: z.string().optional(),
+  province: z.string().optional(),
 });
 
 export async function PATCH(
@@ -27,18 +31,43 @@ export async function PATCH(
 
   try {
     const caller = await getAuthenticatedUser(req, true);
-    if (!caller || caller.role !== 'admin') {
-      throw new AuthorizationError('Administrative privileges required');
+    if (!caller) {
+      throw new AuthorizationError('Authentication required');
+    }
+
+    const isSelf = caller.id === id;
+    const isAdmin = caller.role === 'admin';
+
+    if (!isSelf && !isAdmin) {
+      throw new AuthorizationError('Unauthorized to modify this profile');
     }
 
     const data = await parseAndValidateBody(req, updateUserSchema);
 
+    // Only administrators can change account roles and statuses
+    if ((data.role || data.status) && !isAdmin) {
+      throw new AuthorizationError('Administrative privileges required to modify user role or status');
+    }
+
     let updated = null;
-    if (data.role) {
+    if (data.role && isAdmin) {
       updated = await userRepository.updateRole(id, data.role);
     }
-    if (data.status) {
+    if (data.status && isAdmin) {
       updated = await userRepository.updateStatus(id, data.status);
+    }
+    if (
+      data.avatar_url !== undefined ||
+      data.full_name !== undefined ||
+      data.phone_number !== undefined ||
+      data.province !== undefined
+    ) {
+      updated = await userRepository.updateProfile(id, {
+        avatar_url: data.avatar_url,
+        full_name: data.full_name,
+        phone_number: data.phone_number,
+        province: data.province,
+      });
     }
 
     if (!updated) {

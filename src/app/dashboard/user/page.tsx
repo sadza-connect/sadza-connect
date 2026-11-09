@@ -140,6 +140,14 @@ export default function UserDashboardPage() {
       if (res.ok && (json.url || json.data?.url)) {
         const photoUrl = json.url || json.data?.url;
         updateUser({ avatarUrl: photoUrl });
+        if (user?.id) {
+          fetch(`/api/v1/users/${user.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ avatar_url: photoUrl }),
+          }).catch((err) => console.error('Failed to sync avatar to database', err));
+        }
         showToast('Profile photo updated and saved to Cloudflare successfully!');
       } else {
         const reader = new FileReader();
@@ -166,6 +174,14 @@ export default function UserDashboardPage() {
 
   const handleRemoveAvatar = () => {
     updateUser({ avatarUrl: null });
+    if (user?.id) {
+      fetch(`/api/v1/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ avatar_url: null }),
+      }).catch((err) => console.error('Failed to remove avatar from database', err));
+    }
     showToast('Profile photo removed.');
   };
 

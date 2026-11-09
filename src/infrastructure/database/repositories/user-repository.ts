@@ -259,6 +259,25 @@ export class UserRepository {
     return count > 0;
   }
 
+  async updateProfile(
+    id: string,
+    data: { avatar_url?: string | null; full_name?: string; phone_number?: string; province?: string }
+  ): Promise<UserRow | null> {
+    const patch: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (data.avatar_url !== undefined) patch.avatar_url = data.avatar_url;
+    if (data.full_name !== undefined) patch.full_name = data.full_name;
+    if (data.phone_number !== undefined) patch.phone_number = data.phone_number;
+    if (data.province !== undefined) patch.province = data.province;
+
+    const [updated] = await this.db<UserRow>('users')
+      .where({ id })
+      .update(patch)
+      .returning('*');
+    return updated || null;
+  }
+
   async softDelete(id: string): Promise<boolean> {
     const count = await this.db('users')
       .where({ id })
