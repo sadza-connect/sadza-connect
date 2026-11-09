@@ -79,6 +79,7 @@ export function mapDbBusinessToListing(b: any): BusinessListing {
 
   return {
     id: b.id,
+    userId: b.user_id || b.userId || undefined,
     slug: b.slug,
     name: b.name,
     tradingName: b.name,

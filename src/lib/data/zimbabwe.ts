@@ -227,6 +227,7 @@ export interface BusinessReview {
 
 export interface BusinessListing {
   id: string;
+  userId?: string;
   slug: string;
   name: string;
   tradingName?: string;

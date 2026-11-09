@@ -85,6 +85,7 @@ import {
 } from '@/components/admin/AdminUI';
 import { ImageUploader, type UploadedMediaItem } from '@/components/admin/ImageUploader';
 import { useToast } from '@/components/providers/ToastProvider';
+import { useAuth } from '@/context/AuthContext';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
@@ -138,6 +139,8 @@ const EMPTY_FALLBACK_BUSINESS: BusinessListing = {
 };
 
 export default function BusinessDashboardPage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
@@ -203,6 +206,12 @@ export default function BusinessDashboardPage() {
       setShowGateModal(true);
       return;
     }
+
+    if (!currentBusiness?.id) {
+      showToast('Please register your business storefront before uploading products.');
+      return;
+    }
+
     const effectiveLimit =
       currentBusiness?.customProductLimit ??
       currentBusiness?.productLimit ??
@@ -234,6 +243,10 @@ export default function BusinessDashboardPage() {
       setShowGateModal(true);
       return;
     }
+    if (!currentBusiness?.id) {
+      showToast('Please register your business storefront before launching sponsored adverts.');
+      return;
+    }
     setShowAdvertModal(true);
   };
 
@@ -241,6 +254,10 @@ export default function BusinessDashboardPage() {
     if (onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted) {
       setGateActionName('posting career vacancies');
       setShowGateModal(true);
+      return;
+    }
+    if (!currentBusiness?.id) {
+      showToast('Please register your business storefront before posting career vacancies.');
       return;
     }
     setShowJobModal(true);
@@ -321,73 +338,55 @@ export default function BusinessDashboardPage() {
 
   useEffect(() => {
     let isMounted = true;
+    if (authLoading) return;
 
     const syncAll = async () => {
       setSettings(getPlatformSettings());
 
-      // Fetch live businesses from database
-      try {
-        const res = await fetch('/api/v1/businesses?limit=50');
-        const json = await res.json();
-        if (isMounted && json.success && Array.isArray(json.data?.businesses)) {
-          const mapped = json.data.businesses.map(mapDbBusinessToListing);
-          setBusinesses(mapped);
-          if (mapped[0]) {
-            setSelectedBusinessId(mapped[0].id);
+      // 1. Fetch businesses strictly according to user role
+      if (isAdmin) {
+        // Super Admin: Load all platform businesses for inspection & master switching
+        try {
+          const res = await fetch('/api/v1/businesses?limit=100&include_expired=true', { credentials: 'include' });
+          const json = await res.json();
+          if (isMounted && json.success && Array.isArray(json.data?.businesses)) {
+            const mapped = json.data.businesses.map(mapDbBusinessToListing);
+            setBusinesses(mapped);
+            if (mapped[0]) {
+              setSelectedBusinessId((prev) => (prev && mapped.some((b: BusinessListing) => b.id === prev) ? prev : mapped[0].id));
+            }
+          } else if (isMounted) {
+            setBusinesses([]);
           }
-        } else if (isMounted) {
-          setBusinesses([]);
+        } catch {
+          if (isMounted) setBusinesses([]);
         }
-      } catch {
-        if (isMounted) setBusinesses([]);
+      } else {
+        // Merchant: Strictly load only businesses registered by the authenticated user
+        try {
+          const myRes = await fetch('/api/v1/businesses?my_business=true', { credentials: 'include' });
+          const myJson = await myRes.json();
+          if (isMounted && myJson.success && Array.isArray(myJson.data?.businesses)) {
+            const myMapped = myJson.data.businesses.map(mapDbBusinessToListing);
+            setBusinesses(myMapped);
+            if (myMapped[0]) {
+              setSelectedBusinessId((prev) => (prev && myMapped.some((b: BusinessListing) => b.id === prev) ? prev : myMapped[0].id));
+            } else {
+              setSelectedBusinessId('');
+            }
+          } else if (isMounted) {
+            setBusinesses([]);
+            setSelectedBusinessId('');
+          }
+        } catch {
+          if (isMounted) {
+            setBusinesses([]);
+            setSelectedBusinessId('');
+          }
+        }
       }
 
-      // Check if user has their own registered business
-      try {
-        const myRes = await fetch('/api/v1/businesses?my_business=true');
-        const myJson = await myRes.json();
-        if (isMounted && myJson.success && myJson.data?.primaryBusiness) {
-          const myMapped = mapDbBusinessToListing(myJson.data.primaryBusiness);
-          setBusinesses((prev) => {
-            const exists = prev.some((b) => b.id === myMapped.id);
-            return exists ? prev : [myMapped, ...prev];
-          });
-          setSelectedBusinessId(myMapped.id);
-        }
-      } catch {}
-
-      // Load Products from database
-      try {
-        const prodRes = await fetch('/api/v1/products?limit=50', { credentials: 'include' });
-        const prodJson = await prodRes.json();
-        if (isMounted && prodJson.success && Array.isArray(prodJson.data?.products)) {
-          setProducts(prodJson.data.products.map(mapDbProductToMarketplaceProduct));
-        } else if (isMounted) {
-          setProducts([]);
-        }
-      } catch {
-        if (isMounted) setProducts([]);
-      }
-
-      // Load Adverts from database
-      try {
-        const adRes = await fetch('/api/v1/adverts?limit=50');
-        const adJson = await adRes.json();
-        const dbAds = adJson.data?.adverts || adJson.adverts || [];
-        const deletedIds = new Set(getDeletedAdvertIds());
-        if (isMounted && Array.isArray(dbAds)) {
-          const validAds = dbAds
-            .map(mapDbAdvertToPaidAdvert)
-            .filter((item) => item && item.id && !deletedIds.has(item.id));
-          setAdverts(validAds);
-        } else if (isMounted) {
-          setAdverts([]);
-        }
-      } catch {
-        if (isMounted) setAdverts([]);
-      }
-
-      // Load Invoices from database
+      // 2. Load Invoices strictly for authenticated user
       try {
         const invRes = await fetch('/api/v1/invoices?limit=50', { credentials: 'include' });
         const invJson = await invRes.json();
@@ -400,20 +399,7 @@ export default function BusinessDashboardPage() {
         if (isMounted) setInvoices([]);
       }
 
-      // Load Jobs from database
-      try {
-        const jRes = await fetch('/api/v1/jobs?limit=50', { credentials: 'include' });
-        const jJson = await jRes.json();
-        if (isMounted && jJson.success && Array.isArray(jJson.data?.jobs)) {
-          setJobs(jJson.data.jobs.map(mapDbJobToOpening));
-        } else if (isMounted) {
-          setJobs([]);
-        }
-      } catch {
-        if (isMounted) setJobs([]);
-      }
-
-      // Load Applications from database
+      // 3. Load Applications strictly for authenticated user
       try {
         const aRes = await fetch('/api/v1/jobs/applications?limit=50', { credentials: 'include' });
         const aJson = await aRes.json();
@@ -425,7 +411,8 @@ export default function BusinessDashboardPage() {
       } catch {
         if (isMounted) setApplications([]);
       }
-      // Load Redemptions
+
+      // 4. Load Redemptions
       try {
         if (isMounted) setRedemptions(loadStoredRedemptions());
       } catch {
@@ -455,7 +442,66 @@ export default function BusinessDashboardPage() {
       window.removeEventListener('sadza-redemptions-updated', syncAll);
       window.removeEventListener('sadza-onboarding-updated', updateOnboarding);
     };
-  }, []);
+  }, [isAdmin, authLoading, user?.id]);
+
+  // Load Products, Adverts, and Jobs strictly for the active storefront
+  useEffect(() => {
+    let isMounted = true;
+    if (!selectedBusinessId) {
+      setProducts([]);
+      setAdverts([]);
+      setJobs([]);
+      return;
+    }
+
+    const loadStorefrontResources = async () => {
+      try {
+        const [prodRes, adRes, jobRes] = await Promise.all([
+          fetch(`/api/v1/products?business_id=${encodeURIComponent(selectedBusinessId)}&limit=100`, { credentials: 'include' }),
+          fetch(`/api/v1/adverts?business_id=${encodeURIComponent(selectedBusinessId)}&limit=100`, { credentials: 'include' }),
+          fetch(`/api/v1/jobs?business_id=${encodeURIComponent(selectedBusinessId)}&limit=100`, { credentials: 'include' }),
+        ]);
+        const [prodJson, adJson, jobJson] = await Promise.all([
+          prodRes.json(),
+          adRes.json(),
+          jobRes.json(),
+        ]);
+        if (isMounted && prodJson.success && Array.isArray(prodJson.data?.products)) {
+          setProducts(prodJson.data.products.map(mapDbProductToMarketplaceProduct));
+        } else if (isMounted) {
+          setProducts([]);
+        }
+        if (isMounted) {
+          const dbAds = adJson.data?.adverts || adJson.adverts || [];
+          const deletedIds = new Set(getDeletedAdvertIds());
+          if (Array.isArray(dbAds)) {
+            const validAds = dbAds
+              .map(mapDbAdvertToPaidAdvert)
+              .filter((item: any) => item && item.id && !deletedIds.has(item.id));
+            setAdverts(validAds);
+          } else {
+            setAdverts([]);
+          }
+        }
+        if (isMounted && jobJson.success && Array.isArray(jobJson.data?.jobs)) {
+          setJobs(jobJson.data.jobs.map(mapDbJobToOpening));
+        } else if (isMounted) {
+          setJobs([]);
+        }
+      } catch {
+        if (isMounted) {
+          setProducts([]);
+          setAdverts([]);
+          setJobs([]);
+        }
+      }
+    };
+
+    loadStorefrontResources();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBusinessId]);
 
   const currentBusiness = useMemo(() => {
     return businesses.find((b) => b.id === selectedBusinessId) || businesses[0] || EMPTY_FALLBACK_BUSINESS;
@@ -1583,31 +1629,76 @@ export default function BusinessDashboardPage() {
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Active Storefront
             </span>
-            {currentBusiness.cr14Verified ? (
+            {currentBusiness.id && currentBusiness.cr14Verified ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                 <ShieldCheck className="h-3 w-3" /> {currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Company')}
               </span>
-            ) : (
+            ) : currentBusiness.id ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                 <Clock className="h-3 w-3" /> Unverified (Pending)
               </span>
-            )}
+            ) : null}
           </div>
-          <select
-            value={currentBusiness.id}
-            onChange={(e) => setSelectedBusinessId(e.target.value)}
-            className="w-full rounded-lg border border-white/15 bg-[#070c16] px-2.5 py-2 text-xs font-bold text-white focus:border-[#1e57eb] focus:outline-none cursor-pointer"
-          >
-            {businesses.map((b) => (
-              <option key={b.id} value={b.id} className="bg-[#0c1424] text-white">
-                {b.name}
-              </option>
-            ))}
-          </select>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-            <span>{currentBusiness.province}</span>
-            <span className="text-emerald-400 font-semibold">★ {currentBusiness.rating}</span>
-          </div>
+
+          {/* Role-isolated Storefront Selector */}
+          {isAdmin ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-300">
+                <ShieldCheck className="h-3 w-3 text-purple-400" />
+                <span>Super Admin Switcher ({businesses.length} total)</span>
+              </div>
+              <select
+                value={currentBusiness.id}
+                onChange={(e) => setSelectedBusinessId(e.target.value)}
+                className="w-full rounded-lg border border-purple-400/40 bg-[#070c16] px-2.5 py-2 text-xs font-bold text-white focus:border-purple-500 focus:outline-none cursor-pointer"
+              >
+                {businesses.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-[#0c1424] text-white">
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : businesses.length > 1 ? (
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-semibold text-slate-300">
+                Switch Storefront ({businesses.length} Owned)
+              </span>
+              <select
+                value={currentBusiness.id}
+                onChange={(e) => setSelectedBusinessId(e.target.value)}
+                className="w-full rounded-lg border border-white/15 bg-[#070c16] px-2.5 py-2 text-xs font-bold text-white focus:border-[#1e57eb] focus:outline-none cursor-pointer"
+              >
+                {businesses.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-[#0c1424] text-white">
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : businesses.length === 1 ? (
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-white">
+              <Building2 className="h-4 w-4 text-[#1e57eb] shrink-0" />
+              <span className="truncate">{currentBusiness.name}</span>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-center text-xs text-amber-200">
+              <p className="font-semibold">No Registered Storefront</p>
+              <Link
+                href="/onboarding/business"
+                className="mt-2 inline-flex items-center justify-center gap-1 rounded bg-[#1e57eb] px-2.5 py-1 text-[11px] font-bold text-white hover:bg-blue-600 transition"
+              >
+                <Plus className="h-3 w-3" /> Register Storefront
+              </Link>
+            </div>
+          )}
+
+          {currentBusiness.id && (
+            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+              <span>{currentBusiness.province}</span>
+              <span className="text-emerald-400 font-semibold">★ {currentBusiness.rating}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1691,12 +1782,18 @@ export default function BusinessDashboardPage() {
         </div>
 
         <div className="flex items-center justify-between gap-2 text-xs">
-          <Link
-            href={`/businesses/${currentBusiness.slug}`}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/5 py-2 text-[11px] font-semibold text-slate-200 hover:bg-white/10"
-          >
-            <Eye className="h-3.5 w-3.5" /> Public Store
-          </Link>
+          {currentBusiness.slug ? (
+            <Link
+              href={`/businesses/${currentBusiness.slug}`}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/5 py-2 text-[11px] font-semibold text-slate-200 hover:bg-white/10"
+            >
+              <Eye className="h-3.5 w-3.5" /> Public Store
+            </Link>
+          ) : (
+            <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 py-2 text-[11px] font-semibold text-slate-500 cursor-not-allowed">
+              <Eye className="h-3.5 w-3.5" /> Public Store
+            </span>
+          )}
           <Link
             href="/"
             className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/5 py-2 text-[11px] font-semibold text-slate-200 hover:bg-white/10"
@@ -1791,6 +1888,59 @@ export default function BusinessDashboardPage() {
 
         {/* Workspace Body */}
         <main className="mx-auto w-full max-w-[1600px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          {/* Super Admin Storefront Inspector Banner */}
+          {isAdmin && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-purple-300 bg-purple-50/90 dark:bg-purple-950/40 dark:border-purple-800 px-5 py-3.5 text-purple-950 dark:text-purple-200 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-600 text-white shrink-0">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                    Super Admin Storefront Inspector
+                  </div>
+                  <div className="text-sm font-semibold">
+                    Currently inspecting <span className="underline font-bold">{currentBusiness.name}</span> ({businesses.length} storefronts indexed on platform)
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/admin"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple-700 transition"
+              >
+                Return to Admin Console &rarr;
+              </Link>
+            </div>
+          )}
+
+          {/* Zero Registered Businesses Banner */}
+          {!isAdmin && businesses.length === 0 && !onboardingProgress?.hasDraft && (
+            <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#1e57eb]/40 bg-gradient-to-br from-blue-50/80 via-white to-blue-50/30 dark:from-slate-900 dark:to-slate-900 p-8 text-center shadow-xs">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1e57eb]/10 text-[#1e57eb] mb-4">
+                <Building2 className="h-7 w-7" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">
+                You haven&apos;t registered a business storefront yet
+              </h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                Register your business on Sadza Connect to create your official digital storefront, list verified products, publish promotional deals, post job vacancies, and reach thousands of customers across Zimbabwe.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  href="/onboarding/business"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#1e57eb] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-600 transition"
+                >
+                  <Plus className="h-4 w-4" /> Register Business Storefront
+                </Link>
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white dark:bg-slate-800 dark:border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition"
+                >
+                  Return to Home
+                </Link>
+              </div>
+            </div>
+          )}
           {/* Onboarding Draft Setup & Progress Card */}
           {onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted && (
             <div className="relative overflow-hidden rounded-2xl border border-amber-300/80 dark:border-amber-700/60 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/40 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-5 sm:p-6 shadow-xs">
