@@ -62,6 +62,7 @@ import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { mapDbApplicationToRecord } from '@/lib/data/job-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 type UserTab = 'overview' | 'utilities' | 'saved' | 'jobs' | 'settings';
 
@@ -101,24 +102,66 @@ export default function UserDashboardPage() {
   const [cvSkills, setCvSkills] = useState('');
   const [cvFileName, setCvFileName] = useState('');
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
+
+    const check = validateUploadFile(file, 'avatars');
+    if (!check.valid) {
       toast({
-        title: 'Image Too Large',
-        description: 'Please select an image under 5MB.',
+        title: 'Image Rejected',
+        description: check.error || `Please select an image under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`,
         variant: 'error',
       });
+      if (sidebarPhotoRef.current) sidebarPhotoRef.current.value = '';
+      if (settingsPhotoRef.current) settingsPhotoRef.current.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      updateUser({ avatarUrl: result });
-      showToast('Profile photo updated successfully!');
-    };
-    reader.readAsDataURL(file);
+
+    try {
+      const compressedBlob = await compressImageToBlob(file, 800, 0.85);
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+        { type: 'image/webp' }
+      );
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('partition', 'avatars');
+      formData.append('is_public', 'true');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && (json.url || json.data?.url)) {
+        const photoUrl = json.url || json.data?.url;
+        updateUser({ avatarUrl: photoUrl });
+        showToast('Profile photo updated and saved to Cloudflare successfully!');
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          updateUser({ avatarUrl: result });
+          showToast('Profile photo updated successfully!');
+        };
+        reader.readAsDataURL(compressedBlob);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        updateUser({ avatarUrl: result });
+        showToast('Profile photo updated successfully!');
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      if (sidebarPhotoRef.current) sidebarPhotoRef.current.value = '';
+      if (settingsPhotoRef.current) settingsPhotoRef.current.value = '';
+    }
   };
 
   const handleRemoveAvatar = () => {

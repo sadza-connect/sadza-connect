@@ -1,7 +1,8 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 export interface UploadResult {
   url: string;
@@ -9,6 +10,7 @@ export interface UploadResult {
   size: number;
   mimeType: string;
   storageProvider: 'cloudflare-r2' | 'local-fallback';
+  isEncrypted?: boolean;
 }
 
 export class StorageService {
@@ -57,7 +59,50 @@ export class StorageService {
   }
 
   /**
+   * Derives a cryptographic 256-bit key for sensitive KYC verification documents.
+   */
+  private getKycEncryptionKey(): Buffer {
+    const secret =
+      process.env.KYC_ENCRYPTION_KEY ||
+      process.env.JWT_ACCESS_SECRET ||
+      'sadza-connect-kyc-vault-master-key-2026';
+    return crypto.createHash('sha256').update(secret).digest();
+  }
+
+  /**
+   * AES-256-GCM symmetric buffer encryption for private compliance documents.
+   */
+  public encryptBuffer(buffer: Buffer): Buffer {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', this.getKycEncryptionKey(), iv);
+    const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    // Prefix with magic header 'SCENC1' (Sadza Connect Encrypted v1) + 12-byte IV + 16-byte Tag + ciphertext
+    const header = Buffer.from('SCENC1', 'utf8');
+    return Buffer.concat([header, iv, tag, encrypted]);
+  }
+
+  /**
+   * AES-256-GCM buffer decryption with backwards compatibility for unencrypted legacy files.
+   */
+  public decryptBuffer(buffer: Buffer): Buffer {
+    if (buffer.length < 34) return buffer;
+    const header = buffer.subarray(0, 6).toString('utf8');
+    if (header !== 'SCENC1') {
+      // Not encrypted with this scheme (e.g. legacy plain file), return original buffer
+      return buffer;
+    }
+    const iv = buffer.subarray(6, 18);
+    const tag = buffer.subarray(18, 34);
+    const ciphertext = buffer.subarray(34);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', this.getKycEncryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  }
+
+  /**
    * Uploads a file buffer to Cloudflare R2 or local disk storage.
+   * If isPublic is false (e.g. KYC document), encrypts the buffer before storing.
    */
   async upload(
     buffer: Buffer,
@@ -66,19 +111,24 @@ export class StorageService {
     isPublic = true
   ): Promise<UploadResult> {
     const cleanKey = key.replace(/^\/+/, '');
+    const shouldEncrypt = !isPublic || cleanKey.startsWith('kyc-documents/');
+    const finalBuffer = shouldEncrypt ? this.encryptBuffer(buffer) : buffer;
 
     if (this.isConfiguredForR2 && this.s3Client) {
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: cleanKey,
-        Body: buffer,
-        ContentType: mimeType,
+        Body: finalBuffer,
+        ContentType: shouldEncrypt ? 'application/octet-stream' : mimeType,
       });
 
       await this.s3Client.send(command);
 
       let publicUrl: string;
-      if (this.publicDomain) {
+      if (shouldEncrypt) {
+        // Private documents are accessed via the authenticated view endpoint
+        publicUrl = `/api/v1/storage/view?key=${encodeURIComponent(cleanKey)}`;
+      } else if (this.publicDomain) {
         const domain = this.publicDomain.replace(/\/+$/, '');
         publicUrl = `${domain}/${cleanKey}`;
       } else {
@@ -91,6 +141,7 @@ export class StorageService {
         size: buffer.length,
         mimeType,
         storageProvider: 'cloudflare-r2',
+        isEncrypted: shouldEncrypt,
       };
     }
 
@@ -103,9 +154,11 @@ export class StorageService {
       fs.mkdirSync(targetDir, { recursive: true });
     }
 
-    await fs.promises.writeFile(targetFilePath, buffer);
+    await fs.promises.writeFile(targetFilePath, finalBuffer);
 
-    const publicUrl = `/uploads/${cleanKey}`;
+    const publicUrl = shouldEncrypt
+      ? `/api/v1/storage/view?key=${encodeURIComponent(cleanKey)}`
+      : `/uploads/${cleanKey}`;
 
     return {
       url: publicUrl,
@@ -113,7 +166,59 @@ export class StorageService {
       size: buffer.length,
       mimeType,
       storageProvider: 'local-fallback',
+      isEncrypted: shouldEncrypt,
     };
+  }
+
+  /**
+   * Retrieves and automatically decrypts a file buffer from Cloudflare R2 or local disk.
+   */
+  async getFile(key: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const cleanKey = key.replace(/^\/+/, '');
+
+    if (this.isConfiguredForR2 && this.s3Client) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: cleanKey,
+        });
+
+        const response = await this.s3Client.send(command);
+        if (!response.Body) return null;
+
+        const rawByteArray = await response.Body.transformToByteArray();
+        const rawBuffer = Buffer.from(rawByteArray);
+        const decrypted = this.decryptBuffer(rawBuffer);
+
+        return {
+          buffer: decrypted,
+          contentType: response.ContentType || 'application/octet-stream',
+        };
+      } catch (err) {
+        console.error(`Failed to fetch object '${cleanKey}' from Cloudflare R2:`, err);
+        return null;
+      }
+    }
+
+    // Local disk fallback
+    const localUploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    const targetFilePath = path.join(localUploadsDir, cleanKey);
+
+    if (!fs.existsSync(targetFilePath)) {
+      return null;
+    }
+
+    try {
+      const rawBuffer = await fs.promises.readFile(targetFilePath);
+      const decrypted = this.decryptBuffer(rawBuffer);
+      return {
+        buffer: decrypted,
+        contentType: 'application/octet-stream',
+      };
+    } catch (err) {
+      console.error(`Failed to read local file '${targetFilePath}':`, err);
+      return null;
+    }
   }
 
   /**

@@ -552,7 +552,13 @@ export default function JobDetailPage() {
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) setCvFileName(file.name);
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert('Resume document must be under 5MB.');
+                        e.target.value = '';
+                        return;
+                      }
+                      setCvFileName(file.name);
                     }}
                   />
                 </label>

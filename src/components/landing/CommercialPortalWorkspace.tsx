@@ -73,6 +73,7 @@ import {
 } from '@/data/platformStore';
 import { BusinessListing, MarketplaceProduct } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
 import { ProductCard } from '@/components/marketplace/ProductCard';
@@ -805,13 +806,23 @@ export function CommercialPortalWorkspace() {
     const filesToProcess = Array.from(files).slice(0, availableSlots);
 
     for (const file of filesToProcess) {
-      if (file.size > 10 * 1024 * 1024) {
-        setUploadError(`Photo "${file.name}" exceeds maximum 10MB limit.`);
+      const check = validateUploadFile(file, 'marketplace-products');
+      if (!check.valid) {
+        setUploadError(check.error || `Photo "${file.name}" exceeds maximum ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB limit.`);
         continue;
       }
+
       try {
+        // Pre-compress camera capture to lightweight WebP before network transmission
+        const compressedBlob = await compressImageToBlob(file, 1280, 0.82);
+        const compressedFile = new File(
+          [compressedBlob],
+          file.name.replace(/\.[^/.]+$/, '') + '.webp',
+          { type: 'image/webp' }
+        );
+
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', compressedFile);
         formData.append('partition', 'marketplace-products');
         const res = await fetch('/api/v1/storage/upload', {
           method: 'POST',
@@ -822,6 +833,7 @@ export function CommercialPortalWorkspace() {
           const photoUrl = json.url || json.data?.url;
           setNewProdImages((prev) => (prev.length < 5 ? [...prev, photoUrl] : prev));
         } else {
+          // If upload fails, create a compressed data URL as fallback
           const reader = new FileReader();
           reader.onload = (uploadEvt) => {
             const dataUrl = uploadEvt.target?.result as string;
@@ -829,7 +841,7 @@ export function CommercialPortalWorkspace() {
               setNewProdImages((prev) => (prev.length < 5 ? [...prev, dataUrl] : prev));
             }
           };
-          reader.readAsDataURL(file);
+          reader.readAsDataURL(compressedBlob);
         }
       } catch {
         const reader = new FileReader();

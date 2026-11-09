@@ -59,3 +59,15 @@ services:
         sync: false
       - key: EMAIL_FROM
         value: Sadza Connect <noreply@sadzaconnect.co.zw>
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: sadzaconnect-media
+      - key: R2_PUBLIC_DOMAIN
+        sync: false
+      - key: KYC_ENCRYPTION_KEY
+        generateValue: true

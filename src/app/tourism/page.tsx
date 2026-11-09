@@ -43,6 +43,7 @@ import {
 } from '@/data/tourismStore';
 import { CLEAN_PROVINCES } from '@/data/advertsStore';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 export default function TourismDirectoryPage() {
   const [listings, setListings] = useState<TourismListing[]>([]);
@@ -74,21 +75,62 @@ export default function TourismDirectoryPage() {
   const [newPhone, setNewPhone] = useState('+263 77 100 0000');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [tourismImageUpload, setTourismImageUpload] = useState('');
+  const [isUploadingTourismImage, setIsUploadingTourismImage] = useState(false);
+  const [tourismUploadError, setTourismUploadError] = useState<string | null>(null);
   const tourismFileInputRef = useRef<HTMLInputElement>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const handleTourismImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTourismImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Photo must be under 5MB.');
+
+    setTourismUploadError(null);
+    const check = validateUploadFile(file, 'tourism');
+    if (!check.valid) {
+      setTourismUploadError(check.error || `Photo must be under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`);
+      if (tourismFileInputRef.current) tourismFileInputRef.current.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setTourismImageUpload(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+
+    setIsUploadingTourismImage(true);
+    try {
+      const compressedBlob = await compressImageToBlob(file, 1600, 0.85);
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+        { type: 'image/webp' }
+      );
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('partition', 'tourism');
+      formData.append('is_public', 'true');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && (json.url || json.data?.url)) {
+        setTourismImageUpload(json.url || json.data?.url);
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setTourismImageUpload(reader.result as string);
+        };
+        reader.readAsDataURL(compressedBlob);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setTourismImageUpload(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingTourismImage(false);
+      if (tourismFileInputRef.current) tourismFileInputRef.current.value = '';
+    }
   };
 
   useEffect(() => {
@@ -830,12 +872,23 @@ export default function TourismDirectoryPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => tourismFileInputRef.current?.click()}
+                        disabled={isUploadingTourismImage}
                         className="text-xs"
                       >
-                        <Upload className="h-3.5 w-3.5 mr-1" /> {tourismImageUpload ? 'Change Photo' : 'Upload Photo from Device'}
+                        <Upload className="h-3.5 w-3.5 mr-1" />{' '}
+                        {isUploadingTourismImage
+                          ? 'Optimizing & Uploading...'
+                          : tourismImageUpload
+                          ? 'Change Photo'
+                          : 'Upload Photo from Device'}
                       </Button>
+                      {tourismUploadError && (
+                        <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                          {tourismUploadError}
+                        </p>
+                      )}
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        PNG, JPG, or WebP up to 5MB.
+                        PNG, JPG, or WebP up to {UPLOAD_LIMITS.IMAGE_MAX_MB}MB.
                       </p>
                     </div>
                   </div>

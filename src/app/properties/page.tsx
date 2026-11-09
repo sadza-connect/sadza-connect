@@ -48,6 +48,7 @@ import {
 } from '@/data/propertiesStore';
 import { CLEAN_PROVINCES } from '@/data/advertsStore';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 export default function PropertiesDirectoryPage() {
   const [properties, setProperties] = useState<PropertyListing[]>([]);
@@ -96,21 +97,62 @@ export default function PropertiesDirectoryPage() {
   const [newWhatsapp, setNewWhatsapp] = useState('263771000000');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [propertyImageUpload, setPropertyImageUpload] = useState('');
+  const [isUploadingPropertyImage, setIsUploadingPropertyImage] = useState(false);
+  const [propertyUploadError, setPropertyUploadError] = useState<string | null>(null);
   const propertyFileInputRef = useRef<HTMLInputElement>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const handlePropertyImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePropertyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Property photo must be under 5MB.');
+
+    setPropertyUploadError(null);
+    const check = validateUploadFile(file, 'properties');
+    if (!check.valid) {
+      setPropertyUploadError(check.error || `Property photo must be under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`);
+      if (propertyFileInputRef.current) propertyFileInputRef.current.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPropertyImageUpload(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+
+    setIsUploadingPropertyImage(true);
+    try {
+      const compressedBlob = await compressImageToBlob(file, 1600, 0.85);
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+        { type: 'image/webp' }
+      );
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('partition', 'properties');
+      formData.append('is_public', 'true');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && (json.url || json.data?.url)) {
+        setPropertyImageUpload(json.url || json.data?.url);
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setPropertyImageUpload(reader.result as string);
+        };
+        reader.readAsDataURL(compressedBlob);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPropertyImageUpload(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingPropertyImage(false);
+      if (propertyFileInputRef.current) propertyFileInputRef.current.value = '';
+    }
   };
 
   const handleUnlockContact = async (property: PropertyListing) => {
@@ -1344,12 +1386,23 @@ export default function PropertiesDirectoryPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => propertyFileInputRef.current?.click()}
+                        disabled={isUploadingPropertyImage}
                         className="text-xs"
                       >
-                        <Upload className="h-3.5 w-3.5 mr-1" /> {propertyImageUpload ? 'Change Photo' : 'Upload Photo from Device'}
+                        <Upload className="h-3.5 w-3.5 mr-1" />{' '}
+                        {isUploadingPropertyImage
+                          ? 'Optimizing & Uploading...'
+                          : propertyImageUpload
+                          ? 'Change Photo'
+                          : 'Upload Photo from Device'}
                       </Button>
+                      {propertyUploadError && (
+                        <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                          {propertyUploadError}
+                        </p>
+                      )}
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        PNG, JPG, or WebP up to 5MB.
+                        PNG, JPG, or WebP up to {UPLOAD_LIMITS.IMAGE_MAX_MB}MB.
                       </p>
                     </div>
                   </div>

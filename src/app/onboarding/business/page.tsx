@@ -13,6 +13,7 @@ import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
 import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { validateUploadFile, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 import {
   Building2,
   User,
@@ -681,12 +682,22 @@ function BusinessOnboardingContent() {
 
   // Step 7 Cloudflare R2 Upload
   const handleFileUpload = async (docType: string, file: File) => {
-    setUploadingDocTypes((prev) => ({ ...prev, [docType]: true }));
     setUploadErrors((prev) => {
       const copy = { ...prev };
       delete copy[docType];
       return copy;
     });
+
+    const check = validateUploadFile(file, 'kyc-documents');
+    if (!check.valid) {
+      setUploadErrors((prev) => ({
+        ...prev,
+        [docType]: check.error || `File must be under ${UPLOAD_LIMITS.KYC_DOC_MAX_MB}MB.`,
+      }));
+      return;
+    }
+
+    setUploadingDocTypes((prev) => ({ ...prev, [docType]: true }));
 
     try {
       const formData = new FormData();

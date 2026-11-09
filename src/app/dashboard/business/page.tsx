@@ -96,6 +96,7 @@ import {
 } from '@/lib/utils/onboarding-state';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 type DashboardTab =
   | 'overview'
@@ -565,76 +566,140 @@ export default function BusinessDashboardPage() {
     });
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    const check = validateUploadFile(file, 'business-logos');
+    if (!check.valid) {
       toast({
-        title: 'Invalid File',
-        description: 'Please upload an image file (PNG, JPG, WebP).',
+        title: 'Logo Rejected',
+        description: check.error || `Storefront logo must be under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`,
         variant: 'error',
       });
+      if (logoInputRef.current) logoInputRef.current.value = '';
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File Too Large',
-        description: 'Storefront logo must be under 5MB.',
-        variant: 'error',
-      });
-      return;
-    }
+    try {
+      const compressedBlob = await compressImageToBlob(file, 800, 0.85);
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+        { type: 'image/webp' }
+      );
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setEditLogoUrl(reader.result);
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('partition', 'business-logos');
+      formData.append('is_public', 'true');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && (json.url || json.data?.url)) {
+        setEditLogoUrl(json.url || json.data?.url);
         toast({
-          title: 'Logo Selected',
-          description: 'Storefront logo loaded. Click "Save Storefront Changes" to persist.',
+          title: 'Logo Uploaded',
+          description: 'Storefront logo saved to Cloudflare. Click "Save Storefront Changes" to persist.',
           variant: 'success',
         });
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setEditLogoUrl(reader.result);
+            toast({
+              title: 'Logo Loaded',
+              description: 'Storefront logo loaded. Click "Save Storefront Changes" to persist.',
+              variant: 'success',
+            });
+          }
+        };
+        reader.readAsDataURL(compressedBlob);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setEditLogoUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
   };
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    const check = validateUploadFile(file, 'business-covers');
+    if (!check.valid) {
       toast({
-        title: 'Invalid File',
-        description: 'Please upload an image file (PNG, JPG, WebP).',
+        title: 'Cover Rejected',
+        description: check.error || `Cover banner photo must be under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`,
         variant: 'error',
       });
+      if (coverInputRef.current) coverInputRef.current.value = '';
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File Too Large',
-        description: 'Cover banner photo must be under 5MB.',
-        variant: 'error',
-      });
-      return;
-    }
+    try {
+      const compressedBlob = await compressImageToBlob(file, 1600, 0.85);
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+        { type: 'image/webp' }
+      );
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setEditCoverUrl(reader.result);
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('partition', 'business-covers');
+      formData.append('is_public', 'true');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && (json.url || json.data?.url)) {
+        setEditCoverUrl(json.url || json.data?.url);
         toast({
-          title: 'Banner Selected',
-          description: 'Storefront banner loaded. Click "Save Storefront Changes" to persist.',
+          title: 'Cover Banner Uploaded',
+          description: 'Storefront cover banner saved to Cloudflare. Click "Save Storefront Changes" to persist.',
           variant: 'success',
         });
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setEditCoverUrl(reader.result);
+            toast({
+              title: 'Banner Loaded',
+              description: 'Storefront banner loaded. Click "Save Storefront Changes" to persist.',
+              variant: 'success',
+            });
+          }
+        };
+        reader.readAsDataURL(compressedBlob);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setEditCoverUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
   };
 
   const handleToggleProductSold = (productId: string) => {

@@ -37,6 +37,7 @@ import {
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import { ADVERT_PACKAGES, AdvertPackage } from '@/data/platformStore';
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 const OFFER_TYPES = [
   'All Offer Types',
@@ -74,18 +75,60 @@ export default function AdvertsDirectoryPage() {
   const [advertImage, setAdvertImage] = useState<string>('');
   const advertFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAdvertImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [isUploadingAdvertImage, setIsUploadingAdvertImage] = useState(false);
+  const [advertUploadError, setAdvertUploadError] = useState<string | null>(null);
+
+  const handleAdvertImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Advert flyer/photo must be under 5MB.');
+
+    setAdvertUploadError(null);
+    const check = validateUploadFile(file, 'adverts');
+    if (!check.valid) {
+      setAdvertUploadError(check.error || `Advert flyer must be under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`);
+      if (advertFileInputRef.current) advertFileInputRef.current.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAdvertImage(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+
+    setIsUploadingAdvertImage(true);
+    try {
+      const compressedBlob = await compressImageToBlob(file, 1600, 0.85);
+      const compressedFile = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '') + '.webp',
+        { type: 'image/webp' }
+      );
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('partition', 'adverts');
+      formData.append('is_public', 'true');
+
+      const res = await fetch('/api/v1/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok && (json.url || json.data?.url)) {
+        setAdvertImage(json.url || json.data?.url);
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setAdvertImage(reader.result as string);
+        };
+        reader.readAsDataURL(compressedBlob);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAdvertImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingAdvertImage(false);
+      if (advertFileInputRef.current) advertFileInputRef.current.value = '';
+    }
   };
 
   const fetchLiveAdverts = async () => {
@@ -779,12 +822,23 @@ export default function AdvertsDirectoryPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => advertFileInputRef.current?.click()}
+                      disabled={isUploadingAdvertImage}
                       className="text-xs"
                     >
-                      <Upload className="h-3.5 w-3.5 mr-1" /> {advertImage ? 'Change Picture / Flyer' : 'Upload Flyer from Device'}
+                      <Upload className="h-3.5 w-3.5 mr-1" />{' '}
+                      {isUploadingAdvertImage
+                        ? 'Optimizing & Uploading...'
+                        : advertImage
+                        ? 'Change Picture / Flyer'
+                        : 'Upload Flyer from Device'}
                     </Button>
+                    {advertUploadError && (
+                      <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                        {advertUploadError}
+                      </p>
+                    )}
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Upload promo flyer, poster, or banner (JPG, PNG, WebP up to 5MB).
+                      Upload promo flyer, poster, or banner (JPG, PNG, WebP up to {UPLOAD_LIMITS.IMAGE_MAX_MB}MB).
                     </p>
                   </div>
                 </div>

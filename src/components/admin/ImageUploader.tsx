@@ -99,6 +99,8 @@ async function compressFileToDataUrl(file: File, maxWidth = 1280, quality = 0.82
   });
 }
 
+import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
+
 export function ImageUploader({
   label,
   images = [],
@@ -112,6 +114,7 @@ export function ImageUploader({
   const [urlInput, setUrlInput] = useState('');
   const [captionInput, setCaptionInput] = useState('');
   const [showUrlForm, setShowUrlForm] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isAtLimit = Boolean(maxImages && images.length >= maxImages);
 
@@ -119,8 +122,19 @@ export function ImageUploader({
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    setValidationError(null);
     const remainingSlots = maxImages ? Math.max(0, maxImages - images.length) : files.length;
     if (remainingSlots <= 0) return;
+
+    // Pre-flight check: validate size and format for all selected files
+    for (const file of files.slice(0, remainingSlots)) {
+      const check = validateUploadFile(file, 'public-media');
+      if (!check.valid) {
+        setValidationError(check.error || `File must be under ${UPLOAD_LIMITS.IMAGE_MAX_MB}MB.`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -129,8 +143,16 @@ export function ImageUploader({
       for (const file of filesToProcess) {
         let finalSrc = '';
         try {
+          // Pre-compress large camera photos to lightweight WebP before network transmission
+          const compressedBlob = await compressImageToBlob(file, 1280, 0.82);
+          const compressedFile = new File(
+            [compressedBlob],
+            file.name.replace(/\.[^/.]+$/, '') + '.webp',
+            { type: 'image/webp' }
+          );
+
           const formData = new FormData();
-          formData.append('file', file);
+          formData.append('file', compressedFile);
           formData.append('partition', 'public-media');
           formData.append('is_public', 'true');
 
@@ -270,6 +292,19 @@ export function ImageUploader({
           </AdminButton>
         </div>
       </div>
+
+      {validationError && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs">
+          <span>{validationError}</span>
+          <button
+            type="button"
+            onClick={() => setValidationError(null)}
+            className="text-rose-600 hover:text-rose-800 font-bold ml-2"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {isAtLimit && (
         <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
