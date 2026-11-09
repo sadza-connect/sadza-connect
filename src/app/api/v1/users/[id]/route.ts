@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { userRepository } from '@/infrastructure/database/repositories/user-repository';
+import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -49,6 +50,15 @@ export async function PATCH(
       throw new AuthorizationError('Administrative privileges required to modify user role or status');
     }
 
+    // Track old avatar if avatar is being modified or removed
+    let oldAvatarToPurge: string | null = null;
+    if (data.avatar_url !== undefined) {
+      const existingUser = await userRepository.findById(id);
+      if (existingUser?.avatarUrl && existingUser.avatarUrl !== data.avatar_url) {
+        oldAvatarToPurge = existingUser.avatarUrl;
+      }
+    }
+
     let updated = null;
     if (data.role && isAdmin) {
       updated = await userRepository.updateRole(id, data.role);
@@ -72,6 +82,13 @@ export async function PATCH(
 
     if (!updated) {
       throw new NotFoundError(`User with ID ${id} not found`);
+    }
+
+    // Purge replaced avatar from Cloudflare R2
+    if (oldAvatarToPurge) {
+      storageService.delete(oldAvatarToPurge).catch((err) =>
+        console.error('Failed to purge previous avatar from storage:', err)
+      );
     }
 
     return jsonResponse(
@@ -104,14 +121,22 @@ export async function DELETE(
       throw new AuthorizationError('Administrators cannot delete their own active account');
     }
 
+    const existingUser = await userRepository.findById(id);
     const deleted = await userRepository.softDelete(id);
     if (!deleted) {
       throw new NotFoundError(`User with ID ${id} not found`);
     }
 
+    // Purge avatar from Cloudflare R2
+    if (existingUser?.avatarUrl) {
+      storageService.delete(existingUser.avatarUrl).catch((err) =>
+        console.error('Failed to purge deleted user avatar from storage:', err)
+      );
+    }
+
     return jsonResponse(
       {
-        message: 'User account deleted successfully',
+        message: 'User account deleted successfully and avatar purged from storage',
       },
       requestId,
       200

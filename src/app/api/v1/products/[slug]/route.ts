@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { productRepository } from '@/infrastructure/database/repositories/product-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -79,6 +80,27 @@ export async function PATCH(
     }
 
     const body = await parseAndValidateBody(req, updateProductSchema);
+
+    // If new images provided, detect and purge any removed images from Cloudflare R2
+    if (body.images !== undefined) {
+      let oldImages: string[] = [];
+      if (Array.isArray(existing.images)) {
+        oldImages = existing.images;
+      } else if (typeof existing.images === 'string') {
+        try {
+          const parsed = JSON.parse(existing.images);
+          if (Array.isArray(parsed)) oldImages = parsed;
+        } catch {}
+      }
+      const newImagesSet = new Set(body.images);
+      const removedImages = oldImages.filter((img) => !newImagesSet.has(img));
+      if (removedImages.length > 0) {
+        storageService.deleteFiles(removedImages).catch((err) =>
+          console.error('Failed to purge removed product images from storage:', err)
+        );
+      }
+    }
+
     const updated = await productRepository.update(existing.id, body);
     invalidateProductsCache();
 
@@ -121,12 +143,30 @@ export async function DELETE(
       throw new AuthorizationError('You do not have permission to delete this product');
     }
 
+    // Collect all product images to purge from Cloudflare R2
+    let imagesToPurge: string[] = [];
+    if (Array.isArray(existing.images)) {
+      imagesToPurge = existing.images;
+    } else if (typeof existing.images === 'string') {
+      try {
+        const parsed = JSON.parse(existing.images);
+        if (Array.isArray(parsed)) imagesToPurge = parsed;
+      } catch {}
+    }
+
     await productRepository.delete(existing.id);
     invalidateProductsCache();
 
+    // Cascading purge of all product images from Cloudflare R2 / storage
+    if (imagesToPurge.length > 0) {
+      storageService.deleteFiles(imagesToPurge).catch((err) =>
+        console.error('Failed to purge product images from storage:', err)
+      );
+    }
+
     return jsonResponse(
       {
-        message: 'Product deleted successfully.',
+        message: 'Product deleted successfully and images purged from storage.',
       },
       requestId,
       200

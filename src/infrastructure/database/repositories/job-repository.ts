@@ -209,6 +209,11 @@ export class JobRepository {
     return job || null;
   }
 
+  async findByBusinessId(businessId: string): Promise<JobRow[]> {
+    const db = getDb();
+    return db('jobs').where('jobs.business_id', businessId);
+  }
+
   async create(data: CreateJobDTO): Promise<JobRow> {
     const db = getDb();
     const slug = data.slug || this.generateSlug(data.title, data.company_name);
@@ -387,6 +392,12 @@ export class JobRepository {
       .where('job_applications.id', id)
       .first();
     return app || null;
+  }
+
+  async deleteApplication(id: string): Promise<boolean> {
+    const db = getDb();
+    const count = await db('job_applications').where('id', id).delete();
+    return count > 0;
   }
 }
 

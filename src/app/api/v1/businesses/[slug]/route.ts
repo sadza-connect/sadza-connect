@@ -2,6 +2,10 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { productRepository } from '@/infrastructure/database/repositories/product-repository';
+import { advertRepository } from '@/infrastructure/database/repositories/advert-repository';
+import { jobRepository } from '@/infrastructure/database/repositories/job-repository';
+import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -149,6 +153,18 @@ export async function PATCH(
       }
     }
 
+    // Purge replaced logo or cover from storage if updated
+    if (body.logo_url && existing.logo_url && body.logo_url !== existing.logo_url) {
+      storageService.delete(existing.logo_url).catch((err) =>
+        console.error('Failed to purge replaced business logo from storage:', err)
+      );
+    }
+    if (body.cover_url && existing.cover_url && body.cover_url !== existing.cover_url) {
+      storageService.delete(existing.cover_url).catch((err) =>
+        console.error('Failed to purge replaced business cover from storage:', err)
+      );
+    }
+
     const updated = await businessRepository.update(existing.id, body);
     invalidateBusinessDirectoryCache();
 
@@ -190,12 +206,90 @@ export async function DELETE(
       throw new AuthorizationError('You do not have permission to delete this business listing');
     }
 
+    // Collect all associated files and media to purge from Cloudflare R2
+    const filesToPurge: string[] = [];
+
+    // 1. Business Logo & Cover
+    if (existing.logo_url) filesToPurge.push(existing.logo_url);
+    if (existing.cover_url) filesToPurge.push(existing.cover_url);
+
+    // 2. Business Gallery Photos
+    if (Array.isArray(existing.gallery)) {
+      for (const item of existing.gallery) {
+        if (typeof item === 'string') filesToPurge.push(item);
+        else if (item && typeof item === 'object') {
+          if (item.url) filesToPurge.push(item.url);
+          if (item.key) filesToPurge.push(item.key);
+        }
+      }
+    }
+
+    // 3. Confidential Statutory KYC Verification Documents
+    if (Array.isArray(existing.kyc_documents)) {
+      for (const doc of existing.kyc_documents) {
+        if (doc && typeof doc === 'object') {
+          if (doc.key) filesToPurge.push(doc.key);
+          if (doc.url) filesToPurge.push(doc.url);
+        } else if (typeof doc === 'string') {
+          filesToPurge.push(doc);
+        }
+      }
+    }
+
+    // 4. Products belonging to this business & their images
+    try {
+      const products = await productRepository.findByBusinessId(existing.id);
+      for (const prod of products) {
+        if (Array.isArray(prod.images)) {
+          filesToPurge.push(...prod.images);
+        } else if (typeof prod.images === 'string') {
+          try {
+            const parsed = JSON.parse(prod.images);
+            if (Array.isArray(parsed)) filesToPurge.push(...parsed);
+          } catch {}
+        }
+      }
+    } catch (prodErr) {
+      console.warn('Could not retrieve business products for asset cleanup:', prodErr);
+    }
+
+    // 5. Adverts belonging to this business & their promotional banners
+    try {
+      const adverts = await advertRepository.findByBusinessId(existing.id);
+      for (const ad of adverts) {
+        if (ad.image) filesToPurge.push(ad.image);
+      }
+    } catch (adErr) {
+      console.warn('Could not retrieve business adverts for asset cleanup:', adErr);
+    }
+
+    // 6. Job Openings belonging to this business & applicant CVs
+    try {
+      const jobs = await jobRepository.findByBusinessId(existing.id);
+      for (const job of jobs) {
+        const apps = await jobRepository.findApplications({ jobId: job.id, limit: 100 });
+        for (const app of apps.applications) {
+          if (app.cv_url) filesToPurge.push(app.cv_url);
+        }
+      }
+    } catch (jobErr) {
+      console.warn('Could not retrieve business job applications for asset cleanup:', jobErr);
+    }
+
+    // Delete business record from PostgreSQL
     await businessRepository.delete(existing.id);
     invalidateBusinessDirectoryCache();
 
+    // Cascading purge of all media, photos, KYC documents, and CVs from Cloudflare R2
+    if (filesToPurge.length > 0) {
+      storageService.deleteFiles(filesToPurge).catch((err) =>
+        console.error('Failed to purge business media and documents from storage:', err)
+      );
+    }
+
     return jsonResponse(
       {
-        message: 'Business listing deleted successfully.',
+        message: 'Business listing deleted successfully and all media/documents purged from storage.',
       },
       requestId,
       200

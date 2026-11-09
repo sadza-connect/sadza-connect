@@ -171,6 +171,11 @@ export class AdvertRepository {
     return advert || null;
   }
 
+  async findByBusinessId(businessId: string): Promise<AdvertRow[]> {
+    const db = getDb();
+    return db('adverts').where('business_id', businessId);
+  }
+
   async create(data: CreateAdvertDTO): Promise<AdvertRow> {
     const db = getDb();
     const rate = await this.getUsdToZigRate();

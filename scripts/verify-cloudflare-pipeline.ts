@@ -219,10 +219,59 @@ async function runTests() {
     console.error('  ✘ FAIL: User avatar upload failed:', jsonUserAvatar);
   }
 
-  console.log('===============================================================');
+  // TEST 6: Automated Cascading Deletion & Permanent Purge from Cloudflare R2
+  console.log('▶ [TEST 6] Testing Automated Cascading Deletion from Cloudflare R2...');
+  const testDeleteBuffer = createSampleJpeg();
+  const formCascade = new FormData();
+  formCascade.append('file', new Blob([new Uint8Array(testDeleteBuffer)], { type: 'image/jpeg' }), 'cascade-product-to-delete.jpg');
+  formCascade.append('partition', 'marketplace-products');
+  formCascade.append('is_public', 'true');
+
+  const resCascade = await fetch('http://localhost:3000/api/v1/storage/upload', {
+    method: 'POST',
+    body: formCascade,
+  });
+  const jsonCascade = await resCascade.json();
+  const cascadeKey = jsonCascade.data?.key;
+  const cascadeUrl = jsonCascade.data?.url;
+
+  console.log(`  Uploaded test file for deletion: ${cascadeKey}`);
+  console.log(`  Public URL: ${cascadeUrl}`);
+
+  // Confirm file is in R2 before deletion
+  await s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: cascadeKey }));
+  console.log(`  ✔ Confirmed file physically exists in Cloudflare R2 before deletion.`);
+
+  // Import storageService to test key extraction and cascading deletion using the full public URL
+  const { storageService } = await import('../src/infrastructure/storage/storage-service');
+  
+  console.log(`  Triggering cascading delete with full public CDN URL: '${cascadeUrl}'...`);
+  const deleteResult = await storageService.delete(cascadeUrl);
+  console.log(`  ✔ storageService.delete result: ${deleteResult}`);
+
+  // Verify file is gone from Cloudflare R2
+  let stillExists = false;
+  try {
+    await s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: cascadeKey }));
+    stillExists = true;
+  } catch (err: any) {
+    if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
+      console.log('  ✔ PASS: File is 100% GONE from Cloudflare R2! (404 Not Found as expected)');
+      console.log('  ✔ No orphaned files left in Cloudflare storage.');
+    } else {
+      console.warn('  Unexpected error checking deleted file:', err);
+    }
+  }
+
+  if (stillExists) {
+    console.error('  ✘ FAIL: File still exists in Cloudflare R2 after deletion!');
+  }
+
+  console.log('\n===============================================================');
   console.log('             ALL VERIFICATION TESTS COMPLETED SUCCESSFULLY!    ');
   console.log('===============================================================');
 }
 
 runTests().catch(console.error);
+
 

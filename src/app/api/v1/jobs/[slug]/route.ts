@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { jobRepository } from '@/infrastructure/database/repositories/job-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -119,11 +120,29 @@ export async function DELETE(
       throw new AuthorizationError('You do not have permission to delete this job vacancy');
     }
 
+    // Collect applicant CV files to purge from Cloudflare R2
+    const cvsToPurge: string[] = [];
+    try {
+      const apps = await jobRepository.findApplications({ jobId: existing.id, limit: 100 });
+      for (const app of apps.applications) {
+        if (app.cv_url) cvsToPurge.push(app.cv_url);
+      }
+    } catch (appErr) {
+      console.warn('Could not retrieve job applications for CV cleanup:', appErr);
+    }
+
     await jobRepository.delete(existing.id);
+
+    // Cascading purge of all applicant CVs from Cloudflare R2
+    if (cvsToPurge.length > 0) {
+      storageService.deleteFiles(cvsToPurge).catch((err) =>
+        console.error('Failed to purge applicant CVs from storage:', err)
+      );
+    }
 
     return jsonResponse(
       {
-        message: 'Job vacancy deleted successfully.',
+        message: 'Job vacancy deleted successfully and associated applicant files purged from storage.',
       },
       requestId,
       200

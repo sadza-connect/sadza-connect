@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { advertRepository } from '@/infrastructure/database/repositories/advert-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -90,6 +91,14 @@ export async function PATCH(
     }
 
     const body = await parseAndValidateBody(req, updateAdvertSchema);
+
+    // Purge replaced advert banner image from storage if updated
+    if (body.image && existing.image && body.image !== existing.image) {
+      storageService.delete(existing.image).catch((err) =>
+        console.error('Failed to purge replaced advert image from storage:', err)
+      );
+    }
+
     const updated = await advertRepository.update(id, body);
 
     return jsonResponse(
@@ -148,9 +157,16 @@ export async function DELETE(
 
     await advertRepository.delete(id);
 
+    // Cascading purge of advert banner image from Cloudflare R2
+    if (existing.image) {
+      storageService.delete(existing.image).catch((err) =>
+        console.error('Failed to purge advert banner image from storage:', err)
+      );
+    }
+
     return jsonResponse(
       {
-        message: 'Sponsored campaign deleted successfully.',
+        message: 'Sponsored campaign deleted successfully and banner purged from storage.',
       },
       requestId,
       200

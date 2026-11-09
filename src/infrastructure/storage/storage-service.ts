@@ -268,10 +268,77 @@ export class StorageService {
   }
 
   /**
-   * Deletes a file from Cloudflare R2 or local disk.
+   * Extracts a canonical storage key (e.g. "marketplace-products/123.jpg")
+   * from any raw key, full Cloudflare R2 CDN URL, direct R2 endpoint URL,
+   * local uploads path, or authenticated view URL.
+   * Returns null if the URL is external (e.g. Unsplash, placeholder) or not a managed asset.
    */
-  async delete(key: string): Promise<boolean> {
-    const cleanKey = key.replace(/^\/+/, '');
+  public extractKey(urlOrKey: string | null | undefined): string | null {
+    if (!urlOrKey || typeof urlOrKey !== 'string') return null;
+    const trimmed = urlOrKey.trim();
+    if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return null;
+
+    const knownPartitions = [
+      'marketplace-products',
+      'business-logos',
+      'business-covers',
+      'avatars',
+      'adverts',
+      'properties',
+      'tourism',
+      'kyc-documents',
+      'resumes',
+    ];
+
+    // 1. Direct clean key format (e.g. "avatars/17942...webp")
+    for (const partition of knownPartitions) {
+      if (trimmed.startsWith(`${partition}/`)) {
+        return trimmed;
+      }
+    }
+
+    // 2. Authenticated view URL (e.g. "/api/v1/storage/view?key=kyc-documents%2F...")
+    if (trimmed.includes('/api/v1/storage/view')) {
+      try {
+        const parsed = new URL(trimmed, 'http://localhost');
+        const keyParam = parsed.searchParams.get('key');
+        if (keyParam) return decodeURIComponent(keyParam).replace(/^\/+/, '');
+      } catch {
+        const match = trimmed.match(/[?&]key=([^&#]+)/);
+        if (match) return decodeURIComponent(match[1]).replace(/^\/+/, '');
+      }
+    }
+
+    // 3. Local fallback path (e.g. "/uploads/avatars/...")
+    if (trimmed.startsWith('/uploads/')) {
+      return trimmed.replace(/^\/uploads\//, '');
+    }
+
+    // 4. HTTP / HTTPS URL (Cloudflare R2 Public CDN or R2 Storage Endpoint)
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      try {
+        const parsed = new URL(trimmed);
+        const pathname = decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+        for (const partition of knownPartitions) {
+          const index = pathname.indexOf(`${partition}/`);
+          if (index !== -1) {
+            return pathname.substring(index);
+          }
+        }
+      } catch {
+        // ignore malformed URLs
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Deletes a file from Cloudflare R2 or local disk given a storage key or full URL.
+   */
+  async delete(keyOrUrl: string): Promise<boolean> {
+    const cleanKey = this.extractKey(keyOrUrl) || keyOrUrl.replace(/^\/+/, '');
+    if (!cleanKey) return false;
 
     if (this.isConfiguredForR2 && this.s3Client) {
       try {
@@ -303,6 +370,28 @@ export class StorageService {
 
     return true;
   }
+
+  /**
+   * Deletes multiple files or URLs from Cloudflare R2 or local disk in parallel.
+   * Safely ignores external URLs, data URLs, nulls, and duplicates.
+   */
+  async deleteFiles(urlsOrKeys: (string | null | undefined)[]): Promise<number> {
+    const keys = urlsOrKeys
+      .map((item) => this.extractKey(item))
+      .filter((k): k is string => Boolean(k));
+
+    if (keys.length === 0) return 0;
+
+    const uniqueKeys = Array.from(new Set(keys));
+    const results = await Promise.allSettled(
+      uniqueKeys.map((key) => this.delete(key))
+    );
+
+    return results.filter((r) => r.status === 'fulfilled' && r.value).length;
+  }
 }
 
 export const storageService = new StorageService();
+export const extractStorageKey = (urlOrKey: string | null | undefined) => storageService.extractKey(urlOrKey);
+export const deleteStorageFiles = (urlsOrKeys: (string | null | undefined)[]) => storageService.deleteFiles(urlsOrKeys);
+

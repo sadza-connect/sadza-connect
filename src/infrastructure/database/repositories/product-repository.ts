@@ -288,6 +288,11 @@ export class ProductRepository {
     return row || null;
   }
 
+  public async findByBusinessId(businessId: string): Promise<ProductRow[]> {
+    const db = getDb();
+    return db('products').where({ business_id: businessId });
+  }
+
   public async create(data: CreateProductDTO): Promise<ProductRow> {
     const db = getDb();
 
