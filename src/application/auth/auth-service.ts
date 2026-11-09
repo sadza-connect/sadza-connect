@@ -136,14 +136,14 @@ export class AuthService {
     deviceFingerprint?: string,
     ipAddress?: string,
   ): Promise<AuthResult> {
-    const user = await this.userRepo.findByEmailOrPhone(identifier);
+    const user = await this.userRepo.findByEmail(identifier.trim().toLowerCase());
     if (!user) {
-      throw new AuthenticationError('Invalid email, phone number, or password');
+      throw new AuthenticationError('Invalid email or password');
     }
 
     const isValid = await bcrypt.compare(password, user.passwordHash.getValue());
     if (!isValid) {
-      throw new AuthenticationError('Invalid email, phone number, or password');
+      throw new AuthenticationError('Invalid email or password');
     }
 
     if (!user.canLogin()) {

@@ -50,9 +50,9 @@ export const loginSchema = z.object({
   phoneNumber: z.string().trim().optional(),
   password: z.string().min(1, 'Password is required'),
 }).refine(
-  (data) => Boolean(data.identifier || data.email || data.phoneNumber),
+  (data) => Boolean(data.identifier || data.email),
   {
-    message: 'Please provide your email address or phone number',
+    message: 'Please provide your email address',
     path: ['identifier'],
   },
 );

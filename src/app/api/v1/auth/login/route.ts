@@ -25,10 +25,10 @@ export async function POST(req: NextRequest) {
     authRateLimiter.check(clientIp);
 
     const body = await parseAndValidateBody(req, loginSchema);
-    const loginIdentifier = body.identifier || body.email || body.phoneNumber;
+    const loginIdentifier = body.email || body.identifier;
 
     if (!loginIdentifier) {
-      throw new AuthenticationError('Please enter your email or phone number');
+      throw new AuthenticationError('Please enter your email address');
     }
 
     const userAgent = req.headers.get('user-agent') || undefined;

@@ -24,7 +24,7 @@ import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
 function formatLoginError(errorMsg?: string): string {
-  if (!errorMsg) return 'Authentication failed. Please verify your email or phone number and password.';
+  if (!errorMsg) return 'Authentication failed. Please verify your email address and password.';
   const lower = errorMsg.toLowerCase();
 
   if (
@@ -78,7 +78,7 @@ function LoginForm() {
     setErrorMessage('');
 
     if (!identifier.trim()) {
-      setErrorMessage('Please enter your registered email address or phone number.');
+      setErrorMessage('Please enter your registered email address.');
       return;
     }
     if (!password) {
@@ -204,7 +204,7 @@ function LoginForm() {
                 Sign in to your account
               </h2>
               <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Enter your registered email address or phone number and password to sign in.
+                Enter your registered email address and password to sign in.
               </p>
             </div>
 
@@ -216,23 +216,23 @@ function LoginForm() {
                 </div>
               )}
 
-              {/* Email or Phone Input */}
+              {/* Email Address Input */}
               <div>
                 <label htmlFor="identifier" className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                  Email address or phone number
+                  Email address
                 </label>
                 <div className="relative flex items-center group">
                   <MailIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 dark:text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                   <input
                     id="identifier"
                     name="identifier"
-                    type="text"
+                    type="email"
                     required
-                    autoComplete="username"
+                    autoComplete="email"
                     inputMode="email"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="you@company.co.zw or 077 123 4567"
+                    placeholder="you@company.co.zw"
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
                   />
                 </div>
