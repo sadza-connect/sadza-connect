@@ -46,6 +46,57 @@ function deleteCookie(name: string) {
   document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
 }
 
+const USER_SCOPED_STORAGE_KEYS = [
+  'sadza_business_onboarding_draft',
+  'sadza_business_onboarded',
+  'sadza_saved_businesses',
+  'sadza_saved_products',
+  'sadza_wishlist',
+  'sadza_promo_redemptions_v1',
+  'sadza_notifications_v1',
+  'sadza_unlocked_properties_v1',
+  'sadza_platform_utility_receipts_v1',
+  'sadza_platform_businesses_v1',
+  'sadza_platform_products_v1',
+  'sadza_platform_jobs_v1',
+  'sadza_platform_job_apps_v1',
+  'sadza_platform_invoices_v1',
+  'sadza_platform_users_v1',
+  'sadza_paid_adverts_v1',
+  'sadza_deleted_advert_ids_v1',
+];
+
+function clearUserLocalCaches(clearUserId = false) {
+  if (typeof window === 'undefined') return;
+  try {
+    for (const key of USER_SCOPED_STORAGE_KEYS) {
+      window.localStorage.removeItem(key);
+    }
+    if (clearUserId) {
+      window.localStorage.removeItem('sadza_active_user_id');
+    }
+    window.dispatchEvent(new CustomEvent('sadza-platform-updated'));
+    window.dispatchEvent(new Event('sadza-adverts-updated'));
+    window.dispatchEvent(new Event('sadza-redemptions-updated'));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function syncActiveUserCache(nextUser: UserSession) {
+  if (typeof window === 'undefined' || !nextUser?.id) return;
+  try {
+    const prevActiveUserId = window.localStorage.getItem('sadza_active_user_id');
+    if (prevActiveUserId && prevActiveUserId !== nextUser.id) {
+      clearUserLocalCaches(false);
+    }
+    window.localStorage.setItem('sadza_active_user_id', nextUser.id);
+    window.localStorage.setItem('sadza_user', JSON.stringify(nextUser));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (res.ok && res.data?.data?.accessToken) {
         const payload = res.data.data;
-        localStorage.setItem('sadza_user', JSON.stringify(payload.user));
+        syncActiveUserCache(payload.user);
         localStorage.setItem('sadza_access_token', payload.accessToken);
         if (payload.refreshToken) {
           localStorage.setItem('sadza_refresh_token', payload.refreshToken);
@@ -103,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('sadza_user');
           localStorage.removeItem('sadza_access_token');
           localStorage.removeItem('sadza_refresh_token');
+          clearUserLocalCaches(true);
         }
 
         const storedUser = localStorage.getItem('sadza_user');
@@ -132,9 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (meRes.ok && meRes.data?.data?.user) {
             if (isMounted) {
-              setUser(meRes.data.data.user);
-              localStorage.setItem('sadza_user', JSON.stringify(meRes.data.data.user));
+              syncActiveUserCache(meRes.data.data.user);
               localStorage.setItem('sadza_access_token', token);
+              setUser(meRes.data.data.user);
             }
           } else {
             // Try refreshing if access token expired
@@ -143,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('sadza_user');
               localStorage.removeItem('sadza_access_token');
               localStorage.removeItem('sadza_refresh_token');
+              clearUserLocalCaches(true);
               deleteCookie('sadza_access_token');
               deleteCookie('sadza_refresh_token');
               setUser(null);
@@ -180,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback((payload: { user: UserSession; accessToken: string; refreshToken: string }) => {
     try {
-      localStorage.setItem('sadza_user', JSON.stringify(payload.user));
+      syncActiveUserCache(payload.user);
       localStorage.setItem('sadza_access_token', payload.accessToken);
       localStorage.setItem('sadza_refresh_token', payload.refreshToken);
 
@@ -220,6 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('sadza_user');
       localStorage.removeItem('sadza_access_token');
       localStorage.removeItem('sadza_refresh_token');
+      clearUserLocalCaches(true);
 
       deleteCookie('sadza_access_token');
       deleteCookie('sadza_refresh_token');

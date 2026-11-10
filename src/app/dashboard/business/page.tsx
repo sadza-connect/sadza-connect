@@ -1623,7 +1623,29 @@ export default function BusinessDashboardPage() {
       </div>
 
       {/* Active Business Card */}
-      <div className="border-b border-white/10 p-4">
+      <div className="border-b border-white/10 p-4 space-y-2.5">
+        {user && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName}
+                className="h-7 w-7 rounded-full object-cover border border-white/15 shrink-0"
+              />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-300 shrink-0">
+                {(user.fullName || user.email || 'U').charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-white">{user.fullName}</p>
+              <p className="truncate text-[10px] text-slate-400">{user.email}</p>
+            </div>
+            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300 shrink-0">
+              {isAdmin ? 'Admin' : 'Account'}
+            </span>
+          </div>
+        )}
         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -1852,6 +1874,14 @@ export default function BusinessDashboardPage() {
                   <span>{currentBusiness.province}</span>
                   <span>•</span>
                   <span>{currentBusiness.categoryName}</span>
+                  {user && (
+                    <>
+                      <span>•</span>
+                      <span className="truncate text-slate-600 font-medium">
+                        Signed in as {user.fullName} ({user.email})
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
             </div>

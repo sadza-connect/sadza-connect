@@ -24,16 +24,15 @@ export async function POST(req: NextRequest) {
   try {
     authRateLimiter.check(clientIp);
 
-    let tokenToRefresh = '';
-    try {
-      const body = await req.json();
-      tokenToRefresh = body?.refreshToken || '';
-    } catch {
-      // Body may be empty if client relies on cookie
-    }
-
+    // Authoritative HttpOnly cookie set by login/Google OAuth always takes precedence over client storage
+    let tokenToRefresh = req.cookies.get('sadza_refresh_token')?.value || '';
     if (!tokenToRefresh) {
-      tokenToRefresh = req.cookies.get('sadza_refresh_token')?.value || '';
+      try {
+        const body = await req.json();
+        tokenToRefresh = body?.refreshToken || '';
+      } catch {
+        // Body may be empty if client relies on cookie
+      }
     }
 
     if (!tokenToRefresh) {
