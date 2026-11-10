@@ -26,6 +26,7 @@ import {
   AdminBadge,
   statusTone,
 } from '@/components/admin/AdminUI';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
@@ -88,7 +89,7 @@ export default function AdminOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+    const token = getClientAccessToken();
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

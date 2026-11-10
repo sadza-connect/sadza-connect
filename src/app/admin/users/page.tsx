@@ -21,6 +21,7 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 import {
   AdminPageHeader,
   Panel,
@@ -190,7 +191,7 @@ export default function AdminUsersPage() {
 
   // Helper for auth headers
   const getAuthHeaders = useCallback(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+    const token = getClientAccessToken();
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

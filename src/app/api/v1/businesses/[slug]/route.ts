@@ -151,6 +151,15 @@ export async function PATCH(
       if (body.verification_status !== undefined && body.verification_status !== existing.verification_status) {
         throw new AuthorizationError('KYC verification status can only be modified by Platform Administrators.');
       }
+      if (body.is_featured !== undefined && body.is_featured !== existing.is_featured) {
+        throw new AuthorizationError('Featured storefront placement can only be modified by Platform Administrators.');
+      }
+      if (body.product_limit !== undefined && body.product_limit !== existing.product_limit) {
+        throw new AuthorizationError('Product catalog limits can only be modified by Platform Administrators or via tier upgrade.');
+      }
+      if (body.catalog_tier !== undefined && body.catalog_tier !== existing.catalog_tier) {
+        throw new AuthorizationError('Catalog tier can only be modified by Platform Administrators or via tier upgrade.');
+      }
     }
 
     // Purge replaced logo or cover from storage if updated

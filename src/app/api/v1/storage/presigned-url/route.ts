@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
 import { storageService } from '@/infrastructure/storage/storage-service';
+import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
   errorResponse,
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
-import { ValidationError } from '@/shared/errors/AppError';
+import { AuthorizationError, ValidationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +28,11 @@ export async function POST(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const user = await getAuthenticatedUser(req, true);
+    if (!user) {
+      throw new AuthorizationError('Authentication required for storage operations');
+    }
+
     const body = await parseAndValidateBody(req, presignedUrlSchema);
 
     let targetKey = body.key;
@@ -40,17 +47,38 @@ export async function POST(req: NextRequest) {
       targetKey = `${sanitizedPartition}/${Date.now()}-${randomUUID()}${ext}`;
     }
 
+    const cleanKey = targetKey.replace(/^\/+/, '');
+    if (body.action === 'download' && cleanKey.startsWith('kyc-documents/') && user.role !== 'admin') {
+      const myBusinesses = await businessRepository.findByUserId(user.id);
+      const ownsDocument = myBusinesses.some((biz) => {
+        let docs: any[] = [];
+        try {
+          docs = typeof biz.kyc_documents === 'string'
+            ? JSON.parse(biz.kyc_documents)
+            : Array.isArray(biz.kyc_documents)
+            ? biz.kyc_documents
+            : [];
+        } catch {
+          docs = [];
+        }
+        return docs.some((d: any) => String(d?.url || d?.src || d?.key || d?.path || '').includes(cleanKey));
+      });
+      if (!ownsDocument) {
+        throw new AuthorizationError('Unauthorized to generate download links for confidential compliance documents');
+      }
+    }
+
     let presignedUrl: string;
 
     if (body.action === 'upload') {
       presignedUrl = await storageService.getPresignedUploadUrl(
-        targetKey,
+        cleanKey,
         body.mime_type,
         body.expires_in
       );
     } else {
       presignedUrl = await storageService.getPresignedDownloadUrl(
-        targetKey,
+        cleanKey,
         body.expires_in
       );
     }

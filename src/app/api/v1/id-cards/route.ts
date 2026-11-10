@@ -87,7 +87,12 @@ export async function POST(req: NextRequest) {
 
     if (targetBizId) {
       const biz = await businessRepository.findById(targetBizId);
-      if (biz) enterpriseName = biz.name;
+      if (biz) {
+        if (user.role !== 'admin' && biz.user_id !== user.id) {
+          throw new AuthorizationError('You do not have permission to issue ID cards for this business');
+        }
+        enterpriseName = biz.name;
+      }
     } else if (!enterpriseName) {
       const myBiz = await businessRepository.findByUserId(user.id);
       if (myBiz.length > 0) {

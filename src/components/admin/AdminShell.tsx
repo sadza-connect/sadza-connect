@@ -29,8 +29,8 @@ export interface AdminUser {
 
 export function AdminShell({
   user: initialUser = {
-    fullName: 'Ugwoke Levi',
-    email: 'admin@sadzaconnect.co.zw',
+    fullName: 'Administrator',
+    email: 'Verifying session...',
     role: 'Super Admin',
   },
   children,

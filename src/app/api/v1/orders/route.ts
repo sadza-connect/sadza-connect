@@ -3,12 +3,14 @@ import { randomUUID, randomInt } from 'node:crypto';
 import { z } from 'zod';
 import { orderRepository } from '@/infrastructure/database/repositories/order-repository';
 import { mapDbOrderToAdminOrderItem } from '@/lib/data/order-mapper';
+import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
   errorResponse,
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
+import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,20 +33,37 @@ export async function GET(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const user = await getAuthenticatedUser(req, true);
+    if (!user) {
+      throw new AuthorizationError('Authentication required to view orders');
+    }
+
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || undefined;
     const status = searchParams.get('status') || undefined;
     const carrier = searchParams.get('carrier') || undefined;
-    const businessId = searchParams.get('business_id') || undefined;
+    let businessId = searchParams.get('business_id') || undefined;
     const myOrders = searchParams.get('my_orders') === 'true';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
     let userId: string | undefined = undefined;
-    if (myOrders) {
-      const user = await getAuthenticatedUser(req, false);
-      if (user) {
+    const isAdmin = user.role === 'admin';
+
+    if (!isAdmin) {
+      if (myOrders || user.role === 'customer') {
         userId = user.id;
+        businessId = undefined;
+      } else {
+        // Merchant: scope strictly to businesses owned by the caller
+        const myBusinesses = await businessRepository.findByUserId(user.id);
+        const myIds = myBusinesses.map((b) => b.id);
+        if (businessId && !myIds.includes(businessId)) {
+          throw new AuthorizationError('You do not have permission to view orders for this business');
+        }
+        if (!businessId) {
+          businessId = myIds[0] || '00000000-0000-0000-0000-000000000000';
+        }
       }
     }
 
@@ -58,14 +77,14 @@ export async function GET(req: NextRequest) {
       limit,
     });
 
-    const stats = await orderRepository.getSummaryStats();
+    const stats = isAdmin ? await orderRepository.getSummaryStats() : undefined;
     const mappedOrders = result.orders.map(mapDbOrderToAdminOrderItem);
 
     return jsonResponse(
       {
         ...result,
         mappedOrders,
-        stats,
+        ...(stats ? { stats } : {}),
       },
       requestId,
       200

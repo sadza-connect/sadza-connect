@@ -186,10 +186,13 @@ export default function UserDashboardPage() {
   };
 
   useEffect(() => {
-    if (user?.fullName && !cvFullName) {
+    if (user?.fullName) {
       setCvFullName(user.fullName);
     }
-  }, [user?.fullName, cvFullName]);
+    if (user?.province) {
+      setCvProvince(user.province);
+    }
+  }, [user?.id, user?.fullName, user?.province]);
 
   useEffect(() => {
     let isMounted = true;
@@ -200,7 +203,7 @@ export default function UserDashboardPage() {
 
       try {
         const [appRes, bRes, pRes, billRes] = await Promise.allSettled([
-          fetch('/api/v1/jobs/applications?limit=50', { credentials: 'include' }).then((r) => r.json()),
+          fetch('/api/v1/jobs/applications?my_applications=true&limit=50', { credentials: 'include' }).then((r) => r.json()),
           fetch('/api/v1/businesses?limit=50').then((r) => r.json()),
           fetch('/api/v1/products?limit=50').then((r) => r.json()),
           fetch('/api/v1/bills?my_bills=true', { credentials: 'include' }).then((r) => r.json()),
@@ -246,7 +249,7 @@ export default function UserDashboardPage() {
       isMounted = false;
       window.removeEventListener('sadza-platform-updated', sync);
     };
-  }, []);
+  }, [user?.id]);
 
   const showToast = (msg: string) => {
     toast({
@@ -283,8 +286,8 @@ export default function UserDashboardPage() {
           amount: amt,
           currency: 'USD',
           payment_method: 'EcoCash',
-          customer_phone: '+263773112233',
-          customer_name: cvFullName || 'Verified Account Holder',
+          customer_phone: user?.phoneNumber || '+263770000000',
+          customer_name: user?.fullName || cvFullName || 'Verified Account Holder',
         }),
       });
       const json = await res.json();
@@ -311,7 +314,7 @@ export default function UserDashboardPage() {
       reference: `ZETDC-${Math.floor(100000 + Math.random() * 900000)}`,
       service: 'ZESA Prepaid Token',
       accountOrMeter: quickMeter.trim(),
-      customerPhone: '+263773112233',
+      customerPhone: user?.phoneNumber || '+263770000000',
       currency: 'USD',
       amount: amt,
       tokenOrConfirmation: generatedToken,
@@ -1131,7 +1134,7 @@ export default function UserDashboardPage() {
                     <input
                       type="email"
                       readOnly
-                      value="tinashe.sibanda@gmail.com"
+                      value={user?.email || 'No email linked'}
                       className="w-full bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none cursor-not-allowed"
                     />
                   </div>
@@ -1143,7 +1146,7 @@ export default function UserDashboardPage() {
                     <input
                       type="text"
                       readOnly
-                      value="+263 77 311 2233"
+                      value={user?.phoneNumber || 'Not provided'}
                       className="w-full bg-transparent text-xs font-mono font-bold text-slate-900 focus:outline-none cursor-not-allowed"
                     />
                   </div>
@@ -1169,7 +1172,32 @@ export default function UserDashboardPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <AdminButton onClick={() => showToast('Account preferences saved!')}>
+                  <AdminButton
+                    onClick={async () => {
+                      const cleanName = cvFullName.trim();
+                      if (user?.id && cleanName) {
+                        try {
+                          const res = await fetch(`/api/v1/users/${user.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              full_name: cleanName,
+                              province: cvProvince,
+                            }),
+                          });
+                          if (res.ok) {
+                            updateUser({ fullName: cleanName, province: cvProvince });
+                            showToast('Account preferences saved to your profile!');
+                            return;
+                          }
+                        } catch {
+                          // fallback below
+                        }
+                      }
+                      showToast('Account preferences saved!');
+                    }}
+                  >
                     Save Preferences
                   </AdminButton>
                 </div>

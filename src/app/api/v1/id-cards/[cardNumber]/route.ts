@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { idCardRepository } from '@/infrastructure/database/repositories/id-card-repository';
+import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -87,6 +88,18 @@ export async function PATCH(
       throw new NotFoundError(`PVC ID Card '${cardNumber}' was not found`);
     }
 
+    const isAdmin = user.role === 'admin';
+    let isOwner = false;
+    if (!isAdmin && card.business_id) {
+      const biz = await businessRepository.findById(card.business_id);
+      if (biz && biz.user_id === user.id) {
+        isOwner = true;
+      }
+    }
+    if (!isAdmin && !isOwner) {
+      throw new AuthorizationError('You do not have permission to modify this PVC ID card');
+    }
+
     const body = await parseAndValidateBody(req, updateIdCardSchema);
     const updated = await idCardRepository.update(card.id, body);
 
@@ -128,6 +141,18 @@ export async function DELETE(
 
     if (!card) {
       throw new NotFoundError(`PVC ID Card '${cardNumber}' was not found`);
+    }
+
+    const isAdmin = user.role === 'admin';
+    let isOwner = false;
+    if (!isAdmin && card.business_id) {
+      const biz = await businessRepository.findById(card.business_id);
+      if (biz && biz.user_id === user.id) {
+        isOwner = true;
+      }
+    }
+    if (!isAdmin && !isOwner) {
+      throw new AuthorizationError('You do not have permission to revoke this PVC ID card');
     }
 
     await idCardRepository.delete(card.id);

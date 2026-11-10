@@ -10,6 +10,8 @@ export interface UserSession {
   fullName: string;
   role: string;
   accountType: string;
+  phoneNumber?: string | null;
+  province?: string | null;
   avatarUrl?: string | null;
   isVerified?: boolean;
 }
@@ -52,8 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = useCallback(async (): Promise<boolean> => {
     try {
-      const refreshToken =
-        localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
+      const cookieToken = getCookie('sadza_access_token');
+      const localToken = localStorage.getItem('sadza_access_token');
+      const hasStaleLocalSession = Boolean(cookieToken && localToken && cookieToken !== localToken);
+
+      const refreshToken = hasStaleLocalSession
+        ? null
+        : localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
 
       const apiUrl = getApiBaseUrl();
       const res = await safeFetchJson(`${apiUrl}/auth/refresh`, {
@@ -88,12 +95,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function initAuth() {
       try {
+        const cookieToken = getCookie('sadza_access_token');
+        const localToken = localStorage.getItem('sadza_access_token');
+
+        // Cookie set by the server (e.g. Google OAuth callback) always supersedes stale localStorage
+        if (cookieToken && localToken && cookieToken !== localToken) {
+          localStorage.removeItem('sadza_user');
+          localStorage.removeItem('sadza_access_token');
+          localStorage.removeItem('sadza_refresh_token');
+        }
+
         const storedUser = localStorage.getItem('sadza_user');
-        const token = localStorage.getItem('sadza_access_token') || getCookie('sadza_access_token');
+        const token = cookieToken || localToken;
         const refreshToken = localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
 
         if (token) {
-          if (storedUser) {
+          if (storedUser && (!cookieToken || cookieToken === localToken)) {
             try {
               const parsed = JSON.parse(storedUser);
               if (isMounted) setUser(parsed);
@@ -102,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
-          if (!getCookie('sadza_access_token')) {
+          if (!cookieToken) {
             setCookie('sadza_access_token', token, 15 * 60);
           }
 
@@ -179,6 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async (): Promise<boolean> => {
     setLogoutError(null);
+    const activeToken = getCookie('sadza_access_token') || localStorage.getItem('sadza_access_token');
     const refreshToken = localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
 
     try {
@@ -187,10 +205,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(localStorage.getItem('sadza_access_token')
-            ? { Authorization: `Bearer ${localStorage.getItem('sadza_access_token')}` }
-            : {}),
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({ refreshToken: refreshToken || '' }),
       });
 

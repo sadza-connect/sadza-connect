@@ -30,6 +30,7 @@ import {
   MapPin,
   Filter,
 } from 'lucide-react';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 import {
   AdminPageHeader,
   Panel,
@@ -152,7 +153,7 @@ export default function AdminBusinessesPage() {
   });
 
   const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+    const token = getClientAccessToken();
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

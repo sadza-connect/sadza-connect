@@ -302,6 +302,7 @@ export class JobRepository {
   async findApplications(filters: {
     jobId?: string;
     businessId?: string;
+    applicantEmail?: string;
     status?: string;
     page?: number;
     limit?: number;
@@ -333,6 +334,12 @@ export class JobRepository {
 
     if (filters.businessId) {
       query = query.where('jobs.business_id', filters.businessId);
+    }
+
+    if (filters.applicantEmail) {
+      query = query.whereRaw('LOWER(job_applications.applicant_email) = ?', [
+        filters.applicantEmail.trim().toLowerCase(),
+      ]);
     }
 
     if (filters.status && filters.status !== 'all') {

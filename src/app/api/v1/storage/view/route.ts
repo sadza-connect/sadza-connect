@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { storageService } from '@/infrastructure/storage/storage-service';
+import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import { errorResponse } from '@/shared/utils/route-handler';
 import { AuthorizationError, NotFoundError, ValidationError } from '@/shared/errors/AppError';
@@ -32,15 +33,34 @@ export async function GET(req: NextRequest) {
 
     const cleanKey = key.replace(/^\/+/, '');
 
-    // If accessing confidential KYC documents, enforce admin or authenticated role
+    // Strict RLS: Confidential KYC documents can only be viewed by Super Admins or the specific business owner
     if (cleanKey.startsWith('kyc-documents/')) {
       const user = await getAuthenticatedUser(req, true);
       if (!user) {
         throw new AuthorizationError('Authentication required to view confidential KYC compliance records');
       }
-      // Only platform admins or merchants can view KYC records
-      if (user.role !== 'admin' && (user.role as any) !== 'merchant') {
-        throw new AuthorizationError('Unauthorized to inspect confidential compliance documents');
+      if (user.role !== 'admin') {
+        const myBusinesses = await businessRepository.findByUserId(user.id);
+        const ownsDocument = myBusinesses.some((biz) => {
+          let docs: any[] = [];
+          try {
+            docs = typeof biz.kyc_documents === 'string'
+              ? JSON.parse(biz.kyc_documents)
+              : Array.isArray(biz.kyc_documents)
+              ? biz.kyc_documents
+              : [];
+          } catch {
+            docs = [];
+          }
+          return docs.some((d: any) => {
+            const docRef = String(d?.url || d?.src || d?.key || d?.path || '');
+            return docRef.includes(cleanKey);
+          });
+        });
+
+        if (!ownsDocument) {
+          throw new AuthorizationError('Unauthorized to inspect confidential compliance documents belonging to another business');
+        }
       }
     }
 

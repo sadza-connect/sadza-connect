@@ -241,3 +241,19 @@ export async function safeFetchJson<T = any>(
 
   return firstAttempt;
 }
+
+/**
+ * Returns the active access token on the client, always prioritizing the
+ * server-set `sadza_access_token` cookie over `localStorage` so OAuth
+ * redirects never collide with stale browser storage.
+ */
+export function getClientAccessToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(new RegExp('(^|;\\s*)sadza_access_token=([^;]*)'));
+    if (match?.[2]) {
+      return decodeURIComponent(match[2]);
+    }
+  }
+  return localStorage.getItem('sadza_access_token');
+}

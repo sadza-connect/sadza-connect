@@ -31,6 +31,7 @@ import {
   PlatformSettings,
 } from '@/data/platformStore';
 import { PLATFORM_PRICING } from '@/lib/constants/pricing';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 
 type SectionId =
   | 'profile'
@@ -339,7 +340,7 @@ export default function AdminSettingsPage() {
 
     try {
       setIsSaving(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const token = getClientAccessToken();
 
       const res = await fetch('/api/v1/settings', {
         method: 'PUT',
@@ -418,7 +419,7 @@ export default function AdminSettingsPage() {
 
     try {
       setIsRotatingPassword(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const token = getClientAccessToken();
       const res = await fetch('/api/v1/auth/change-password', {
         method: 'POST',
         headers: {

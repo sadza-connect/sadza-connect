@@ -25,11 +25,17 @@ export async function GET(req: NextRequest) {
 
     const jobId = searchParams.get('job_id') || undefined;
     let businessId = searchParams.get('business_id') || undefined;
+    const myApplications = searchParams.get('my_applications') === 'true';
     const status = searchParams.get('status') || undefined;
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
 
-    if (user.role !== 'admin') {
+    let applicantEmail: string | undefined = undefined;
+
+    if (myApplications) {
+      applicantEmail = user.email.getValue().toLowerCase();
+      businessId = undefined;
+    } else if (user.role !== 'admin') {
       const myBusinesses = await businessRepository.findByUserId(user.id);
       const myBusinessIds = myBusinesses.map((b) => b.id);
 
@@ -45,6 +51,7 @@ export async function GET(req: NextRequest) {
     const result = await jobRepository.findApplications({
       jobId,
       businessId,
+      applicantEmail,
       status,
       page,
       limit,

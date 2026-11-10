@@ -50,15 +50,17 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
 
+    const user = await getAuthenticatedUser(req, true);
+    if (!user) {
+      throw new AuthorizationError('Authentication required to view utility payment records');
+    }
+
+    const isAdmin = user.role === 'admin';
     let targetUserId: string | undefined = undefined;
 
-    const user = await getAuthenticatedUser(req, false);
-    if (user && user.role !== 'admin') {
+    if (!isAdmin) {
       targetUserId = user.id;
     } else if (myBills) {
-      if (!user) {
-        throw new AuthorizationError('Authentication required to view your utility vault');
-      }
       targetUserId = user.id;
     }
 
@@ -71,12 +73,12 @@ export async function GET(req: NextRequest) {
       limit,
     });
 
-    const stats = await billRepository.getSummaryStats();
+    const stats = isAdmin ? await billRepository.getSummaryStats() : undefined;
 
     return jsonResponse(
       {
         ...result,
-        stats,
+        ...(stats ? { stats } : {}),
       },
       requestId,
       200

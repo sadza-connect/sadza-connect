@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { orderRepository } from '@/infrastructure/database/repositories/order-repository';
+import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { mapDbOrderToAdminOrderItem } from '@/lib/data/order-mapper';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
@@ -31,6 +32,11 @@ export async function GET(
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const caller = await getAuthenticatedUser(req, true);
+    if (!caller) {
+      throw new AuthorizationError('Authentication required to view order details');
+    }
+
     const { orderNumber } = await params;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderNumber);
 
@@ -44,6 +50,20 @@ export async function GET(
 
     if (!order) {
       throw new NotFoundError(`Order '${orderNumber}' was not found`);
+    }
+
+    const isAdmin = caller.role === 'admin';
+    const isBuyer = Boolean(order.user_id && order.user_id === caller.id);
+    let isSeller = false;
+    if (!isAdmin && !isBuyer && order.business_id) {
+      const biz = await businessRepository.findById(order.business_id);
+      if (biz && biz.user_id === caller.id) {
+        isSeller = true;
+      }
+    }
+
+    if (!isAdmin && !isBuyer && !isSeller) {
+      throw new AuthorizationError('You do not have permission to view this order');
     }
 
     return jsonResponse(

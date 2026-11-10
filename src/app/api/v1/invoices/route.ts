@@ -38,10 +38,13 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
 
-    const user = await getAuthenticatedUser(req, false);
+    const user = await getAuthenticatedUser(req, true);
+    if (!user) {
+      throw new AuthorizationError('Authentication required to view billing invoices');
+    }
 
-    // If caller is authenticated and non-admin, scope strictly to their businesses
-    if (user && user.role !== 'admin') {
+    // Non-admins are strictly scoped to their own businesses
+    if (user.role !== 'admin') {
       const myBusinesses = await businessRepository.findByUserId(user.id);
       const myIds = myBusinesses.map((b) => b.id);
       if (businessId && !myIds.includes(businessId)) {

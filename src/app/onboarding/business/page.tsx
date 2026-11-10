@@ -13,6 +13,7 @@ import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
 import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 import { useAuth } from '@/context/AuthContext';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import { validateUploadFile, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 import {
@@ -759,7 +760,7 @@ function BusinessOnboardingContent() {
     setVerificationSkipped(skipped);
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('sadza_access_token') : null;
+      const token = getClientAccessToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;

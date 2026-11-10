@@ -9,6 +9,7 @@ import {
   errorResponse,
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
+import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -88,7 +89,14 @@ export async function POST(req: NextRequest) {
       if (biz) targetBusinessId = biz.id;
     }
 
-    if (!targetBusinessId && user) {
+    if (targetBusinessId) {
+      const biz = await businessRepository.findById(targetBusinessId);
+      if (biz) {
+        if (!user || (user.role !== 'admin' && biz.user_id !== user.id)) {
+          throw new AuthorizationError('You do not have permission to publish adverts under this business storefront');
+        }
+      }
+    } else if (user) {
       const myBusinesses = await businessRepository.findByUserId(user.id);
       if (myBusinesses.length > 0) {
         targetBusinessId = myBusinesses[0].id;
