@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/Icons';
 import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 import { ActionLoader } from '@/components/ui/ActionLoader';
+import { GoogleAuthButton } from '@/components/ui/GoogleAuthButton';
 import { useAuth } from '@/context/AuthContext';
 import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
@@ -72,6 +73,26 @@ function LoginForm() {
   // Email verification modal state
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyEmailAddress, setVerifyEmailAddress] = useState('');
+
+  useEffect(() => {
+    const errCode = searchParams.get('error');
+    if (!errCode) return;
+
+    const messages: Record<string, string> = {
+      google_not_configured:
+        'Google Sign-In is not yet configured on this environment. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET or sign in with email and password.',
+      google_auth_cancelled: 'Google Sign-In was cancelled. Please try again or use your email and password.',
+      google_state_invalid: 'Google Sign-In session expired. Please try again.',
+      google_email_unverified: 'Your Google account email is not verified. Please verify your email with Google first.',
+      google_auth_failed: 'Unable to complete Google Sign-In. Please try again or sign in with email and password.',
+      google_token_exchange_failed: 'Could not verify authorization with Google. Please try again.',
+      google_profile_failed: 'Could not retrieve your Google profile details. Please try again.',
+    };
+
+    if (messages[errCode]) {
+      setErrorMessage(messages[errCode]);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,22 +220,40 @@ function LoginForm() {
 
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xs">
             {/* Header */}
-            <div className="mb-6">
+            <div className="mb-5">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Sign in to your account
               </h2>
               <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Enter your registered email address and password to sign in.
+                Sign in instantly with Google or use your registered email and password.
               </p>
             </div>
 
+            {errorMessage && (
+              <div className="mb-4 rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* 1-Click Google Sign-In */}
+            <div className="mb-4">
+              <GoogleAuthButton
+                mode="login"
+                redirect={searchParams.get('redirect') || undefined}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="relative my-5 flex items-center">
+              <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+              <span className="mx-3 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                or sign in with email
+              </span>
+              <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
-              {errorMessage && (
-                <div className="rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
 
               {/* Email Address Input */}
               <div>

@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
+  currentPassword: z.string().optional(),
   newPassword: z.string().min(8, 'New password must be at least 8 characters long'),
 });
 
@@ -33,12 +33,17 @@ export async function POST(req: NextRequest) {
       changePasswordSchema
     );
 
-    const isMatch = await bcrypt.compare(
-      currentPassword,
-      caller.passwordHash.getValue()
-    );
-    if (!isMatch) {
-      throw new AuthenticationError('Current password is incorrect');
+    if (caller.passwordHash) {
+      if (!currentPassword) {
+        throw new AuthenticationError('Current password is required');
+      }
+      const isMatch = await bcrypt.compare(
+        currentPassword,
+        caller.passwordHash.getValue()
+      );
+      if (!isMatch) {
+        throw new AuthenticationError('Current password is incorrect');
+      }
     }
 
     const newHash = await bcrypt.hash(newPassword, 12);

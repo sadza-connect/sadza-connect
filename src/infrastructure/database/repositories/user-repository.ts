@@ -16,7 +16,9 @@ export interface UserRow {
   full_name: string;
   email: string;
   phone_number: string | null;
-  password_hash: string;
+  password_hash: string | null;
+  google_id?: string | null;
+  auth_provider?: string | null;
   province: string | null;
   business_name: string | null;
   sector: string | null;
@@ -37,7 +39,9 @@ export function rowToUser(row: UserRow): User {
     role: userRoleFromString(row.role),
     fullName: row.full_name,
     email: Email.create(row.email),
-    passwordHash: PasswordHash.create(row.password_hash),
+    passwordHash: row.password_hash ? PasswordHash.create(row.password_hash) : undefined,
+    googleId: row.google_id ?? undefined,
+    authProvider: row.auth_provider ?? 'local',
     phoneNumber: row.phone_number ?? undefined,
     province: row.province ?? undefined,
     businessName: row.business_name ?? undefined,
@@ -61,7 +65,9 @@ export function userToRow(user: User): Omit<UserRow, 'created_at' | 'updated_at'
     full_name: user.fullName,
     email: user.email.getValue(),
     phone_number: user.phoneNumber ?? null,
-    password_hash: user.passwordHash.getValue(),
+    password_hash: user.passwordHash ? user.passwordHash.getValue() : null,
+    google_id: user.googleId ?? null,
+    auth_provider: user.authProvider || 'local',
     province: user.province ?? null,
     business_name: user.businessName ?? null,
     sector: user.sector ?? null,
@@ -92,6 +98,15 @@ export class UserRepository {
     const normalized = email.trim().toLowerCase();
     const row = await this.db<UserRow>('users')
       .whereRaw('LOWER(email) = ?', [normalized])
+      .whereNull('deleted_at')
+      .first();
+
+    return row ? rowToUser(row) : null;
+  }
+
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    const row = await this.db<UserRow>('users')
+      .where({ google_id: googleId })
       .whereNull('deleted_at')
       .first();
 

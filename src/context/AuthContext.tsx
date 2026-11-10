@@ -54,24 +54,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const refreshToken =
         localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
-      if (!refreshToken) return false;
 
       const apiUrl = getApiBaseUrl();
       const res = await safeFetchJson(`${apiUrl}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        credentials: 'include',
+        body: JSON.stringify(refreshToken ? { refreshToken } : {}),
       });
 
       if (res.ok && res.data?.data?.accessToken) {
         const payload = res.data.data;
         localStorage.setItem('sadza_user', JSON.stringify(payload.user));
         localStorage.setItem('sadza_access_token', payload.accessToken);
-        localStorage.setItem('sadza_refresh_token', payload.refreshToken);
+        if (payload.refreshToken) {
+          localStorage.setItem('sadza_refresh_token', payload.refreshToken);
+          setCookie('sadza_refresh_token', payload.refreshToken, 7 * 24 * 60 * 60);
+        }
 
         setCookie('sadza_access_token', payload.accessToken, 15 * 60);
-        setCookie('sadza_refresh_token', payload.refreshToken, 7 * 24 * 60 * 60);
-
         setUser(payload.user);
         return true;
       }
@@ -91,30 +92,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const token = localStorage.getItem('sadza_access_token') || getCookie('sadza_access_token');
         const refreshToken = localStorage.getItem('sadza_refresh_token') || getCookie('sadza_refresh_token');
 
-        if (token && storedUser) {
-          try {
-            const parsed = JSON.parse(storedUser);
-            if (isMounted) setUser(parsed);
-          } catch {
-            // invalid JSON
+        if (token) {
+          if (storedUser) {
+            try {
+              const parsed = JSON.parse(storedUser);
+              if (isMounted) setUser(parsed);
+            } catch {
+              // invalid JSON
+            }
           }
 
           if (!getCookie('sadza_access_token')) {
             setCookie('sadza_access_token', token, 15 * 60);
           }
 
-          // Verify token with backend
+          // Verify token with backend (also hydrates localStorage after server-side OAuth redirect)
           const apiUrl = getApiBaseUrl();
           const meRes = await safeFetchJson(`${apiUrl}/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
+            credentials: 'include',
           });
 
           if (meRes.ok && meRes.data?.data?.user) {
             if (isMounted) {
               setUser(meRes.data.data.user);
               localStorage.setItem('sadza_user', JSON.stringify(meRes.data.data.user));
+              localStorage.setItem('sadza_access_token', token);
             }
-          } else if (refreshToken) {
+          } else {
             // Try refreshing if access token expired
             const refreshed = await refreshSession();
             if (!refreshed && isMounted) {
@@ -127,7 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } else if (refreshToken) {
-          // Token missing but refresh token present
           await refreshSession();
         } else {
           if (isMounted) setUser(null);

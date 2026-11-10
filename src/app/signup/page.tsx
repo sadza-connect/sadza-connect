@@ -22,6 +22,7 @@ import {
 import { Store, User, Sparkles, CheckCircle2, ChevronDown } from 'lucide-react';
 import { VerifyEmailModal } from '@/components/ui/VerifyEmailModal';
 import { ActionLoader } from '@/components/ui/ActionLoader';
+import { GoogleAuthButton } from '@/components/ui/GoogleAuthButton';
 import { useAuth } from '@/context/AuthContext';
 import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
@@ -73,6 +74,26 @@ function SignupFormContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [isNavigatingToNextStage, setIsNavigatingToNextStage] = useState(false);
+
+  useEffect(() => {
+    const errCode = searchParams.get('error');
+    if (!errCode) return;
+
+    const messages: Record<string, string> = {
+      google_not_configured:
+        'Google Sign-Up is not yet configured on this environment. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET or register with email below.',
+      google_auth_cancelled: 'Google Sign-Up was cancelled. Please try again or complete the form below.',
+      google_state_invalid: 'Google Sign-Up session expired. Please try again.',
+      google_email_unverified: 'Your Google account email is not verified. Please verify your email with Google first.',
+      google_auth_failed: 'Unable to complete Google Sign-Up. Please try again or use the form below.',
+      google_token_exchange_failed: 'Could not verify authorization with Google. Please try again.',
+      google_profile_failed: 'Could not retrieve your Google profile details. Please try again.',
+    };
+
+    if (messages[errCode]) {
+      setErrorMessage(messages[errCode]);
+    }
+  }, [searchParams]);
 
   const getFormattedPhone = () => {
     return formatE164Phone(countryCode, phoneNumber);
@@ -444,14 +465,35 @@ function SignupFormContent() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              {errorMessage && (
+                <div className="mb-4 rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
-                  {errorMessage && (
-                    <div className="rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                      <span>{errorMessage}</span>
-                    </div>
-                  )}
+              {/* 1-Click Google Registration */}
+              <div className="mb-4 space-y-1.5">
+                <GoogleAuthButton
+                  mode={selectedType === 'business' ? 'signup_business' : 'signup_personal'}
+                  disabled={isLoading}
+                />
+                {selectedType === 'business' && (
+                  <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
+                    Sign up instantly with Google, then complete your business storefront &amp; KYC setup.
+                  </p>
+                )}
+              </div>
+
+              <div className="relative my-5 flex items-center">
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+                <span className="mx-3 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  or register with email
+                </span>
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
 
                   {/* Full Name Field */}
                   <div>

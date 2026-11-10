@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { getDb } from '@/infrastructure/database/connection';
+import { JwtService } from '@/application/auth/jwt-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -184,14 +186,47 @@ export async function POST(req: NextRequest) {
 
     invalidateBusinessDirectoryCache();
 
-    return jsonResponse(
+    let updatedAccessToken: string | undefined;
+    if (user && user.role === 'customer') {
+      const db = getDb();
+      await db('users')
+        .where({ id: user.id })
+        .update({
+          role: 'merchant',
+          account_type: 'business',
+          updated_at: db.fn.now(),
+        });
+
+      const jwtService = new JwtService();
+      updatedAccessToken = jwtService.generateAccessToken({
+        userId: user.id,
+        role: 'merchant',
+        email: user.email.getValue(),
+        accountType: 'business',
+      });
+    }
+
+    const response = jsonResponse(
       {
         message: 'Business listing created successfully and submitted for verification.',
         business,
+        ...(updatedAccessToken ? { accessToken: updatedAccessToken } : {}),
       },
       requestId,
       201
     );
+
+    if (updatedAccessToken) {
+      response.cookies.set('sadza_access_token', updatedAccessToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 15 * 60,
+      });
+    }
+
+    return response;
   } catch (err) {
     return errorResponse(err, requestId);
   }

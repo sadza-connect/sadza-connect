@@ -141,6 +141,12 @@ export class AuthService {
       throw new AuthenticationError('Invalid email or password');
     }
 
+    if (!user.passwordHash) {
+      throw new AuthenticationError(
+        'This account uses Google Sign-In. Please click "Continue with Google" to sign in.',
+      );
+    }
+
     const isValid = await bcrypt.compare(password, user.passwordHash.getValue());
     if (!isValid) {
       throw new AuthenticationError('Invalid email or password');
@@ -154,6 +160,62 @@ export class AuthService {
     const tokens = await this.generateTokens(user, undefined, deviceFingerprint, ipAddress);
 
     return { user, tokens };
+  }
+
+  async authenticateWithGoogle(params: {
+    googleId: string;
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+    requestedAccountType?: 'personal' | 'business';
+    deviceFingerprint?: string;
+    ipAddress?: string;
+  }): Promise<AuthResult & { isNewUser: boolean }> {
+    const normalizedEmail = params.email.trim().toLowerCase();
+    let isNewUser = false;
+
+    let user = await this.userRepo.findByGoogleId(params.googleId);
+
+    if (!user) {
+      const existingByEmail = await this.userRepo.findByEmail(normalizedEmail);
+      if (existingByEmail) {
+        user = await this.userRepo.update(
+          existingByEmail.withGoogleAccount(params.googleId, params.avatarUrl),
+        );
+      }
+    }
+
+    if (!user) {
+      isNewUser = true;
+      const isBusiness = params.requestedAccountType === 'business';
+      const newUser = User.create({
+        id: randomUUID(),
+        accountType: isBusiness ? 'business' : 'personal',
+        role: isBusiness ? UserRole.MERCHANT : UserRole.CUSTOMER,
+        fullName: params.fullName.trim() || normalizedEmail.split('@')[0] || 'Sadza User',
+        email: Email.create(normalizedEmail),
+        googleId: params.googleId,
+        authProvider: 'google',
+        avatarUrl: params.avatarUrl,
+        accountStatus: AccountStatus.ACTIVE,
+        isVerified: true,
+      });
+      user = await this.userRepo.create(newUser);
+    }
+
+    if (!user.canLogin()) {
+      throw new AuthenticationError('This account has been deactivated or suspended');
+    }
+
+    await this.userRepo.updateLastLogin(user.id);
+    const tokens = await this.generateTokens(
+      user,
+      undefined,
+      params.deviceFingerprint,
+      params.ipAddress,
+    );
+
+    return { user, tokens, isNewUser };
   }
 
   async refresh(

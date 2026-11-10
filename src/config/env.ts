@@ -95,6 +95,10 @@ const envSchema = z.object({
     .default('Sadza Connect <noreply@mail.shelterfaithapps.xyz>')
     .catch('Sadza Connect <noreply@mail.shelterfaithapps.xyz>'),
 
+  // ─── Google OAuth ─────────────────────────────────────
+  GOOGLE_CLIENT_ID: z.string().default('').catch(''),
+  GOOGLE_CLIENT_SECRET: z.string().default('').catch(''),
+
   // ─── Logging ─────────────────────────────────────────
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).catch('info'),
   LOG_FORMAT: z.enum(['json', 'pretty']).catch('json'),

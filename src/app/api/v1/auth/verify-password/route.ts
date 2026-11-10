@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
 
     const { password } = await parseAndValidateBody(req, verifyPasswordSchema);
 
+    if (!caller.passwordHash) {
+      throw new AuthenticationError('No local password configured for this account');
+    }
+
     const isValid = await bcrypt.compare(password, caller.passwordHash.getValue());
     if (!isValid) {
       throw new AuthenticationError('Invalid administrator credentials');

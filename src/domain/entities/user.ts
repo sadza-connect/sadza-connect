@@ -7,7 +7,9 @@ export interface UserParams {
   role: UserRole;
   fullName: string;
   email: Email;
-  passwordHash: PasswordHash;
+  passwordHash?: PasswordHash;
+  googleId?: string;
+  authProvider?: string;
   phoneNumber?: string;
   province?: string;
   businessName?: string;
@@ -28,7 +30,9 @@ export class User {
   public readonly role: UserRole;
   public readonly fullName: string;
   public readonly email: Email;
-  public readonly passwordHash: PasswordHash;
+  public readonly passwordHash?: PasswordHash;
+  public readonly googleId?: string;
+  public readonly authProvider: string;
   public readonly phoneNumber?: string;
   public readonly province?: string;
   public readonly businessName?: string;
@@ -52,6 +56,8 @@ export class User {
     this.fullName = params.fullName.trim();
     this.email = params.email;
     this.passwordHash = params.passwordHash;
+    this.googleId = params.googleId?.trim();
+    this.authProvider = params.authProvider?.trim() || 'local';
     this.phoneNumber = params.phoneNumber?.trim();
     this.province = params.province?.trim();
     this.businessName = params.businessName?.trim();
@@ -112,6 +118,16 @@ export class User {
     });
   }
 
+  withGoogleAccount(googleId: string, avatarUrl?: string): User {
+    return new User({
+      ...this.toParams(),
+      googleId,
+      isVerified: true,
+      avatarUrl: this.avatarUrl || avatarUrl,
+      updatedAt: new Date(),
+    });
+  }
+
   toParams(): UserParams {
     return {
       id: this.id,
@@ -120,6 +136,8 @@ export class User {
       fullName: this.fullName,
       email: this.email,
       passwordHash: this.passwordHash,
+      googleId: this.googleId,
+      authProvider: this.authProvider,
       phoneNumber: this.phoneNumber,
       province: this.province,
       businessName: this.businessName,

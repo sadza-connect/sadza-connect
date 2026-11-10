@@ -12,6 +12,7 @@ import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
 import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
 import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
+import { useAuth } from '@/context/AuthContext';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import { validateUploadFile, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 import {
@@ -438,13 +439,14 @@ interface UploadedDocument {
 
 function BusinessOnboardingContent() {
   const searchParams = useSearchParams();
+  const { user, updateUser } = useAuth();
 
-  // Query parameters pre-population
+  // Query parameters pre-population with authenticated session fallback
   const [registeredBusinessName, setRegisteredBusinessName] = useState(() => searchParams.get('name') || '');
-  const registeredOwner = searchParams.get('owner') || '';
-  const registeredEmail = searchParams.get('email') || 'verified@business.co.zw';
+  const registeredOwner = searchParams.get('owner') || user?.fullName || '';
+  const registeredEmail = searchParams.get('email') || user?.email || 'verified@business.co.zw';
   const registeredPhone = searchParams.get('phone') || '+263 77 000 0000';
-  const isEmailVerified = searchParams.get('verified') === 'true';
+  const isEmailVerified = searchParams.get('verified') === 'true' || Boolean(user?.isVerified);
 
   // Progressive disclosure selection states - default to null (no pre-selection)
   const [onboardingTrack, setOnboardingTrack] = useState<OnboardingTrack | null>(null);
@@ -799,6 +801,12 @@ function BusinessOnboardingContent() {
       }
       if (data.data?.business?.slug) {
         setCreatedSlug(data.data.business.slug);
+      }
+      if (data.data?.accessToken) {
+        try {
+          localStorage.setItem('sadza_access_token', data.data.accessToken);
+        } catch {}
+        updateUser({ role: 'merchant', accountType: 'business' });
       }
       // Mark onboarding completed and purge draft
       setOnboardingCompleted(true);
