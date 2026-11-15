@@ -10,7 +10,14 @@ import { CategoryCombobox } from '@/components/ui/CategoryCombobox';
 import { ActionLoader } from '@/components/ui/ActionLoader';
 import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
 import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
-import { formatE164Phone, parsePhoneComponents, detectCountryFromPhone, CountryDialInfo } from '@/lib/data/countries';
+import {
+  formatE164Phone,
+  parsePhoneComponents,
+  detectCountryFromPhone,
+  CountryDialInfo,
+  ZIMBABWE_PROVINCES,
+  POPULAR_DIASPORA_COUNTRIES,
+} from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 import { useAuth } from '@/context/AuthContext';
 import { getClientAccessToken } from '@/shared/utils/api-client';
@@ -51,17 +58,9 @@ export type OfferingType = 'products' | 'services' | 'both';
 export type ServiceMode = 'physical_premises' | 'mobile_delivery' | 'both_modes';
 
 const PROVINCES = [
-  'Harare',
-  'Bulawayo',
-  'Midlands',
-  'Manicaland',
-  'Masvingo',
-  'Mashonaland East',
-  'Mashonaland West',
-  'Mashonaland Central',
-  'Matabeleland North',
-  'Matabeleland South',
+  ...ZIMBABWE_PROVINCES,
   'Diaspora',
+  ...POPULAR_DIASPORA_COUNTRIES.map((c) => `Diaspora — ${c.name}`),
 ];
 
 export interface OnboardingTrackOption {
@@ -1719,13 +1718,25 @@ function BusinessOnboardingContent() {
                           }`}
                         >
                           <option value="" disabled className="text-slate-400">
-                            Select your province...
+                            Select province or operating region...
                           </option>
-                          {PROVINCES.map((prov) => (
-                            <option key={prov} value={prov} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                              {prov}
-                            </option>
-                          ))}
+                          <optgroup label="Zimbabwe Operating Provinces">
+                            {ZIMBABWE_PROVINCES.map((prov) => (
+                              <option key={prov} value={prov} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                                🇿🇼 {prov}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Diaspora & Cross-Border Headquarters">
+                            {POPULAR_DIASPORA_COUNTRIES.map((c) => {
+                              const diasporaVal = `Diaspora — ${c.name}`;
+                              return (
+                                <option key={diasporaVal} value={diasporaVal} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                                  {c.flag} {diasporaVal}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
                         </select>
                       </div>
                     </div>

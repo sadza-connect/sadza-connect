@@ -27,21 +27,15 @@ import { useAuth } from '@/context/AuthContext';
 import { useCelebration } from '@/context/CelebrationContext';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
-const PROVINCES = [
-  'Harare',
-  'Bulawayo',
-  'Midlands',
-  'Manicaland',
-  'Masvingo',
-  'Mashonaland East',
-  'Mashonaland West',
-  'Mashonaland Central',
-  'Matabeleland North',
-  'Matabeleland South',
-  'Diaspora',
-];
-
-import { ALL_COUNTRIES, formatE164Phone, detectCountryFromPhone, CountryDialInfo } from '@/lib/data/countries';
+import {
+  ALL_COUNTRIES,
+  formatE164Phone,
+  detectCountryFromPhone,
+  CountryDialInfo,
+  ZIMBABWE_PROVINCES,
+  POPULAR_DIASPORA_COUNTRIES,
+  getDiasporaLocationName,
+} from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 
 function SignupFormContent() {
@@ -64,7 +58,7 @@ function SignupFormContent() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState('+263');
   const [detectedCountry, setDetectedCountry] = useState<CountryDialInfo | null>(null);
-  const [province, setProvince] = useState(PROVINCES[0]);
+  const [province, setProvince] = useState<string>(ZIMBABWE_PROVINCES[0]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -85,8 +79,14 @@ function SignupFormContent() {
     if (detection.detected && detection.country) {
       if (detection.dialCode !== countryCode) {
         setCountryCode(detection.dialCode);
-        if (detection.dialCode !== '+263' && selectedType === 'personal' && province !== 'Diaspora') {
-          setProvince('Diaspora');
+        if (selectedType === 'personal') {
+          if (detection.dialCode === '+263') {
+            if (province.startsWith('Diaspora')) {
+              setProvince('Harare');
+            }
+          } else {
+            setProvince(getDiasporaLocationName(detection.country.name));
+          }
         }
       }
       setDetectedCountry(detection.country);
@@ -586,9 +586,17 @@ function SignupFormContent() {
                           value={countryCode}
                           onChange={(newCode, country) => {
                             setCountryCode(newCode);
-                            if (country) setDetectedCountry(country);
-                            if (newCode !== '+263' && selectedType === 'personal' && province !== 'Diaspora') {
-                              setProvince('Diaspora');
+                            if (country) {
+                              setDetectedCountry(country);
+                              if (selectedType === 'personal') {
+                                if (newCode === '+263') {
+                                  if (province.startsWith('Diaspora')) {
+                                    setProvince('Harare');
+                                  }
+                                } else {
+                                  setProvince(getDiasporaLocationName(country.name));
+                                }
+                              }
                             }
                           }}
                         />
@@ -619,9 +627,16 @@ function SignupFormContent() {
                   {/* Province / Location Selector (Personal accounts only — Business accounts configure this in Onboarding) */}
                   {selectedType === 'personal' && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                        Where are you based?
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100">
+                          {countryCode === '+263' ? 'Where are you based in Zimbabwe?' : 'Your Location / Country of Residence'}
+                        </label>
+                        {province.startsWith('Diaspora') && (
+                          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/80 animate-in fade-in duration-200">
+                            🌐 Diaspora Account
+                          </span>
+                        )}
+                      </div>
                       <div className="relative flex items-center group">
                         <MapPinIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 dark:text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                         <select
@@ -629,13 +644,40 @@ function SignupFormContent() {
                           onChange={(e) => setProvince(e.target.value)}
                           className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-8 text-xs text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 cursor-pointer font-medium"
                         >
-                          {PROVINCES.map((prov) => (
-                            <option key={prov} value={prov} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                              {prov}
-                            </option>
-                          ))}
+                          {/* If detected country is international, pin it first */}
+                          {detectedCountry && detectedCountry.dialCode !== '+263' && (
+                            <optgroup label="Auto-Detected Country">
+                              <option value={getDiasporaLocationName(detectedCountry.name)} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold">
+                                {detectedCountry.flag} {getDiasporaLocationName(detectedCountry.name)}
+                              </option>
+                            </optgroup>
+                          )}
+
+                          <optgroup label="Zimbabwe Provinces">
+                            {ZIMBABWE_PROVINCES.map((prov) => (
+                              <option key={prov} value={prov} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                                🇿🇼 {prov}
+                              </option>
+                            ))}
+                          </optgroup>
+
+                          <optgroup label="Diaspora & International Hubs">
+                            {POPULAR_DIASPORA_COUNTRIES.map((c) => {
+                              const diasporaVal = `Diaspora — ${c.name}`;
+                              return (
+                                <option key={diasporaVal} value={diasporaVal} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                                  {c.flag} {diasporaVal}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
                         </select>
                       </div>
+                      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        {countryCode === '+263'
+                          ? 'Select your current province in Zimbabwe.'
+                          : 'Diaspora accounts can buy ZESA electricity tokens, order groceries, and contract verified services in Zimbabwe.'}
+                      </p>
                     </div>
                   )}
 

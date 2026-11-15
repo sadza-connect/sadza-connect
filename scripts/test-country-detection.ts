@@ -1,4 +1,11 @@
-import { detectCountryFromPhone, formatE164Phone } from '../src/lib/data/countries.js';
+import {
+  detectCountryFromPhone,
+  formatE164Phone,
+  normalizePhoneNumber,
+  parsePhoneComponents,
+  getDiasporaLocationName,
+  ZIMBABWE_PROVINCES,
+} from '../src/lib/data/countries.js';
 
 console.log('--- Testing Intelligent Phone Country Auto-Detection ---');
 
@@ -206,11 +213,41 @@ if (formatTrunkZero === '+2349030098304') {
   failed++;
 }
 
+// Diaspora & Contextual Location Tests
+console.log('\n--- Testing Diaspora Location Resolution ---');
+if (getDiasporaLocationName('Nigeria') === 'Diaspora — Nigeria') {
+  console.log('✅ PASS: getDiasporaLocationName("Nigeria") -> "Diaspora — Nigeria"');
+} else {
+  console.error('❌ FAIL: getDiasporaLocationName("Nigeria")');
+  failed++;
+}
+
+if (getDiasporaLocationName('United Kingdom') === 'Diaspora — United Kingdom') {
+  console.log('✅ PASS: getDiasporaLocationName("United Kingdom") -> "Diaspora — United Kingdom"');
+} else {
+  console.error('❌ FAIL: getDiasporaLocationName("United Kingdom")');
+  failed++;
+}
+
+if (getDiasporaLocationName('Zimbabwe') === 'Harare') {
+  console.log('✅ PASS: getDiasporaLocationName("Zimbabwe") -> "Harare"');
+} else {
+  console.error('❌ FAIL: getDiasporaLocationName("Zimbabwe")');
+  failed++;
+}
+
+if (ZIMBABWE_PROVINCES.length === 10 && ZIMBABWE_PROVINCES.includes('Harare') && ZIMBABWE_PROVINCES.includes('Bulawayo')) {
+  console.log('✅ PASS: ZIMBABWE_PROVINCES contains all 10 official Zimbabwean provinces');
+} else {
+  console.error('❌ FAIL: ZIMBABWE_PROVINCES');
+  failed++;
+}
+
 if (failed > 0) {
   console.error(`\n❌ ${failed} tests failed!`);
   process.exit(1);
 } else {
-  console.log('\n🎉 ALL AUTO-DETECTION & TRUNK ZERO TESTS PASSED 100%!\n');
+  console.log('\n🎉 ALL AUTO-DETECTION, TRUNK ZERO & DIASPORA LOCATION TESTS PASSED 100%!\n');
   process.exit(0);
 }
 

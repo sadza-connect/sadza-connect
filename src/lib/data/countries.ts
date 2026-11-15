@@ -525,3 +525,52 @@ export function normalizePhoneNumber(rawInput: string, defaultDialCode = '+263')
   return formatE164Phone(defaultDialCode, trimmed);
 }
 
+/**
+ * Official 10 administrative provinces of Zimbabwe.
+ */
+export const ZIMBABWE_PROVINCES = [
+  'Harare',
+  'Bulawayo',
+  'Midlands',
+  'Manicaland',
+  'Masvingo',
+  'Mashonaland East',
+  'Mashonaland West',
+  'Mashonaland Central',
+  'Matabeleland North',
+  'Matabeleland South',
+] as const;
+
+/**
+ * Top diaspora destinations & regional trade partner countries for Zimbabwe.
+ */
+export const POPULAR_DIASPORA_COUNTRIES = [
+  { name: 'South Africa', flag: '🇿🇦' },
+  { name: 'United Kingdom', flag: '🇬🇧' },
+  { name: 'Botswana', flag: '🇧🇼' },
+  { name: 'Nigeria', flag: '🇳🇬' },
+  { name: 'United States', flag: '🇺🇸' },
+  { name: 'Canada', flag: '🇨🇦' },
+  { name: 'Australia', flag: '🇦🇺' },
+  { name: 'Zambia', flag: '🇿🇲' },
+  { name: 'Mozambique', flag: '🇲🇿' },
+  { name: 'Namibia', flag: '🇳🇦' },
+  { name: 'Malawi', flag: '🇲🇼' },
+  { name: 'Kenya', flag: '🇰🇪' },
+  { name: 'Ghana', flag: '🇬🇭' },
+  { name: 'United Arab Emirates', flag: '🇦🇪' },
+  { name: 'Ireland', flag: '🇮🇪' },
+  { name: 'New Zealand', flag: '🇳🇿' },
+  { name: 'China', flag: '🇨🇳' },
+  { name: 'India', flag: '🇮🇳' },
+  { name: 'Other International', flag: '🌐' },
+];
+
+/**
+ * Returns a standardized location label for diaspora users based on their country.
+ */
+export function getDiasporaLocationName(countryName: string): string {
+  if (!countryName || countryName === 'Zimbabwe') return 'Harare';
+  return `Diaspora — ${countryName}`;
+}
+
