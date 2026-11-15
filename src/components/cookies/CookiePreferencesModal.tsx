@@ -50,7 +50,7 @@ export function CookiePreferencesModal() {
             </h2>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            Customize how cookies and local device storage are utilized while navigating Sadza Connect. Essential security cookies cannot be deactivated as they are required for account login and basic platform functionality.
+            Customize how cookies and local device storage are utilized while navigating MySadza Connect. Essential security cookies cannot be deactivated as they are required for account login and basic platform functionality.
           </p>
         </div>
 
