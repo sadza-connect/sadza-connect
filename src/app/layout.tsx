@@ -8,6 +8,7 @@ import { ToastProvider } from '@/components/providers/ToastProvider';
 import { CookieConsentProvider } from '@/context/CookieConsentContext';
 import { CookieConsentBanner } from '@/components/cookies/CookieConsentBanner';
 import { CookiePreferencesModal } from '@/components/cookies/CookiePreferencesModal';
+import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker';
 import { CelestialSky } from '@/components/animations/CelestialSky';
 import { AuthCelebrationModal } from '@/components/ui/AuthCelebrationModal';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
@@ -89,6 +90,7 @@ export default function RootLayout({
                   <MobileBottomNav />
                   <CookieConsentBanner />
                   <CookiePreferencesModal />
+                  <AnalyticsTracker />
                 </ToastProvider>
               </CelebrationProvider>
             </CookieConsentProvider>

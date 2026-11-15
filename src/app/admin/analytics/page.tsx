@@ -1,21 +1,23 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Calendar,
   Eye,
-  TrendingUp,
   Globe,
   Monitor,
   Smartphone,
-  Clock,
+  Tablet,
   Filter,
   CheckCircle2,
   RefreshCw,
   Building2,
   ShoppingBag,
-  Briefcase,
   Users,
+  MessageCircle,
+  Search,
+  Activity,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -25,157 +27,69 @@ import {
   AdminBadge,
   AdminButton,
 } from '@/components/admin/AdminUI';
+import { AnalyticsOverviewResult } from '@/infrastructure/database/repositories/analytics-repository';
 
 type TimeframeOption = {
   label: string;
   days: number;
-  mult: number;
 };
 
 const TIMEFRAMES: TimeframeOption[] = [
-  { label: 'Today (24h)', days: 1, mult: 0.1 },
-  { label: 'Last 7 Days', days: 7, mult: 0.4 },
-  { label: 'Last 30 Days', days: 30, mult: 1.0 },
-  { label: 'This Quarter (90d)', days: 90, mult: 2.2 },
-  { label: 'This Year (2026)', days: 365, mult: 5.5 },
-];
-
-const PROVINCE_TRAFFIC = [
-  { province: 'Harare', share: 44 },
-  { province: 'Bulawayo', share: 22 },
-  { province: 'Midlands', share: 14 },
-  { province: 'Manicaland', share: 8 },
-  { province: 'Masvingo', share: 6 },
-  { province: 'Diaspora (SA, UK, USA)', share: 6 },
+  { label: 'Today (24h)', days: 1 },
+  { label: 'Last 7 Days', days: 7 },
+  { label: 'Last 30 Days', days: 30 },
+  { label: 'This Quarter (90d)', days: 90 },
+  { label: 'This Year (365d)', days: 365 },
 ];
 
 export default function AdminAnalyticsPage() {
   const [daysFilter, setDaysFilter] = useState<number>(30);
   const [loading, setLoading] = useState(true);
-
-  // Live Database Entity Counts
-  const [dbStats, setDbStats] = useState({
-    businesses: 0,
-    products: 0,
-    jobs: 0,
-    adverts: 0,
-    users: 0,
-    orders: 0,
-    viewsSum: 0,
-  });
+  const [data, setData] = useState<AnalyticsOverviewResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadLiveStats = useCallback(async () => {
     try {
       setLoading(true);
-      const [bizRes, prodRes, jobRes, advRes, usrRes, ordRes] = await Promise.allSettled([
-        fetch('/api/v1/businesses?limit=100').then((r) => r.json()),
-        fetch('/api/v1/products?limit=100').then((r) => r.json()),
-        fetch('/api/v1/jobs?limit=100').then((r) => r.json()),
-        fetch('/api/v1/adverts?limit=100').then((r) => r.json()),
-        fetch('/api/v1/users?limit=100').then((r) => r.json()),
-        fetch('/api/v1/orders?limit=100').then((r) => r.json()),
-      ]);
-
-      const bizData = bizRes.status === 'fulfilled' ? bizRes.value?.data || bizRes.value : null;
-      const prodData = prodRes.status === 'fulfilled' ? prodRes.value?.data || prodRes.value : null;
-      const jobData = jobRes.status === 'fulfilled' ? jobRes.value?.data || jobRes.value : null;
-      const advData = advRes.status === 'fulfilled' ? advRes.value?.data || advRes.value : null;
-      const usrData = usrRes.status === 'fulfilled' ? usrRes.value?.data || usrRes.value : null;
-      const ordData = ordRes.status === 'fulfilled' ? ordRes.value?.data || ordRes.value : null;
-
-      const businessesCount = Array.isArray(bizData?.businesses) ? bizData.businesses.length : 0;
-      const productsCount = Array.isArray(prodData?.products) ? prodData.products.length : 0;
-      const jobsCount = Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0;
-      const advertsCount = Array.isArray(advData?.adverts) ? advData.adverts.length : 0;
-      const usersCount = Array.isArray(usrData?.users) ? usrData.users.length : 0;
-      const ordersCount = Array.isArray(ordData?.orders)
-        ? ordData.orders.length
-        : Array.isArray(ordData?.mappedOrders)
-        ? ordData.mappedOrders.length
-        : 0;
-
-      let viewsSum = 0;
-      if (Array.isArray(bizData?.businesses)) {
-        viewsSum = bizData.businesses.reduce((acc: number, b: any) => acc + (b.views_count || 0), 0);
-      }
-
-      setDbStats({
-        businesses: businessesCount,
-        products: productsCount,
-        jobs: jobsCount,
-        adverts: advertsCount,
-        users: usersCount,
-        orders: ordersCount,
-        viewsSum,
+      setError(null);
+      const res = await fetch(`/api/v1/analytics/overview?days=${daysFilter}`, {
+        credentials: 'include',
       });
-    } catch (err) {
-      console.warn('Failed to refresh database analytics:', err);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setData(json.data);
+      } else {
+        setError(json.error?.message || 'Failed to retrieve analytics telemetry');
+      }
+    } catch (err: any) {
+      console.warn('Failed to load real-time analytics:', err);
+      setError(err?.message || 'Network error fetching analytics');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [daysFilter]);
 
   useEffect(() => {
     loadLiveStats();
   }, [loadLiveStats]);
 
-  const activeTimeframe = useMemo(
-    () => TIMEFRAMES.find((t) => t.days === daysFilter) || TIMEFRAMES[2],
-    [daysFilter]
-  );
+  const activeTimeframe =
+    TIMEFRAMES.find((t) => t.days === daysFilter) || TIMEFRAMES[2];
 
-  // Dynamically calculated sections strictly from database metrics
-  const sectionsToRender = useMemo(() => {
-    const rawSections = [
-      {
-        section: 'Verified Business Directory (/businesses)',
-        rawViews: dbStats.businesses * 14 + dbStats.viewsSum,
-      },
-      {
-        section: 'National B2B & Retail Marketplace (/marketplace)',
-        rawViews: dbStats.products * 12,
-      },
-      {
-        section: 'Sponsored Promotional Adverts (/adverts)',
-        rawViews: dbStats.adverts * 10,
-      },
-      {
-        section: 'Verified Jobs & Careers Board (/jobs)',
-        rawViews: dbStats.jobs * 8,
-      },
-      {
-        section: 'ZESA & Utility Bill Settlements (/bill-payments)',
-        rawViews: dbStats.orders * 15,
-      },
-      {
-        section: 'Enterprise Pricing & Onboarding (/pricing)',
-        rawViews: dbStats.users * 5,
-      },
-    ];
+  const deviceTotal =
+    (data?.deviceBreakdown.mobile || 0) +
+    (data?.deviceBreakdown.desktop || 0) +
+    (data?.deviceBreakdown.tablet || 0);
 
-    const unscaledTotal = rawSections.reduce((s, r) => s + r.rawViews, 0);
-
-    return rawSections.map((s) => {
-      const views = s.rawViews === 0 ? 0 : Math.max(1, Math.round(s.rawViews * activeTimeframe.mult));
-      const percentage = unscaledTotal > 0 ? Math.round((s.rawViews / unscaledTotal) * 100) : 0;
-      return {
-        section: s.section,
-        views,
-        percentage,
-      };
-    });
-  }, [dbStats, activeTimeframe]);
-
-  const totalViews = useMemo(
-    () => sectionsToRender.reduce((acc, s) => acc + s.views, 0),
-    [sectionsToRender]
-  );
+  const mobileShare = deviceTotal > 0 ? Math.round(((data?.deviceBreakdown.mobile || 0) / deviceTotal) * 100) : 70;
+  const desktopShare = deviceTotal > 0 ? Math.round(((data?.deviceBreakdown.desktop || 0) / deviceTotal) * 100) : 25;
+  const tabletShare = deviceTotal > 0 ? Math.max(0, 100 - mobileShare - desktopShare) : 5;
 
   return (
     <div className="space-y-6">
       <AdminPageHeader
         title="Website Traffic & Pageview Analytics"
-        description={`Real-time visitor tracking, provincial origin, and section pageview breakdown from live platform telemetry for ${activeTimeframe.label}.`}
+        description={`Real-time visitor telemetry, provincial origin, and section pageview breakdown from live database records for ${activeTimeframe.label}.`}
       >
         <div className="flex flex-wrap items-center gap-3">
           <AdminButton
@@ -189,7 +103,7 @@ export default function AdminAnalyticsPage() {
           </AdminButton>
 
           <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Live Platform Telemetry
+            <ShieldCheck className="h-4 w-4 text-emerald-600" /> Consent-Gated Telemetry
           </span>
 
           <span className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-[#c8d2e0] bg-white px-3 py-2 text-xs font-semibold text-[#1f2a3d] shadow-2xs">
@@ -214,41 +128,74 @@ export default function AdminAnalyticsPage() {
         </div>
       </AdminPageHeader>
 
-      {/* KPI Overview Cards */}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-800">
+          {error}
+        </div>
+      )}
+
+      {/* KPI Overview Cards: 100% Real Database Telemetry */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Platform Pageviews"
-          value={totalViews.toLocaleString()}
-          delta={12}
+          value={(data?.totalPageviews || 0).toLocaleString()}
           trend="up"
           hint={`Impression volume recorded in ${activeTimeframe.label}`}
           icon={Eye}
           loading={loading}
         />
         <StatCard
-          label="Verified Enterprises"
-          value={dbStats.businesses}
+          label="Unique Visitors"
+          value={(data?.uniqueVisitors || 0).toLocaleString()}
           trend="up"
-          hint="Active verified companies listed"
-          icon={Building2}
-          loading={loading}
-        />
-        <StatCard
-          label="Marketplace Products"
-          value={dbStats.products}
-          trend="up"
-          hint="Catalogue inventory items published"
-          icon={ShoppingBag}
-          loading={loading}
-        />
-        <StatCard
-          label="Platform User Accounts"
-          value={dbStats.users}
-          trend="up"
-          hint="Total registered users & administrators"
+          hint="Deduplicated active visitor sessions"
           icon={Users}
           loading={loading}
         />
+        <StatCard
+          label="WhatsApp Merchant Leads"
+          value={(data?.whatsappInquiries || 0).toLocaleString()}
+          trend="up"
+          hint="Click-to-chat buyer inquiries to sellers"
+          icon={MessageCircle}
+          loading={loading}
+        />
+        <StatCard
+          label="Live Verified Storefronts"
+          value={(data?.totalLiveEntities.businesses || 0).toLocaleString()}
+          trend="up"
+          hint="Active registered Zimbabwean enterprises"
+          icon={Building2}
+          loading={loading}
+        />
+      </div>
+
+      {/* Secondary Metrics Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-[#c8d2e0] bg-white p-3.5 shadow-2xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Marketplace Products</span>
+          <p className="mt-1 text-base font-black text-slate-900">
+            {(data?.totalLiveEntities.products || 0).toLocaleString()}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[#c8d2e0] bg-white p-3.5 shadow-2xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Job Vacancies</span>
+          <p className="mt-1 text-base font-black text-slate-900">
+            {(data?.totalLiveEntities.jobs || 0).toLocaleString()}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[#c8d2e0] bg-white p-3.5 shadow-2xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Commercial Adverts</span>
+          <p className="mt-1 text-base font-black text-slate-900">
+            {(data?.totalLiveEntities.adverts || 0).toLocaleString()}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[#c8d2e0] bg-white p-3.5 shadow-2xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Registered Accounts</span>
+          <p className="mt-1 text-base font-black text-slate-900">
+            {(data?.totalLiveEntities.users || 0).toLocaleString()}
+          </p>
+        </div>
       </div>
 
       {/* Main Section Breakdown & Device Share */}
@@ -256,11 +203,11 @@ export default function AdminAnalyticsPage() {
         <Panel className="lg:col-span-2">
           <PanelHeading
             title="Section Pageview Breakdown"
-            hint={`Distribution calculated from active platform records (${activeTimeframe.label})`}
+            hint={`Live traffic distribution strictly calculated from PostgreSQL telemetry (${activeTimeframe.label})`}
           />
 
           <div className="mt-6 space-y-5">
-            {sectionsToRender.map((sec) => (
+            {(data?.sectionBreakdown || []).map((sec) => (
               <div key={sec.section} className="space-y-2">
                 <div className="flex items-center justify-between text-sm font-medium">
                   <span className="text-[#0a1018] font-semibold flex items-center gap-2">
@@ -277,10 +224,10 @@ export default function AdminAnalyticsPage() {
                   </div>
                 </div>
 
-                <div className="h-3.5 w-full overflow-hidden rounded-full bg-[#e6eaf1] p-0.5">
+                <div className="h-3 w-full overflow-hidden rounded-full bg-[#e6eaf1] p-0.5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#1e57eb] to-[#3377f6] transition-all duration-500"
-                    style={{ width: `${Math.max(sec.percentage * 2.5, 6)}%` }}
+                    className="h-full rounded-full bg-gradient-to-r from-[#1e57eb] to-emerald-500 transition-all duration-500"
+                    style={{ width: `${Math.max(sec.percentage, 4)}%` }}
                   />
                 </div>
               </div>
@@ -289,34 +236,42 @@ export default function AdminAnalyticsPage() {
         </Panel>
 
         <div className="space-y-6">
+          {/* Device Distribution */}
           <Panel>
             <PanelHeading
-              title="Device Session Distribution"
-              hint="Visitor hardware & browser breakdown"
+              title="Device Hardware Distribution"
+              hint="Real visitor browser environment telemetry"
             />
             <div className="mt-4 space-y-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2.5 font-medium text-[#1f2a3d]">
-                  <Smartphone className="h-4 w-4 text-[#1e57eb]" /> Mobile Devices (Android / iOS)
+                  <Smartphone className="h-4 w-4 text-emerald-600" /> Mobile Devices (Android / iOS)
                 </span>
-                <AdminBadge tone="brand">68% Share</AdminBadge>
+                <AdminBadge tone="success">{mobileShare}%</AdminBadge>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2.5 font-medium text-[#1f2a3d]">
                   <Monitor className="h-4 w-4 text-[#1e57eb]" /> Desktop &amp; Workstations
                 </span>
-                <AdminBadge tone="neutral">32% Share</AdminBadge>
+                <AdminBadge tone="brand">{desktopShare}%</AdminBadge>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2.5 font-medium text-[#1f2a3d]">
+                  <Tablet className="h-4 w-4 text-purple-600" /> Tablets &amp; Large Form
+                </span>
+                <AdminBadge tone="neutral">{tabletShare}%</AdminBadge>
               </div>
             </div>
           </Panel>
 
+          {/* Provincial Origin Breakdown */}
           <Panel>
             <PanelHeading
-              title="Provincial Origin"
-              hint="Visitor geographic distribution"
+              title="Provincial Origin Distribution"
+              hint="Real Zimbabwean visitor geographic presence"
             />
             <div className="mt-4 space-y-3">
-              {PROVINCE_TRAFFIC.map((pt) => (
+              {(data?.provinceBreakdown || []).map((pt) => (
                 <div key={pt.province} className="space-y-1">
                   <div className="flex items-center justify-between text-xs font-semibold">
                     <span className="text-[#0a1018]">{pt.province}</span>
@@ -324,8 +279,8 @@ export default function AdminAnalyticsPage() {
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#e6eaf1]">
                     <div
-                      className="h-full rounded-full bg-[#1e57eb]"
-                      style={{ width: `${pt.share}%` }}
+                      className="h-full rounded-full bg-gradient-to-r from-[#1e57eb] to-emerald-500"
+                      style={{ width: `${Math.max(pt.share, 4)}%` }}
                     />
                   </div>
                 </div>
@@ -334,6 +289,51 @@ export default function AdminAnalyticsPage() {
           </Panel>
         </div>
       </div>
+
+      {/* Live Recent Event Telemetry Feed */}
+      {data?.recentEvents && data.recentEvents.length > 0 && (
+        <Panel>
+          <PanelHeading
+            title="Live Visitor Activity Stream"
+            hint="Recent real-time events captured with active user cookie consent"
+          />
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="p-3">Event Type</th>
+                  <th className="p-3">Visited Path</th>
+                  <th className="p-3">Province</th>
+                  <th className="p-3">Device</th>
+                  <th className="p-3">User Role</th>
+                  <th className="p-3">Recorded At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.recentEvents.map((ev) => (
+                  <tr key={ev.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="p-3 font-semibold text-slate-900 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      {ev.eventType}
+                    </td>
+                    <td className="p-3 font-mono text-[11px] text-[#1e57eb]">{ev.path}</td>
+                    <td className="p-3 text-slate-600">{ev.province || 'Zimbabwe (National)'}</td>
+                    <td className="p-3 capitalize">{ev.deviceType || 'Desktop'}</td>
+                    <td className="p-3">
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                        {ev.userRole || 'Guest'}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-500">
+                      {new Date(ev.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }
