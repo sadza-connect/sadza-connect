@@ -8,9 +8,11 @@ import {
   ALLOWED_DOCUMENT_MIME_TYPES,
 } from '@/lib/constants/upload-limits';
 import {
+  getClientIp,
   jsonResponse,
   errorResponse,
 } from '@/shared/utils/route-handler';
+import { uploadRateLimiter } from '@/shared/utils/rate-limiter';
 import { ValidationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
@@ -85,6 +87,9 @@ export async function POST(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const clientIp = getClientIp(req);
+    uploadRateLimiter.check(clientIp);
+
     const formData = await req.formData();
     const file = formData.get('file');
     const partitionInput = (formData.get('partition') as string) || 'public-media';

@@ -67,3 +67,15 @@ export const otpRateLimiter = new MemoryRateLimiter(
   10,
   'Too many OTP attempts. Please request a new code or try again later.',
 );
+
+export const contactRateLimiter = new MemoryRateLimiter(
+  10 * 60 * 1000,
+  5,
+  'Too many inquiries submitted from this connection. Please wait a few minutes before trying again.',
+);
+
+export const uploadRateLimiter = new MemoryRateLimiter(
+  10 * 60 * 1000,
+  40,
+  'Upload limit reached. Please wait a few minutes before uploading more documents or media.',
+);

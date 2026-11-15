@@ -4,10 +4,12 @@ import { z } from 'zod';
 import { contactMessageRepository } from '@/infrastructure/database/repositories/contact-message-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
+  getClientIp,
   jsonResponse,
   errorResponse,
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
+import { contactRateLimiter } from '@/shared/utils/rate-limiter';
 import { AuthorizationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
@@ -25,6 +27,9 @@ export async function POST(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const clientIp = getClientIp(req);
+    contactRateLimiter.check(clientIp);
+
     const body = await parseAndValidateBody(req, createMessageSchema);
 
     const message = await contactMessageRepository.create({
