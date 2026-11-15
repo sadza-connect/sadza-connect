@@ -5,6 +5,9 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { CelebrationProvider } from '@/context/CelebrationContext';
 import { ToastProvider } from '@/components/providers/ToastProvider';
+import { CookieConsentProvider } from '@/context/CookieConsentContext';
+import { CookieConsentBanner } from '@/components/cookies/CookieConsentBanner';
+import { CookiePreferencesModal } from '@/components/cookies/CookiePreferencesModal';
 import { CelestialSky } from '@/components/animations/CelestialSky';
 import { AuthCelebrationModal } from '@/components/ui/AuthCelebrationModal';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
@@ -75,16 +78,20 @@ export default function RootLayout({
       <body className={`${montserrat.className} font-sans antialiased selection:bg-brand-600/20 selection:text-brand-700 dark:selection:bg-brand-500/30 dark:selection:text-brand-300 min-h-screen flex flex-col relative text-ink-950 dark:text-ink-50`}>
         <ThemeProvider>
           <AuthProvider>
-            <CelebrationProvider>
-              <ToastProvider>
-                <CelestialSky />
-                <div className="flex-1 flex flex-col pb-16 md:pb-0">
-                  {children}
-                </div>
-                <AuthCelebrationModal />
-                <MobileBottomNav />
-              </ToastProvider>
-            </CelebrationProvider>
+            <CookieConsentProvider>
+              <CelebrationProvider>
+                <ToastProvider>
+                  <CelestialSky />
+                  <div className="flex-1 flex flex-col pb-16 md:pb-0">
+                    {children}
+                  </div>
+                  <AuthCelebrationModal />
+                  <MobileBottomNav />
+                  <CookieConsentBanner />
+                  <CookiePreferencesModal />
+                </ToastProvider>
+              </CelebrationProvider>
+            </CookieConsentProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

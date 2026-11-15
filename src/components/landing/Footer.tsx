@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
-import { MessageCircle, Mail, MapPin } from 'lucide-react';
+import { MessageCircle, Mail, MapPin, Cookie } from 'lucide-react';
+import { useCookieConsent } from '@/context/CookieConsentContext';
 import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
@@ -12,6 +13,7 @@ import {
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export function Footer() {
+  const { openPreferences } = useCookieConsent();
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
 
   useEffect(() => {
@@ -252,6 +254,16 @@ export function Footer() {
                 >
                   Privacy &amp; Data Policy
                 </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={openPreferences}
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                >
+                  <Cookie className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Cookie Preferences</span>
+                </button>
               </li>
               <li>
                 <span className="text-xs text-slate-500">
