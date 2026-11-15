@@ -137,7 +137,6 @@ for (const tc of testCases) {
   console.log(`✅ PASS: '${tc.input}' -> ${result.country.flag} ${result.country.name} (${result.dialCode}) -> E.164: ${e164}`);
 }
 
-import { parsePhoneComponents, normalizePhoneNumber } from '../src/lib/data/countries.js';
 console.log('\n--- Testing parsePhoneComponents & normalizePhoneNumber ---');
 
 const nigerianParsed = parsePhoneComponents('9030098304');

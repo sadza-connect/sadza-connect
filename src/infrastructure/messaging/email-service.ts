@@ -44,9 +44,10 @@ export class EmailService {
     }
 
     const replyTo = extractEmailAddress(env.EMAIL_FROM);
+    const client = this.getClient();
 
     try {
-      const { error } = await this.getClient().emails.send({
+      let sendResult = await client.emails.send({
         from: env.EMAIL_FROM,
         to: params.to,
         subject: params.subject,
@@ -58,10 +59,30 @@ export class EmailService {
         },
       });
 
-      if (error) {
+      // If custom domain is unverified in Resend, automatically fallback to onboarding@resend.dev sandbox sender
+      const resendError = sendResult.error as any;
+      if (resendError && (resendError.message?.includes('not verified') || resendError.statusCode === 403)) {
+        logger.warn(
+          { from: env.EMAIL_FROM, error: resendError.message },
+          'Custom email domain unverified on Resend. Falling back to onboarding@resend.dev...',
+        );
+        sendResult = await client.emails.send({
+          from: 'MySadza Connect <onboarding@resend.dev>',
+          to: params.to,
+          subject: params.subject,
+          html: params.html,
+          text: params.text,
+          replyTo: 'support@sadzaconnect.co.zw',
+          headers: {
+            'X-Entity-Ref-ID': `${Date.now()}-${params.to}`,
+          },
+        });
+      }
+
+      if (sendResult.error) {
         logger.error(
           {
-            error: { name: error.name, message: error.message },
+            error: { name: sendResult.error.name, message: sendResult.error.message },
             from: env.EMAIL_FROM,
             to: params.to,
           },
@@ -87,9 +108,15 @@ export class EmailService {
 
   async sendVerificationEmail(to: string, otp: string): Promise<void> {
     logger.info({ to, otp }, '[AUTH] Dispatched email verification OTP');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n' + '='.repeat(70));
+      console.log(`🔑 [MYSADZA DEV OTP] Email Verification PIN for: ${to}`);
+      console.log(`👉 6-DIGIT PIN: ${otp}`);
+      console.log('='.repeat(70) + '\n');
+    }
     await this.sendEmail({
       to,
-      subject: 'Verify your Sadza Connect account',
+      subject: 'Verify your MySadza Connect account',
       html: getVerificationEmailHtml(otp),
       text: getVerificationEmailPlainText(otp),
     });
@@ -97,9 +124,15 @@ export class EmailService {
 
   async sendResetPasswordEmail(to: string, otp: string): Promise<void> {
     logger.info({ to, otp }, '[AUTH] Dispatched password reset OTP');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n' + '='.repeat(70));
+      console.log(`🔑 [MYSADZA DEV OTP] Password Reset PIN for: ${to}`);
+      console.log(`👉 6-DIGIT PIN: ${otp}`);
+      console.log('='.repeat(70) + '\n');
+    }
     await this.sendEmail({
       to,
-      subject: 'Reset your Sadza Connect password',
+      subject: 'Reset your MySadza Connect password',
       html: getResetPasswordEmailHtml(otp),
       text: getResetPasswordEmailPlainText(otp),
     });
