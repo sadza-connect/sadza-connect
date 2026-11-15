@@ -51,6 +51,7 @@ import {
   togglePropertyOccupancy,
   togglePropertyVerification,
   togglePropertyFeatured,
+  syncPropertiesFromApi,
   getUnlockedContacts,
 } from '@/data/propertiesStore';
 import { cn } from '@/lib/utils/cn';
@@ -107,6 +108,9 @@ export default function AdminPropertiesPage() {
 
   useEffect(() => {
     loadData();
+    syncPropertiesFromApi(true).then((fresh) => {
+      if (fresh && fresh.length > 0) setProperties(fresh);
+    });
     const handleUpdate = () => loadData();
     window.addEventListener('sadza-properties-updated', handleUpdate);
     window.addEventListener('sadza-unlocked-updated', handleUpdate);

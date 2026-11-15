@@ -281,13 +281,48 @@ export function getStoredProperties(): PropertyListing[] {
   }
 }
 
+export async function syncPropertiesFromApi(isAdmin = false): Promise<PropertyListing[]> {
+  if (typeof window === 'undefined') return DEFAULT_PROPERTIES;
+  try {
+    const url = isAdmin ? '/api/v1/properties?admin=true' : '/api/v1/properties';
+    const res = await fetch(url);
+    if (!res.ok) return getStoredProperties();
+    const json = await res.json();
+    if (json.data?.properties && Array.isArray(json.data.properties)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(json.data.properties));
+      window.dispatchEvent(new Event('sadza-properties-updated'));
+      return json.data.properties;
+    }
+    return getStoredProperties();
+  } catch (err) {
+    console.warn('[PropertiesStore] Failed to fetch from API, using local storage:', err);
+    return getStoredProperties();
+  }
+}
+
 export function saveStoredProperty(property: PropertyListing): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredProperties();
+    const existsInDb = existing.some((p) => p.id === property.id);
     const updated = [property, ...existing.filter((p) => p.id !== property.id)];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-properties-updated'));
+
+    // Asynchronously synchronize with PostgreSQL
+    if (existsInDb) {
+      fetch(`/api/v1/properties/${property.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(property),
+      }).catch((err) => console.warn('[PropertiesStore] API PUT failed:', err));
+    } else {
+      fetch('/api/v1/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(property),
+      }).catch((err) => console.warn('[PropertiesStore] API POST failed:', err));
+    }
   } catch (err) {
     console.error('Failed to save property to localStorage:', err);
   }
@@ -297,10 +332,11 @@ export function togglePropertyOccupancy(propertyId: string): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredProperties();
+    let nextStatus: 'Available' | 'Taken' = 'Taken';
     const updated = existing.map((p) => {
       if (p.id !== propertyId) return p;
       const isCurrentlyOccupied = p.occupancyStatus === 'Occupied' || p.occupancyStatus === 'Taken' || p.isOccupied;
-      const nextStatus: 'Available' | 'Taken' = isCurrentlyOccupied ? 'Available' : 'Taken';
+      nextStatus = isCurrentlyOccupied ? 'Available' : 'Taken';
       return {
         ...p,
         occupancyStatus: nextStatus,
@@ -309,6 +345,13 @@ export function togglePropertyOccupancy(propertyId: string): void {
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-properties-updated'));
+
+    // Asynchronously synchronize with PostgreSQL
+    fetch(`/api/v1/properties/${propertyId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle_occupancy', occupancyStatus: nextStatus }),
+    }).catch((err) => console.warn('[PropertiesStore] API toggle occupancy failed:', err));
   } catch (err) {
     console.error('Failed to toggle property occupancy:', err);
   }
@@ -321,6 +364,11 @@ export function deleteStoredProperty(propertyId: string): void {
     const updated = existing.filter((p) => p.id !== propertyId);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-properties-updated'));
+
+    // Asynchronously synchronize with PostgreSQL
+    fetch(`/api/v1/properties/${propertyId}`, {
+      method: 'DELETE',
+    }).catch((err) => console.warn('[PropertiesStore] API delete failed:', err));
   } catch (err) {
     console.error('Failed to delete property:', err);
   }
@@ -330,9 +378,23 @@ export function togglePropertyVerification(propertyId: string): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredProperties();
-    const updated = existing.map((p) => (p.id === propertyId ? { ...p, isVerified: !p.isVerified } : p));
+    let nextVal = true;
+    const updated = existing.map((p) => {
+      if (p.id === propertyId) {
+        nextVal = !p.isVerified;
+        return { ...p, isVerified: nextVal };
+      }
+      return p;
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-properties-updated'));
+
+    // Asynchronously synchronize with PostgreSQL
+    fetch(`/api/v1/properties/${propertyId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle_verification', isVerified: nextVal }),
+    }).catch((err) => console.warn('[PropertiesStore] API toggle verification failed:', err));
   } catch (err) {
     console.error('Failed to toggle property verification:', err);
   }
@@ -342,11 +404,26 @@ export function togglePropertyFeatured(propertyId: string): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredProperties();
-    const updated = existing.map((p) => (p.id === propertyId ? { ...p, isFeatured: !p.isFeatured } : p));
+    let nextVal = true;
+    const updated = existing.map((p) => {
+      if (p.id === propertyId) {
+        nextVal = !p.isFeatured;
+        return { ...p, isFeatured: nextVal };
+      }
+      return p;
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-properties-updated'));
+
+    // Asynchronously synchronize with PostgreSQL
+    fetch(`/api/v1/properties/${propertyId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle_featured', isFeatured: nextVal }),
+    }).catch((err) => console.warn('[PropertiesStore] API toggle featured failed:', err));
   } catch (err) {
     console.error('Failed to toggle property featured:', err);
   }
 }
+
 

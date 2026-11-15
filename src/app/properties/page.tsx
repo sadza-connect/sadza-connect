@@ -39,6 +39,7 @@ import {
   getStoredProperties,
   saveStoredProperty,
   togglePropertyOccupancy,
+  syncPropertiesFromApi,
   PROPERTY_CONTACT_UNLOCK_FEE_USD,
   PROPERTY_CONTACT_UNLOCK_FEE_ZIG,
   maskPhoneNumber,
@@ -245,6 +246,9 @@ export default function PropertiesDirectoryPage() {
       setIsLoading(false);
     };
     loadProps();
+    syncPropertiesFromApi().then((fresh) => {
+      if (fresh && fresh.length > 0) setProperties(fresh);
+    });
     window.addEventListener('sadza-properties-updated', loadProps);
     window.addEventListener('sadza-unlocked-updated', loadProps);
     return () => {

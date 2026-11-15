@@ -7,11 +7,13 @@ import {
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
 import {
-  DEFAULT_PROPERTIES,
   PROPERTY_CONTACT_UNLOCK_FEE_USD,
   PROPERTY_CONTACT_UNLOCK_FEE_ZIG,
 } from '@/data/propertiesStore';
+import { propertyRepository } from '@/infrastructure/database/repositories/property-repository';
 import { invoiceRepository } from '@/infrastructure/database/repositories/invoice-repository';
+import { getAuthenticatedUser } from '@/shared/utils/auth-session';
+import { NotFoundError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,18 +45,39 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await parseAndValidateBody(req, unlockPropertySchema);
+    const user = await getAuthenticatedUser(req, false);
 
-    // Look up property in DEFAULT_PROPERTIES (or fallback)
-    const property = DEFAULT_PROPERTIES.find((p) => p.id === body.propertyId);
+    // Look up property in PostgreSQL
+    let property = await propertyRepository.findById(body.propertyId);
+    if (!property) {
+      property = await propertyRepository.findBySlug(body.propertyId);
+    }
 
-    // If custom property created by user in browser, fallback details will still unlock cleanly
-    const revealedPhone = property?.phone || '+263 77 100 0000';
-    const revealedWhatsapp = property?.whatsapp || '263771000000';
-    const propertyTitle = property?.title || `Property ID ${body.propertyId}`;
+    if (!property) {
+      throw new NotFoundError(`Property with ID '${body.propertyId}' not found in database.`);
+    }
+
+    const revealedPhone = property.phone;
+    const revealedWhatsapp = property.whatsapp;
+    const propertyTitle = property.title;
 
     const reference = `PROP-UNL-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Attempt to log invoice in database if table is reachable
+    // 1. Record unlock in property_contact_unlocks table
+    try {
+      await propertyRepository.recordUnlock({
+        propertyId: property.id,
+        userId: user?.id || null,
+        customerPhone: body.customerPhone || null,
+        paymentMethod: body.paymentMethod || 'demo',
+        paymentReference: reference,
+        amountUsd: PROPERTY_CONTACT_UNLOCK_FEE_USD,
+      });
+    } catch (err) {
+      console.warn('[Property Unlock] Failed to insert unlock record:', err);
+    }
+
+    // 2. Log invoice in database
     try {
       await invoiceRepository.create({
         invoice_number: reference,
@@ -72,14 +95,14 @@ export async function POST(req: NextRequest) {
             : 'Instant Demo',
         status: 'Paid',
       });
-    } catch {
-      // Non-fatal if database is offline in mock mode
+    } catch (err) {
+      console.warn('[Property Unlock] Failed to create invoice:', err);
     }
 
     return jsonResponse(
       {
         unlocked: true,
-        propertyId: body.propertyId,
+        propertyId: property.id,
         propertyTitle,
         phone: revealedPhone,
         whatsapp: revealedWhatsapp,
@@ -88,7 +111,7 @@ export async function POST(req: NextRequest) {
         reference,
         paymentMethod: body.paymentMethod,
         unlockedAt: new Date().toISOString(),
-        message: 'Direct landlord contact unlocked successfully!',
+        message: 'Direct landlord contact unlocked successfully from database!',
       },
       requestId,
       200
