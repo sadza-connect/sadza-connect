@@ -10,7 +10,7 @@ import { CategoryCombobox } from '@/components/ui/CategoryCombobox';
 import { ActionLoader } from '@/components/ui/ActionLoader';
 import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
 import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
-import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
+import { formatE164Phone, parsePhoneComponents, detectCountryFromPhone } from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 import { useAuth } from '@/context/AuthContext';
 import { getClientAccessToken } from '@/shared/utils/api-client';
@@ -1834,11 +1834,41 @@ function BusinessOnboardingContent() {
                           value={whatsAppLocalNumber}
                           onChange={(e) => {
                             const sanitized = e.target.value.replace(/[^0-9\s\-()+]/g, '');
-                            setWhatsAppLocalNumber(sanitized);
-                            const formatted = sanitized.trim()
-                              ? formatE164Phone(whatsAppCountryCode, sanitized)
+                            const detection = detectCountryFromPhone(sanitized, whatsAppCountryCode);
+                            let code = whatsAppCountryCode;
+                            let local = sanitized;
+                            if (detection.detected && detection.country) {
+                              code = detection.dialCode;
+                              setWhatsAppCountryCode(detection.dialCode);
+                              if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
+                                local = detection.localNumber;
+                              }
+                            }
+                            setWhatsAppLocalNumber(local);
+                            const formatted = local.trim()
+                              ? formatE164Phone(code, local)
                               : '';
                             setPublicWhatsApp(formatted);
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text');
+                            if (pasted) {
+                              e.preventDefault();
+                              const sanitized = pasted.replace(/[^0-9\s\-()+]/g, '');
+                              const detection = detectCountryFromPhone(sanitized, whatsAppCountryCode);
+                              let code = whatsAppCountryCode;
+                              let local = sanitized;
+                              if (detection.detected && detection.country) {
+                                code = detection.dialCode;
+                                setWhatsAppCountryCode(detection.dialCode);
+                                if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
+                                  local = detection.localNumber;
+                                }
+                              }
+                              setWhatsAppLocalNumber(local);
+                              const formatted = local.trim() ? formatE164Phone(code, local) : '';
+                              setPublicWhatsApp(formatted);
+                            }
                           }}
                           placeholder="Leave blank to use registered phone"
                           className="flex-1 py-2.5 px-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 bg-transparent focus:outline-none font-medium"

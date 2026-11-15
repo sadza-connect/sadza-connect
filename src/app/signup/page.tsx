@@ -41,7 +41,7 @@ const PROVINCES = [
   'Diaspora',
 ];
 
-import { ALL_COUNTRIES, formatE164Phone } from '@/lib/data/countries';
+import { ALL_COUNTRIES, formatE164Phone, detectCountryFromPhone, CountryDialInfo } from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 
 function SignupFormContent() {
@@ -63,6 +63,7 @@ function SignupFormContent() {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState('+263');
+  const [detectedCountry, setDetectedCountry] = useState<CountryDialInfo | null>(null);
   const [province, setProvince] = useState(PROVINCES[0]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -74,6 +75,37 @@ function SignupFormContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [isNavigatingToNextStage, setIsNavigatingToNextStage] = useState(false);
+
+  const handlePhoneNumberChange = (inputVal: string) => {
+    const sanitized = inputVal.replace(/[^0-9\s\-()+]/g, '');
+
+    // Auto-detect country based on international dial codes, prefixes, or national subscriber patterns
+    const detection = detectCountryFromPhone(sanitized, countryCode);
+
+    if (detection.detected && detection.country) {
+      if (detection.dialCode !== countryCode) {
+        setCountryCode(detection.dialCode);
+        if (detection.dialCode !== '+263' && selectedType === 'personal' && province !== 'Diaspora') {
+          setProvince('Diaspora');
+        }
+      }
+      setDetectedCountry(detection.country);
+
+      // If user pasted/typed with international code (+234... or 234...), cleanly strip dial code from subscriber box
+      if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
+        setPhoneNumber(detection.localNumber);
+      } else {
+        setPhoneNumber(sanitized);
+      }
+    } else {
+      setPhoneNumber(sanitized);
+      if (!sanitized) {
+        setDetectedCountry(null);
+      }
+    }
+
+    if (errorMessage) setErrorMessage('');
+  };
 
   useEffect(() => {
     const errCode = searchParams.get('error');
@@ -530,23 +562,31 @@ function SignupFormContent() {
                     </div>
                   </div>
 
-                  {/* Phone Number with International Country Code Selector */}
+                  {/* Phone Number with Intelligent Auto-Detecting Country Code Selector */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100">
                         Phone / Contact number
                       </label>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Local &amp; Diaspora supported
-                      </span>
+                      {detectedCountry ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/80 animate-in fade-in zoom-in-95 duration-200">
+                          <span className="text-xs">{detectedCountry.flag}</span>
+                          <span>Auto-detected: {detectedCountry.name} ({detectedCountry.dialCode})</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Auto-detects country (e.g. Nigeria, Zimbabwe)
+                        </span>
+                      )}
                     </div>
                     <div className="relative flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 hover:border-slate-400 dark:hover:border-slate-500 focus-within:border-emerald-500 dark:focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/25 dark:focus-within:ring-emerald-400/25 transition-all">
                       {/* Searchable Country Code Dropdown */}
                       <div className="border-r border-slate-300 dark:border-slate-700">
                         <CountryCodeSelect
                           value={countryCode}
-                          onChange={(newCode) => {
+                          onChange={(newCode, country) => {
                             setCountryCode(newCode);
+                            if (country) setDetectedCountry(country);
                             if (newCode !== '+263' && selectedType === 'personal' && province !== 'Diaspora') {
                               setProvince('Diaspora');
                             }
@@ -554,15 +594,18 @@ function SignupFormContent() {
                         />
                       </div>
 
-                      {/* Phone Input */}
+                      {/* Phone Input with Auto-detection */}
                       <input
                         type="tel"
                         required
                         value={phoneNumber}
-                        onChange={(e) => {
-                          const sanitized = e.target.value.replace(/[^0-9\s\-()+]/g, '');
-                          setPhoneNumber(sanitized);
-                          if (errorMessage) setErrorMessage('');
+                        onChange={(e) => handlePhoneNumberChange(e.target.value)}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData('text');
+                          if (pasted) {
+                            e.preventDefault();
+                            handlePhoneNumberChange(pasted);
+                          }
                         }}
                         placeholder={
                           ALL_COUNTRIES.find((c) => c.dialCode === countryCode)?.placeholder ||

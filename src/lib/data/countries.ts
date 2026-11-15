@@ -267,3 +267,231 @@ export function filterCountries(query: string): CountryDialInfo[] {
     return false;
   });
 }
+
+export interface PhoneDetectionResult {
+  detected: boolean;
+  country: CountryDialInfo | null;
+  dialCode: string;
+  localNumber: string;
+  source: 'international_prefix' | 'dial_code_lead' | 'national_pattern' | 'none';
+}
+
+/**
+ * Automatically detects country code from user phone input.
+ * Supports:
+ * 1. International prefix with '+' or '00' (e.g. +2349030098304, 002349030098304)
+ * 2. Full international dial code without '+' (e.g. 2349030098304, 263771234567, 27821234567, 447911123456)
+ * 3. National/Local subscriber formats without dial code:
+ *    - Nigeria (+234): 9030098304, 09030098304, 8031234567, 08031234567, 7011234567, 8131234567, 9121234567
+ *    - Zimbabwe (+263): 771234567, 0771234567, 781234567, 711234567, 731234567, landlines
+ *    - South Africa (+27): 060-069, 082, 083, 084, 82, 83, 84
+ *    - Botswana (+267): 71-77 (8 digits)
+ *    - Kenya (+254): 70-72, 74, 79, 11 (9 digits)
+ *    - Ghana (+233): 24, 54, 55, 59, 20, 50 (9 digits)
+ *    - Zambia (+260): 95, 96, 97, 76, 77 (9 digits)
+ *    - United Kingdom (+44): 071-079 (11 digits with 0)
+ */
+export function detectCountryFromPhone(
+  rawInput: string,
+  currentDialCode?: string
+): PhoneDetectionResult {
+  if (!rawInput) {
+    return { detected: false, country: null, dialCode: currentDialCode || '+263', localNumber: '', source: 'none' };
+  }
+
+  const clean = rawInput.trim();
+  const digits = clean.replace(/\D/g, '');
+  if (!digits || digits.length < 3) {
+    return { detected: false, country: null, dialCode: currentDialCode || '+263', localNumber: clean, source: 'none' };
+  }
+
+  // 1. Explicit International Prefix (+ or 00)
+  if (clean.startsWith('+') || clean.startsWith('00')) {
+    const rawDigits = clean.startsWith('+') ? clean.slice(1).replace(/\D/g, '') : clean.slice(2).replace(/\D/g, '');
+    const sorted = [...ALL_COUNTRIES]
+      .filter((c) => c.dialCode !== '+')
+      .sort((a, b) => b.dialCode.length - a.dialCode.length);
+
+    for (const c of sorted) {
+      const codeDigits = c.dialCode.replace(/\D/g, '');
+      if (rawDigits.startsWith(codeDigits)) {
+        const local = rawDigits.slice(codeDigits.length).replace(/^0+/, '');
+        return {
+          detected: true,
+          country: c,
+          dialCode: c.dialCode,
+          localNumber: local,
+          source: 'international_prefix',
+        };
+      }
+    }
+  }
+
+  // 2. High-Confidence Full Dial Code without '+'
+  // e.g. 2349030098304 (13 digits), 263771234567 (12 digits), 27821234567 (11 digits)
+  const fullDialPrefixes = [
+    { code: 'NG', dial: '234', minLen: 13, maxLen: 13 },
+    { code: 'ZW', dial: '263', minLen: 12, maxLen: 12 },
+    { code: 'ZA', dial: '27', minLen: 11, maxLen: 11 },
+    { code: 'GB', dial: '44', minLen: 12, maxLen: 13 },
+    { code: 'BW', dial: '267', minLen: 11, maxLen: 11 },
+    { code: 'ZM', dial: '260', minLen: 12, maxLen: 12 },
+    { code: 'KE', dial: '254', minLen: 12, maxLen: 12 },
+    { code: 'GH', dial: '233', minLen: 12, maxLen: 12 },
+    { code: 'MZ', dial: '258', minLen: 12, maxLen: 12 },
+    { code: 'NA', dial: '264', minLen: 11, maxLen: 12 },
+    { code: 'MW', dial: '265', minLen: 11, maxLen: 12 },
+  ];
+
+  for (const item of fullDialPrefixes) {
+    if (digits.startsWith(item.dial) && digits.length >= item.minLen && digits.length <= item.maxLen) {
+      const foundCountry = ALL_COUNTRIES.find((x) => x.code === item.code);
+      if (foundCountry) {
+        return {
+          detected: true,
+          country: foundCountry,
+          dialCode: foundCountry.dialCode,
+          localNumber: digits.slice(item.dial.length).replace(/^0+/, ''),
+          source: 'dial_code_lead',
+        };
+      }
+    }
+  }
+
+  // 3. National / Local Subscriber Formats (No dial code prefix entered)
+  // Nigeria (NG, +234):
+  // 10 digits without leading 0: 9030098304, 8031234567, 7011234567, 8121234567, 9121234567
+  // Or 11 digits with leading 0: 09030098304, 08031234567, etc.
+  const ngRegex = /^(?:0)?(70[1-9]|80[1-9]|81[0-9]|90[1-9]|91[1-6])(\d{7})$/;
+  const ngMatch = digits.match(ngRegex);
+  if (ngMatch) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'NG')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: ngMatch[1] + ngMatch[2],
+      source: 'national_pattern',
+    };
+  }
+
+  // Partial typing for Nigeria (at least 3-4 digits e.g. 903..., 0903..., 803..., 0803...)
+  if (/^(?:0)?(90[1-9]|80[1-9]|81[0-9]|70[1-9]|91[1-6])/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'NG')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // Zimbabwe (ZW, +263):
+  // 9 digits without 0: 771234567, 781234567, 711234567, 731234567
+  // 10 digits with 0: 0771234567, 0781234567, etc.
+  const zwRegex = /^(?:0)?(77|78|71|73|24|29|20|54|39|67|68|55|28)(\d{6,7})$/;
+  const zwMatch = digits.match(zwRegex);
+  if (zwMatch) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'ZW')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: zwMatch[1] + zwMatch[2],
+      source: 'national_pattern',
+    };
+  }
+
+  // Partial typing for Zimbabwe mobile (77..., 78..., 71..., 73...)
+  if (/^(?:0)?(77|78|71|73)/.test(digits) && digits.length >= 3) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'ZW')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // South Africa (ZA, +27):
+  if (/^(?:0)?(60|61|62|63|64|65|66|67|68|69|82|83|84|72|76|79|74)(\d{7})$/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'ZA')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // Botswana (BW, +267):
+  if (/^(?:0)?(71|72|73|74|75|76|77)(\d{6})$/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'BW')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // Kenya (KE, +254):
+  if (/^(?:0)?(7[0-2]|74|79|11)(\d{7})$/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'KE')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // Ghana (GH, +233):
+  if (/^(?:0)?(24|54|55|59|20|50|26|56|27|57)(\d{7})$/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'GH')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // Zambia (ZM, +260):
+  if (/^(?:0)?(95|96|97|76|77)(\d{7})$/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'ZM')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.replace(/^0+/, ''),
+      source: 'national_pattern',
+    };
+  }
+
+  // United Kingdom (GB, +44):
+  if (/^07[1-9]\d{8}$/.test(digits)) {
+    const country = ALL_COUNTRIES.find((x) => x.code === 'GB')!;
+    return {
+      detected: true,
+      country,
+      dialCode: country.dialCode,
+      localNumber: digits.slice(1),
+      source: 'national_pattern',
+    };
+  }
+
+  return {
+    detected: false,
+    country: null,
+    dialCode: currentDialCode || '+263',
+    localNumber: clean,
+    source: 'none',
+  };
+}
