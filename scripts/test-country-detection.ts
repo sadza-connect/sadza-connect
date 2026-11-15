@@ -173,11 +173,44 @@ if (norm3 === '+263771234567') {
   failed++;
 }
 
+// User-identified trunk zero edge cases: +234 09030098304, +23409030098304, +263 077...
+const normTrunkZero1 = normalizePhoneNumber('+234 09030098304');
+if (normTrunkZero1 === '+2349030098304') {
+  console.log('✅ PASS: normalizePhoneNumber("+234 09030098304") -> +2349030098304 (stripped trunk 0)');
+} else {
+  console.error('❌ FAIL: normalizePhoneNumber("+234 09030098304") ->', normTrunkZero1);
+  failed++;
+}
+
+const normTrunkZero2 = normalizePhoneNumber('+23409030098304');
+if (normTrunkZero2 === '+2349030098304') {
+  console.log('✅ PASS: normalizePhoneNumber("+23409030098304") -> +2349030098304 (stripped trunk 0)');
+} else {
+  console.error('❌ FAIL: normalizePhoneNumber("+23409030098304") ->', normTrunkZero2);
+  failed++;
+}
+
+const normTrunkZero3 = normalizePhoneNumber('+263 077 123 4567');
+if (normTrunkZero3 === '+263771234567') {
+  console.log('✅ PASS: normalizePhoneNumber("+263 077 123 4567") -> +263771234567 (stripped trunk 0)');
+} else {
+  console.error('❌ FAIL: normalizePhoneNumber("+263 077 123 4567") ->', normTrunkZero3);
+  failed++;
+}
+
+const formatTrunkZero = formatE164Phone('+234', '23409030098304');
+if (formatTrunkZero === '+2349030098304') {
+  console.log('✅ PASS: formatE164Phone("+234", "23409030098304") -> +2349030098304 (stripped trunk 0)');
+} else {
+  console.error('❌ FAIL: formatE164Phone("+234", "23409030098304") ->', formatTrunkZero);
+  failed++;
+}
+
 if (failed > 0) {
   console.error(`\n❌ ${failed} tests failed!`);
   process.exit(1);
 } else {
-  console.log('\n🎉 ALL AUTO-DETECTION TESTS PASSED 100%!\n');
+  console.log('\n🎉 ALL AUTO-DETECTION & TRUNK ZERO TESTS PASSED 100%!\n');
   process.exit(0);
 }
 

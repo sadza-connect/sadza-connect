@@ -1855,7 +1855,7 @@ function BusinessOnboardingContent() {
                               code = detection.dialCode;
                               setWhatsAppCountryCode(detection.dialCode);
                               setDetectedWhatsAppCountry(detection.country);
-                              if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
+                              if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead' || sanitized.startsWith('0')) {
                                 local = detection.localNumber;
                               }
                             } else if (!sanitized) {
@@ -1879,7 +1879,7 @@ function BusinessOnboardingContent() {
                                 code = detection.dialCode;
                                 setWhatsAppCountryCode(detection.dialCode);
                                 setDetectedWhatsAppCountry(detection.country);
-                                if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
+                                if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead' || sanitized.startsWith('0')) {
                                   local = detection.localNumber;
                                 }
                               } else if (!sanitized) {

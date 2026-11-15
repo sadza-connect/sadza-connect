@@ -91,8 +91,8 @@ function SignupFormContent() {
       }
       setDetectedCountry(detection.country);
 
-      // If user pasted/typed with international code (+234... or 234...), cleanly strip dial code from subscriber box
-      if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
+      // If user pasted/typed with international code (+234...) or national leading zero (0903...), cleanly strip into subscriber box
+      if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead' || sanitized.startsWith('0')) {
         setPhoneNumber(detection.localNumber);
       } else {
         setPhoneNumber(sanitized);

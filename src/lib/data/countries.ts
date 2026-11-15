@@ -213,7 +213,8 @@ export function formatE164Phone(dialCode: string, inputNumber: string): string {
 
   const codeDigits = dialCode.replace(/\D/g, '');
   if (cleanDigits.startsWith(codeDigits)) {
-    return `+${cleanDigits}`;
+    const subscriber = cleanDigits.slice(codeDigits.length).replace(/^0+/, '');
+    return `+${codeDigits}${subscriber}`;
   }
 
   const withoutLeadingZero = cleanDigits.replace(/^0+/, '');
@@ -514,12 +515,12 @@ export function detectCountryFromPhone(
 export function normalizePhoneNumber(rawInput: string, defaultDialCode = '+263'): string {
   if (!rawInput) return '';
   const trimmed = rawInput.trim();
-  if (trimmed.startsWith('+')) {
-    return trimmed;
-  }
   const detection = detectCountryFromPhone(trimmed, defaultDialCode);
   if (detection.detected && detection.country) {
     return formatE164Phone(detection.dialCode, detection.localNumber);
+  }
+  if (trimmed.startsWith('+')) {
+    return trimmed.replace(/\s+/g, '');
   }
   return formatE164Phone(defaultDialCode, trimmed);
 }
