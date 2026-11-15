@@ -325,7 +325,7 @@ function ResetPasswordContent() {
 
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto p-4 sm:p-6 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 z-10">
-        &copy; {new Date().getFullYear()} Sadza Connect. National Commercial Network of Zimbabwe.
+        &copy; {new Date().getFullYear()} MySadza Connect. National Commercial Network of Zimbabwe.
       </footer>
     </div>
   );

@@ -335,7 +335,7 @@ export class AuthService {
   async verifyResetOtp(identifier: string, otp: string): Promise<{ resetToken: string }> {
     const user = await this.userRepo.findByEmailOrPhone(identifier);
     if (!user) {
-      throw new AuthenticationError('No account found with this email or phone number.');
+      throw new AuthenticationError('No account found with this registered email address.');
     }
 
     const storedToken = await this.passwordResetTokenRepo.findByOtp(otp);

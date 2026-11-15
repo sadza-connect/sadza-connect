@@ -82,7 +82,7 @@ export const forgotPasswordSchema = z
     identifier: z.string().trim().optional(),
   })
   .refine((data) => Boolean(data.email || data.identifier), {
-    message: 'Please provide your registered email address or phone number',
+    message: 'Please provide your registered email address',
     path: ['identifier'],
   });
 
@@ -96,7 +96,7 @@ export const verifyResetOtpSchema = z
       .regex(/^\d{6}$/, 'Reset code must be a 6-digit code'),
   })
   .refine((data) => Boolean(data.email || data.identifier), {
-    message: 'Please provide your registered email address or phone number',
+    message: 'Please provide your registered email address',
     path: ['identifier'],
   });
 

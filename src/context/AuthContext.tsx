@@ -254,7 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const apiUrl = getApiBaseUrl();
-      const result = await safeFetchJson(`${apiUrl}/auth/logout`, {
+      await safeFetchJson(`${apiUrl}/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,14 +262,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         credentials: 'include',
         body: JSON.stringify({ refreshToken: refreshToken || '' }),
-      });
-
-      if (!result.ok) {
-        setLogoutError(result.error || 'Failed to securely end session on server. Please try again.');
-        return false;
-      }
-
-      // Invalidate tokens and user state securely
+      }).catch(() => null);
+    } catch {
+      // Ignore network errors during remote session revocation
+    } finally {
+      // Invalidate tokens and user state securely regardless of network status
       localStorage.removeItem('sadza_user');
       localStorage.removeItem('sadza_access_token');
       localStorage.removeItem('sadza_refresh_token');
@@ -288,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           JSON.stringify({
             type: 'logout',
             title: 'Signed Out Successfully',
-            message: 'You have been safely signed out of Sadza Connect. See you soon!',
+            message: 'You have been safely signed out of MySadza Connect. See you soon!',
           })
         );
       } catch {
@@ -297,13 +294,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Redirect user to the login page
       router.push('/login');
-      return true;
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Network error occurred during logout. Please try again.';
-      setLogoutError(message);
-      return false;
     }
+
+    return true;
   }, [router]);
 
   const clearLogoutError = useCallback(() => {

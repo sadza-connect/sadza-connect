@@ -13,7 +13,7 @@ import {
   CheckCircleIcon,
   Sparkles,
 } from '@/components/ui/Icons';
-import { ShieldCheck, MessageCircle, KeyRound, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShieldCheck, KeyRound, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/providers/ToastProvider';
 import { safeFetchJson, getApiBaseUrl } from '@/shared/utils/api-client';
 
@@ -21,8 +21,7 @@ export default function ForgotPasswordPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [identifier, setIdentifier] = useState('');
-  const [deliveryMethod, setDeliveryMethod] = useState<'email' | 'whatsapp'>('email');
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
@@ -41,8 +40,9 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!identifier.trim()) {
-      setErrorMessage('Please enter your registered email address or mobile phone number.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMessage('Please enter a valid registered email address.');
       return;
     }
 
@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
       const res = await safeFetchJson(`${apiUrl}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim() }),
+        body: JSON.stringify({ identifier: cleanEmail }),
       });
 
       if (!res.ok) {
@@ -63,8 +63,8 @@ export default function ForgotPasswordPage() {
       setCodeSent(true);
       setCountdown(60);
       toast({
-        title: deliveryMethod === 'email' ? 'Reset Code Sent to Email' : 'OTP Dispatched to Phone',
-        description: 'A 6-digit security reset PIN has been dispatched to your contact.',
+        title: 'Reset PIN Sent to Email',
+        description: 'A 6-digit security recovery PIN has been sent to your email inbox.',
         variant: 'info',
       });
     } catch (err: any) {
@@ -92,7 +92,7 @@ export default function ForgotPasswordPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          identifier: identifier.trim(),
+          identifier: email.trim().toLowerCase(),
           otp: cleanPin,
         }),
       });
@@ -113,7 +113,7 @@ export default function ForgotPasswordPage() {
       });
 
       const query = new URLSearchParams({
-        account: identifier.trim(),
+        account: email.trim().toLowerCase(),
         token: resetToken,
       }).toString();
 
@@ -160,7 +160,7 @@ export default function ForgotPasswordPage() {
                     Forgot Password?
                   </h2>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Enter your registered email address or Zimbabwe phone number to receive a secure recovery code.
+                    Enter your registered email address to receive a secure 6-digit recovery PIN.
                   </p>
                 </div>
 
@@ -174,51 +174,25 @@ export default function ForgotPasswordPage() {
                 <form onSubmit={handleSendCode} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Account Identifier (Email or Phone)
+                      Registered Email Address
                     </label>
                     <div className="relative flex items-center group">
                       <MailIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                       <input
-                        type="text"
+                        type="email"
+                        name="email"
+                        autoComplete="email"
+                        inputMode="email"
                         required
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="e.g. director@company.co.zw or +263771..."
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@company.co.zw"
                         className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25 transition font-medium"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Send Verification Code Via
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryMethod('email')}
-                        className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition ${
-                          deliveryMethod === 'email'
-                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <MailIcon className="w-3.5 h-3.5" />
-                        <span>Email Inbox</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryMethod('whatsapp')}
-                        className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition ${
-                          deliveryMethod === 'whatsapp'
-                            ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>WhatsApp OTP</span>
-                      </button>
-                    </div>
+                    <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      We will send a 6-digit verification PIN to your email address.
+                    </p>
                   </div>
 
                   <Button
@@ -229,7 +203,7 @@ export default function ForgotPasswordPage() {
                     loading={isLoading}
                     className="mt-2 text-xs font-semibold py-3 rounded-xl shadow-emerald"
                   >
-                    <span>Send Recovery Code</span>
+                    <span>Send Recovery PIN</span>
                     <ArrowRightIcon className="h-4 w-4" />
                   </Button>
                 </form>
@@ -245,13 +219,13 @@ export default function ForgotPasswordPage() {
                   </h2>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     We sent a 6-digit one-time PIN to{' '}
-                    <strong className="text-slate-900 dark:text-white font-mono">{identifier}</strong>.
+                    <strong className="text-slate-900 dark:text-white font-mono">{email}</strong>.
                   </p>
                 </div>
 
                 <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between">
                   <span>
-                    Security reset code dispatched. Check your inbox or SMS for the 6-digit PIN.
+                    Security reset PIN dispatched. Check your email inbox or spam folder for the 6-digit PIN.
                   </span>
                 </div>
 
@@ -294,9 +268,9 @@ export default function ForgotPasswordPage() {
                     <button
                       type="button"
                       onClick={() => setCodeSent(false)}
-                      className="text-slate-500 hover:underline"
+                      className="text-slate-500 hover:underline cursor-pointer"
                     >
-                      Change contact
+                      Change email
                     </button>
                   </div>
 
@@ -329,7 +303,7 @@ export default function ForgotPasswordPage() {
 
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto p-4 sm:p-6 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 z-10">
-        &copy; {new Date().getFullYear()} Sadza Connect. National Commercial Network of Zimbabwe.
+        &copy; {new Date().getFullYear()} MySadza Connect. National Commercial Network of Zimbabwe.
       </footer>
     </div>
   );

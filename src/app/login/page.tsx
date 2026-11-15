@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import {
   MailIcon,
@@ -63,12 +62,6 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  // Password reset modal state
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotInput, setForgotInput] = useState('');
-  const [forgotSent, setForgotSent] = useState(false);
-  const [forgotError, setForgotError] = useState('');
 
   // Email verification modal state
   const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -158,31 +151,6 @@ function LoginForm() {
     } catch (err: any) {
       const formatted = formatLoginError(err?.message);
       setErrorMessage(formatted);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotInput.trim()) return;
-
-    setIsLoading(true);
-    setForgotError('');
-    try {
-      const apiUrl = getApiBaseUrl();
-      const res = await safeFetchJson(`${apiUrl}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotInput.trim().toLowerCase() }),
-      });
-      if (!res.ok) {
-        setForgotError(res.error || 'Failed to dispatch password reset link. Please try again.');
-        return;
-      }
-      setForgotSent(true);
-    } catch (err: any) {
-      setForgotError(err?.message || 'Failed to dispatch password reset link. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -379,79 +347,13 @@ function LoginForm() {
 
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 z-10">
-        <div>© {new Date().getFullYear()} Sadza Connect. National Commercial Network of Zimbabwe.</div>
+        <div>© {new Date().getFullYear()} MySadza Connect. National Commercial Network of Zimbabwe.</div>
         <div className="flex gap-4 mt-2 sm:mt-0">
           <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
           <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Terms of Service</Link>
           <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Security</Link>
         </div>
       </footer>
-
-      {/* FORGOT PASSWORD MODAL */}
-      <Modal
-        isOpen={showForgotModal}
-        onClose={() => {
-          setShowForgotModal(false);
-          setForgotSent(false);
-        }}
-        title="Reset your password"
-        description="Enter your registered email address to receive password reset instructions."
-        maxWidth="sm"
-      >
-        {forgotSent ? (
-          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-4 border border-emerald-200 dark:border-emerald-800 text-center">
-            <CheckCircleIcon className="h-6 w-6 text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
-            <div className="text-xs font-bold text-slate-900 dark:text-white">Reset link sent</div>
-            <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
-              We sent verification instructions to <span className="font-mono text-slate-900 dark:text-slate-100">{forgotInput}</span>.
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowForgotModal(false);
-                setForgotSent(false);
-              }}
-              className="mt-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-semibold shadow-xs"
-            >
-              Return to sign in
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleForgotSubmit} className="mt-2 space-y-3.5">
-            {forgotError && (
-              <div className="rounded-xl border border-rose-300 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/40 p-2.5 text-xs font-medium text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                <span>{forgotError}</span>
-              </div>
-            )}
-            <div>
-              <label className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                Email address
-              </label>
-              <input
-                type="email"
-                required
-                value={forgotInput}
-                onChange={(e) => setForgotInput(e.target.value)}
-                placeholder="you@company.co.zw"
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowForgotModal(false)}
-                className="rounded-xl border border-slate-200 dark:border-slate-700 px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <Button type="submit" variant="primary" size="sm">
-                Send reset link
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
 
       {/* 6-DIGIT EMAIL VERIFICATION POP-UP MODAL */}
       <VerifyEmailModal
@@ -465,7 +367,7 @@ function LoginForm() {
           triggerCelebration({
             type: 'login',
             title: 'Email Verified!',
-            message: 'Your email address is verified. Welcome to Sadza Connect!',
+            message: 'Your email address is verified. Welcome to MySadza Connect!',
           });
           router.push('/');
         }}

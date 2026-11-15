@@ -147,7 +147,7 @@ function SignupFormContent() {
       triggerCelebration({
         type: 'register',
         title: 'Account Created!',
-        message: `Welcome to Sadza Connect, ${fullName}! Proceeding to Business Onboarding.`,
+        message: `Welcome to MySadza Connect, ${fullName}! Proceeding to Business Onboarding.`,
         userName: fullName,
       });
 
@@ -161,7 +161,7 @@ function SignupFormContent() {
     } else {
       triggerCelebration({
         type: 'register',
-        title: 'Welcome to Sadza Connect!',
+        title: 'Welcome to MySadza Connect!',
         message: `Your personal account for ${fullName} is ready. Redirecting to your personal dashboard.`,
         userName: fullName,
       });
@@ -492,7 +492,7 @@ function SignupFormContent() {
                 </h2>
                 <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300">
                   {selectedType === 'business'
-                    ? 'Set up your verified commercial enterprise profile on Sadza Connect.'
+                    ? 'Set up your verified commercial enterprise profile on MySadza Connect.'
                     : 'Create your personal account to shop, buy electricity tokens, and apply for jobs.'}
                 </p>
               </div>
@@ -790,7 +790,7 @@ function SignupFormContent() {
 
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 z-10">
-        <div>© {new Date().getFullYear()} Sadza Connect. National Commercial Network of Zimbabwe.</div>
+        <div>© {new Date().getFullYear()} MySadza Connect. National Commercial Network of Zimbabwe.</div>
         <div className="flex gap-4 mt-2 sm:mt-0">
           <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
           <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Terms of Service</Link>
