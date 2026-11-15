@@ -50,6 +50,8 @@ import {
 } from '@/data/platformStore';
 import { mapDbJobToOpening, mapDbApplicationToRecord } from '@/lib/data/job-mapper';
 import { cn } from '@/lib/utils/cn';
+import { detectCountryFromPhone, CountryDialInfo } from '@/lib/data/countries';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export default function AdminJobsPage() {
   const [activeTab, setActiveTab] = useState<'positions' | 'applications'>('positions');
@@ -65,6 +67,7 @@ export default function AdminJobsPage() {
 
   const [posModalOpen, setPosModalOpen] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [detectedWhatsappCountry, setDetectedWhatsappCountry] = useState<CountryDialInfo | null>(null);
   const [selectedApp, setSelectedApp] = useState<JobApplicationRecord | null>(null);
   const [hireModalApp, setHireModalApp] = useState<JobApplicationRecord | null>(null);
   const [offerDetails, setOfferDetails] = useState(
@@ -185,6 +188,7 @@ export default function AdminJobsPage() {
       requirements: '',
       whatsapp: '',
     });
+    setDetectedWhatsappCountry(null);
     setPosModalOpen(true);
   }
 
@@ -193,6 +197,12 @@ export default function AdminJobsPage() {
     const matchedBiz = availableBusinesses.find(
       (b) => b.name === job.company || b.slug === job.companySlug
     );
+    if (job.whatsapp) {
+      const dw = detectCountryFromPhone(job.whatsapp);
+      setDetectedWhatsappCountry(dw.detected && dw.country ? dw.country : null);
+    } else {
+      setDetectedWhatsappCountry(null);
+    }
     setForm({
       title: job.title,
       selectedBusinessId: matchedBiz?.id || '',
@@ -202,7 +212,7 @@ export default function AdminJobsPage() {
       salaryUsd: job.salaryUsd,
       description: job.description,
       requirements: (job.requirements || []).join('\n'),
-      whatsapp: job.whatsapp || '263772101101',
+      whatsapp: job.whatsapp || '',
     });
     setPosModalOpen(true);
   }
@@ -213,6 +223,8 @@ export default function AdminJobsPage() {
       .split('\n')
       .map((r) => r.trim())
       .filter(Boolean);
+
+    const normalizedWhatsapp = form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '';
 
     if (editingJobId) {
       const existing = jobs.find((j) => j.id === editingJobId);
@@ -230,7 +242,7 @@ export default function AdminJobsPage() {
               salary_usd: form.salaryUsd,
               description: form.description,
               requirements: reqList,
-              whatsapp: form.whatsapp,
+              whatsapp: normalizedWhatsapp,
             }),
           });
           const json = await res.json();
@@ -258,7 +270,7 @@ export default function AdminJobsPage() {
               salaryUsd: form.salaryUsd,
               description: form.description,
               requirements: reqList,
-              whatsapp: form.whatsapp,
+              whatsapp: normalizedWhatsapp,
             }
           : j
       );
@@ -281,7 +293,7 @@ export default function AdminJobsPage() {
             job_type: form.type,
             salary_usd: form.salaryUsd,
             category: 'Commercial Services',
-            whatsapp: form.whatsapp,
+            whatsapp: normalizedWhatsapp,
             description: form.description,
             requirements: reqList,
           }),
@@ -316,7 +328,7 @@ export default function AdminJobsPage() {
         postedDate: 'Just now',
         description: form.description,
         requirements: reqList,
-        whatsapp: form.whatsapp,
+        whatsapp: normalizedWhatsapp,
       };
       const next = [newJob, ...jobs];
       saveStoredJobs(next);
@@ -697,15 +709,45 @@ export default function AdminJobsPage() {
                   placeholder="$500 – $750 / month"
                   required
                 />
-                <AdminInput
-                  label="WhatsApp contact"
-                  type="tel"
-                  inputMode="numeric"
-                  hint="Digits only, e.g. 263771234567"
-                  value={form.whatsapp}
-                  onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                  required
-                />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      WhatsApp Contact
+                    </label>
+                    {detectedWhatsappCountry && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        <span>{detectedWhatsappCountry.flag}</span>
+                        <span>{detectedWhatsappCountry.name} ({detectedWhatsappCountry.dialCode})</span>
+                      </span>
+                    )}
+                  </div>
+                  <AdminInput
+                    label=""
+                    type="tel"
+                    placeholder="e.g. 9030098304 or 263771234567"
+                    value={form.whatsapp}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm({ ...form, whatsapp: val });
+                      const res = detectCountryFromPhone(val);
+                      if (res.detected && res.country) {
+                        setDetectedWhatsappCountry(res.country);
+                      } else if (!val.trim()) {
+                        setDetectedWhatsappCountry(null);
+                      }
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (pasted) {
+                        const res = detectCountryFromPhone(pasted);
+                        if (res.detected && res.country) {
+                          setDetectedWhatsappCountry(res.country);
+                        }
+                      }
+                    }}
+                    required
+                  />
+                </div>
               </ModalGrid>
             </ModalSection>
 

@@ -10,7 +10,7 @@ import { CategoryCombobox } from '@/components/ui/CategoryCombobox';
 import { ActionLoader } from '@/components/ui/ActionLoader';
 import { INDUSTRY_CATEGORIES } from '@/lib/data/categories';
 import { setOnboardingCompleted } from '@/lib/utils/onboarding-state';
-import { formatE164Phone, parsePhoneComponents, detectCountryFromPhone } from '@/lib/data/countries';
+import { formatE164Phone, parsePhoneComponents, detectCountryFromPhone, CountryDialInfo } from '@/lib/data/countries';
 import { CountryCodeSelect } from '@/components/ui/CountryCodeSelect';
 import { useAuth } from '@/context/AuthContext';
 import { getClientAccessToken } from '@/shared/utils/api-client';
@@ -484,6 +484,7 @@ function BusinessOnboardingContent() {
     return parsePhoneComponents(registeredPhone).dialCode || '+263';
   });
   const [whatsAppLocalNumber, setWhatsAppLocalNumber] = useState('');
+  const [detectedWhatsAppCountry, setDetectedWhatsAppCountry] = useState<CountryDialInfo | null>(null);
   const [publicEmail, setPublicEmail] = useState('');
   const [step6Completed, setStep6Completed] = useState(false);
   const [step6Error, setStep6Error] = useState('');
@@ -1808,18 +1809,31 @@ function BusinessOnboardingContent() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label
-                        htmlFor="public-whatsapp-field"
-                        className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1"
-                      >
-                        Public WhatsApp / Sales Line <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="public-whatsapp-field"
+                          className="block text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200"
+                        >
+                          Public WhatsApp / Sales Line <span className="text-[11px] font-normal text-slate-500">(Optional)</span>
+                        </label>
+                        {detectedWhatsAppCountry ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/80 animate-in fade-in duration-200">
+                            <span className="text-xs">{detectedWhatsAppCountry.flag}</span>
+                            <span>Auto-detected: {detectedWhatsAppCountry.name} ({detectedWhatsAppCountry.dialCode})</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Auto-detects country
+                          </span>
+                        )}
+                      </div>
                       <div className="relative flex items-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all overflow-hidden">
                         <div className="border-r border-slate-200 dark:border-slate-700">
                           <CountryCodeSelect
                             value={whatsAppCountryCode}
-                            onChange={(code) => {
+                            onChange={(code, country) => {
                               setWhatsAppCountryCode(code);
+                              if (country) setDetectedWhatsAppCountry(country);
                               const formatted = whatsAppLocalNumber.trim()
                                 ? formatE164Phone(code, whatsAppLocalNumber)
                                 : '';
@@ -1840,9 +1854,12 @@ function BusinessOnboardingContent() {
                             if (detection.detected && detection.country) {
                               code = detection.dialCode;
                               setWhatsAppCountryCode(detection.dialCode);
+                              setDetectedWhatsAppCountry(detection.country);
                               if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
                                 local = detection.localNumber;
                               }
+                            } else if (!sanitized) {
+                              setDetectedWhatsAppCountry(null);
                             }
                             setWhatsAppLocalNumber(local);
                             const formatted = local.trim()
@@ -1861,9 +1878,12 @@ function BusinessOnboardingContent() {
                               if (detection.detected && detection.country) {
                                 code = detection.dialCode;
                                 setWhatsAppCountryCode(detection.dialCode);
+                                setDetectedWhatsAppCountry(detection.country);
                                 if (detection.source === 'international_prefix' || detection.source === 'dial_code_lead') {
                                   local = detection.localNumber;
                                 }
+                              } else if (!sanitized) {
+                                setDetectedWhatsAppCountry(null);
                               }
                               setWhatsAppLocalNumber(local);
                               const formatted = local.trim() ? formatE164Phone(code, local) : '';

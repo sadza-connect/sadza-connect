@@ -1,7 +1,4 @@
-/**
- * Utility functions for generating direct WhatsApp click-to-chat deep links
- * format: https://wa.me/<phone_number>?text=<encoded_message>
- */
+import { detectCountryFromPhone } from '../data/countries';
 
 export function sanitizePhoneNumber(phone: string): string {
   if (!phone) return '';
@@ -20,7 +17,15 @@ export function sanitizePhoneNumber(phone: string): string {
     return digits.substring(2);
   }
 
-  // 3. Local Zimbabwean mobile format (071, 073, 077, 078) -> prepend 263
+  // 3. Intelligent country detection for national/local numbers (e.g. 9030098304 or 09030098304 -> 2349030098304)
+  const detected = detectCountryFromPhone(trimmed);
+  if (detected.detected && detected.country) {
+    const codeDigits = detected.dialCode.replace(/\D/g, '');
+    const cleanLocal = detected.localNumber.replace(/^0+/, '');
+    return `${codeDigits}${cleanLocal}`;
+  }
+
+  // 4. Fallback: Local Zimbabwean mobile format (071, 073, 077, 078) -> prepend 263
   if (
     digits.startsWith('0') &&
     (digits.startsWith('071') ||
@@ -31,7 +36,7 @@ export function sanitizePhoneNumber(phone: string): string {
     return `263${digits.substring(1)}`;
   }
 
-  // 4. Local Zimbabwean 9-digit format without leading 0 -> prepend 263
+  // 5. Local Zimbabwean 9-digit format without leading 0 -> prepend 263
   if (
     digits.length === 9 &&
     (digits.startsWith('71') ||
@@ -42,7 +47,7 @@ export function sanitizePhoneNumber(phone: string): string {
     return `263${digits}`;
   }
 
-  // 5. If it starts with a leading zero from any other country, strip the 0
+  // 6. If it starts with a leading zero, default to Zimbabwe +263
   if (digits.startsWith('0')) {
     return `263${digits.substring(1)}`;
   }

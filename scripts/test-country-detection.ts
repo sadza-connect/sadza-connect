@@ -130,6 +130,49 @@ for (const tc of testCases) {
   console.log(`✅ PASS: '${tc.input}' -> ${result.country.flag} ${result.country.name} (${result.dialCode}) -> E.164: ${e164}`);
 }
 
+import { parsePhoneComponents, normalizePhoneNumber } from '../src/lib/data/countries.js';
+console.log('\n--- Testing parsePhoneComponents & normalizePhoneNumber ---');
+
+const nigerianParsed = parsePhoneComponents('9030098304');
+if (nigerianParsed.dialCode === '+234' && nigerianParsed.localNumber === '9030098304') {
+  console.log('✅ PASS: parsePhoneComponents("9030098304") -> +234 9030098304');
+} else {
+  console.error('❌ FAIL: parsePhoneComponents("9030098304") ->', nigerianParsed);
+  failed++;
+}
+
+const nigerianWithZeroParsed = parsePhoneComponents('09030098304');
+if (nigerianWithZeroParsed.dialCode === '+234' && nigerianWithZeroParsed.localNumber === '9030098304') {
+  console.log('✅ PASS: parsePhoneComponents("09030098304") -> +234 9030098304');
+} else {
+  console.error('❌ FAIL: parsePhoneComponents("09030098304") ->', nigerianWithZeroParsed);
+  failed++;
+}
+
+const norm1 = normalizePhoneNumber('9030098304');
+if (norm1 === '+2349030098304') {
+  console.log('✅ PASS: normalizePhoneNumber("9030098304") -> +2349030098304');
+} else {
+  console.error('❌ FAIL: normalizePhoneNumber("9030098304") ->', norm1);
+  failed++;
+}
+
+const norm2 = normalizePhoneNumber('09030098304');
+if (norm2 === '+2349030098304') {
+  console.log('✅ PASS: normalizePhoneNumber("09030098304") -> +2349030098304');
+} else {
+  console.error('❌ FAIL: normalizePhoneNumber("09030098304") ->', norm2);
+  failed++;
+}
+
+const norm3 = normalizePhoneNumber('0771234567');
+if (norm3 === '+263771234567') {
+  console.log('✅ PASS: normalizePhoneNumber("0771234567") -> +263771234567');
+} else {
+  console.error('❌ FAIL: normalizePhoneNumber("0771234567") ->', norm3);
+  failed++;
+}
+
 if (failed > 0) {
   console.error(`\n❌ ${failed} tests failed!`);
   process.exit(1);
@@ -137,3 +180,4 @@ if (failed > 0) {
   console.log('\n🎉 ALL AUTO-DETECTION TESTS PASSED 100%!\n');
   process.exit(0);
 }
+

@@ -51,6 +51,8 @@ import {
   toggleTourismFeatured,
 } from '@/data/tourismStore';
 import { cn } from '@/lib/utils/cn';
+import { detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export default function AdminTourismPage() {
   const [tourisms, setTourisms] = useState<TourismListing[]>([]);
@@ -64,6 +66,8 @@ export default function AdminTourismPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingItem, setDeletingItem] = useState<TourismListing | null>(null);
+  const [detectedPhoneCountry, setDetectedPhoneCountry] = useState<CountryDialInfo | null>(null);
+  const [detectedWhatsappCountry, setDetectedWhatsappCountry] = useState<CountryDialInfo | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -153,14 +157,16 @@ export default function AdminTourismPage() {
       description: '',
       hostName: '',
       hostType: 'Safari Lodge Operator',
-      phone: '+263 ',
-      whatsapp: '263',
+      phone: '',
+      whatsapp: '',
       rating: '4.8',
       reviewsCount: '15',
       isVerified: true,
       isFeatured: false,
       images: [],
     });
+    setDetectedPhoneCountry(null);
+    setDetectedWhatsappCountry(null);
     setFormOpen(true);
   };
 
@@ -170,6 +176,20 @@ export default function AdminTourismPage() {
       src: url,
       caption: '',
     }));
+
+    if (t.phone) {
+      const dp = detectCountryFromPhone(t.phone);
+      setDetectedPhoneCountry(dp.detected && dp.country ? dp.country : null);
+    } else {
+      setDetectedPhoneCountry(null);
+    }
+
+    if (t.whatsapp) {
+      const dw = detectCountryFromPhone(t.whatsapp);
+      setDetectedWhatsappCountry(dw.detected && dw.country ? dw.country : null);
+    } else {
+      setDetectedWhatsappCountry(null);
+    }
 
     setForm({
       name: t.name,
@@ -238,8 +258,8 @@ export default function AdminTourismPage() {
         hostType: form.hostType,
         isVerified: form.isVerified,
         isFeatured: form.isFeatured,
-        whatsapp: form.whatsapp.trim().replace(/[^0-9]/g, ''),
-        phone: form.phone.trim(),
+        whatsapp: form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '',
+        phone: form.phone.trim() ? normalizePhoneNumber(form.phone) : '',
         rating: parseFloat(form.rating) || 4.8,
         reviewsCount: parseInt(form.reviewsCount, 10) || 12,
         postedAt: existing?.postedAt || 'Verified Partner',
@@ -266,8 +286,8 @@ export default function AdminTourismPage() {
         hostType: form.hostType,
         isVerified: form.isVerified,
         isFeatured: form.isFeatured,
-        whatsapp: form.whatsapp.trim().replace(/[^0-9]/g, ''),
-        phone: form.phone.trim(),
+        whatsapp: form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '',
+        phone: form.phone.trim() ? normalizePhoneNumber(form.phone) : '',
         rating: parseFloat(form.rating) || 4.9,
         reviewsCount: parseInt(form.reviewsCount, 10) || 5,
         postedAt: 'Verified Partner',
@@ -671,19 +691,81 @@ export default function AdminTourismPage() {
                 <option value="Guesthouse Manager">Guesthouse Manager</option>
               </AdminSelect>
 
-              <AdminInput
-                label="Direct Phone Line"
-                placeholder="+263 77 123 4567"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Direct Phone Line
+                  </label>
+                  {detectedPhoneCountry && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span>{detectedPhoneCountry.flag}</span>
+                      <span>{detectedPhoneCountry.name} ({detectedPhoneCountry.dialCode})</span>
+                    </span>
+                  )}
+                </div>
+                <AdminInput
+                  label=""
+                  placeholder="e.g. 9030098304 or +263 77 123 4567"
+                  value={form.phone}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, phone: val });
+                    const res = detectCountryFromPhone(val);
+                    if (res.detected && res.country) {
+                      setDetectedPhoneCountry(res.country);
+                    } else if (!val.trim()) {
+                      setDetectedPhoneCountry(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const res = detectCountryFromPhone(pasted);
+                      if (res.detected && res.country) {
+                        setDetectedPhoneCountry(res.country);
+                      }
+                    }
+                  }}
+                />
+              </div>
 
-              <AdminInput
-                label="WhatsApp Number (Booking Inquiries)"
-                placeholder="263771234567"
-                value={form.whatsapp}
-                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    WhatsApp Number (Booking Inquiries)
+                  </label>
+                  {detectedWhatsappCountry && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span>{detectedWhatsappCountry.flag}</span>
+                      <span>{detectedWhatsappCountry.name} ({detectedWhatsappCountry.dialCode})</span>
+                    </span>
+                  )}
+                </div>
+                <AdminInput
+                  label=""
+                  placeholder="e.g. 9030098304 or 263771234567"
+                  value={form.whatsapp}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, whatsapp: val });
+                    const res = detectCountryFromPhone(val);
+                    if (res.detected && res.country) {
+                      setDetectedWhatsappCountry(res.country);
+                    } else if (!val.trim()) {
+                      setDetectedWhatsappCountry(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const res = detectCountryFromPhone(pasted);
+                      if (res.detected && res.country) {
+                        setDetectedWhatsappCountry(res.country);
+                      }
+                    }
+                  }}
+                />
+              </div>
             </ModalGrid>
           </ModalSection>
 

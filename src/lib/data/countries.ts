@@ -222,6 +222,7 @@ export function formatE164Phone(dialCode: string, inputNumber: string): string {
 
 /**
  * Extracts the dial code and local number from an existing E.164 phone number.
+ * Automatically runs detectCountryFromPhone for numbers without explicit country code.
  */
 export function parsePhoneComponents(phone: string): { dialCode: string; localNumber: string } {
   if (!phone) return { dialCode: '+263', localNumber: '' };
@@ -238,6 +239,15 @@ export function parsePhoneComponents(phone: string): { dialCode: string; localNu
 
   if (trimmed.startsWith('+')) {
     return { dialCode: '+', localNumber: trimmed.slice(1) };
+  }
+
+  // Attempt smart country auto-detection for non-prefixed local numbers (e.g. 9030098304, 09030098304)
+  const detected = detectCountryFromPhone(trimmed);
+  if (detected.detected && detected.country) {
+    return {
+      dialCode: detected.dialCode,
+      localNumber: detected.localNumber,
+    };
   }
 
   // Default assumption: Zimbabwe
@@ -495,3 +505,22 @@ export function detectCountryFromPhone(
     source: 'none',
   };
 }
+
+/**
+ * Normalizes any phone number input into international E.164 format.
+ * Automatically runs detectCountryFromPhone so that inputs like '9030098304' or '09030098304'
+ * become '+2349030098304', '0771234567' becomes '+263771234567', etc.
+ */
+export function normalizePhoneNumber(rawInput: string, defaultDialCode = '+263'): string {
+  if (!rawInput) return '';
+  const trimmed = rawInput.trim();
+  if (trimmed.startsWith('+')) {
+    return trimmed;
+  }
+  const detection = detectCountryFromPhone(trimmed, defaultDialCode);
+  if (detection.detected && detection.country) {
+    return formatE164Phone(detection.dialCode, detection.localNumber);
+  }
+  return formatE164Phone(defaultDialCode, trimmed);
+}
+

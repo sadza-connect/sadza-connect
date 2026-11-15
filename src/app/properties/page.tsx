@@ -49,6 +49,7 @@ import {
 } from '@/data/propertiesStore';
 import { CLEAN_PROVINCES } from '@/data/advertsStore';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
+import { detectCountryFromPhone } from '@/lib/data/countries';
 import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 export default function PropertiesDirectoryPage() {
@@ -1338,14 +1339,25 @@ export default function PropertiesDirectoryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      WhatsApp Contact (for inquiries) *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        WhatsApp Contact (for inquiries) *
+                      </label>
+                      {(() => {
+                        const det = detectCountryFromPhone(newWhatsapp);
+                        return det.detected && det.country ? (
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                            <span>{det.country.flag}</span>
+                            <span>{det.country.name} ({det.dialCode})</span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <Input
                       required
                       value={newWhatsapp}
                       onChange={(e) => setNewWhatsapp(e.target.value)}
-                      placeholder="e.g. 263772123456"
+                      placeholder="e.g. 9030098304 or 263772123456"
                     />
                   </div>
                 </div>

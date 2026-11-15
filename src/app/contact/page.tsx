@@ -15,6 +15,7 @@ import {
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { generateWhatsAppLink } from '@/lib/utils/whatsapp';
+import { detectCountryFromPhone, normalizePhoneNumber } from '@/lib/data/countries';
 import {
   getPlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
@@ -73,7 +74,7 @@ export default function ContactPage() {
         body: JSON.stringify({
           name,
           email,
-          phone: phone || null,
+          phone: phone ? normalizePhoneNumber(phone) : null,
           topic,
           message,
         }),
@@ -216,13 +217,24 @@ export default function ContactPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Phone / WhatsApp Number *
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Phone / WhatsApp Number *
+                        </label>
+                        {(() => {
+                          const det = detectCountryFromPhone(phone);
+                          return det.detected && det.country ? (
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                              <span>{det.country.flag}</span>
+                              <span>Auto-detected: {det.country.name} ({det.dialCode})</span>
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
                       <input
                         type="tel"
                         required
-                        placeholder="+263 77 123 4567"
+                        placeholder="e.g. 9030098304 or +263 77 123 4567"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"

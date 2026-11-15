@@ -55,6 +55,8 @@ import {
   getUnlockedContacts,
 } from '@/data/propertiesStore';
 import { cn } from '@/lib/utils/cn';
+import { detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export default function AdminPropertiesPage() {
   const [properties, setProperties] = useState<PropertyListing[]>([]);
@@ -69,6 +71,8 @@ export default function AdminPropertiesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingProperty, setDeletingProperty] = useState<PropertyListing | null>(null);
+  const [detectedPhoneCountry, setDetectedPhoneCountry] = useState<CountryDialInfo | null>(null);
+  const [detectedWhatsappCountry, setDetectedWhatsappCountry] = useState<CountryDialInfo | null>(null);
 
   const [form, setForm] = useState({
     title: '',
@@ -168,13 +172,15 @@ export default function AdminPropertiesPage() {
       features: 'Borehole, 5kVA Solar, Walled & Gated',
       advertiserName: '',
       advertiserType: 'Direct Landlord',
-      phone: '+263 ',
-      whatsapp: '263',
+      phone: '',
+      whatsapp: '',
       isVerified: true,
       isFeatured: false,
       occupancyStatus: 'Available',
       images: [],
     });
+    setDetectedPhoneCountry(null);
+    setDetectedWhatsappCountry(null);
     setFormOpen(true);
   };
 
@@ -184,6 +190,20 @@ export default function AdminPropertiesPage() {
       src: url,
       caption: '',
     }));
+
+    if (p.phone) {
+      const dp = detectCountryFromPhone(p.phone);
+      setDetectedPhoneCountry(dp.detected && dp.country ? dp.country : null);
+    } else {
+      setDetectedPhoneCountry(null);
+    }
+
+    if (p.whatsapp) {
+      const dw = detectCountryFromPhone(p.whatsapp);
+      setDetectedWhatsappCountry(dw.detected && dw.country ? dw.country : null);
+    } else {
+      setDetectedWhatsappCountry(null);
+    }
 
     setForm({
       title: p.title,
@@ -254,8 +274,8 @@ export default function AdminPropertiesPage() {
         advertiserName: form.advertiserName.trim() || 'Verified Landlord',
         advertiserType: form.advertiserType,
         isVerified: form.isVerified,
-        whatsapp: form.whatsapp.trim().replace(/[^0-9]/g, ''),
-        phone: form.phone.trim(),
+        whatsapp: form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '',
+        phone: form.phone.trim() ? normalizePhoneNumber(form.phone) : '',
         postedAt: existing?.postedAt || 'Just updated',
         isFeatured: form.isFeatured,
         occupancyStatus: isOccupiedBool ? 'Taken' : 'Available',
@@ -283,8 +303,8 @@ export default function AdminPropertiesPage() {
         advertiserName: form.advertiserName.trim() || 'Verified Landlord',
         advertiserType: form.advertiserType,
         isVerified: form.isVerified,
-        whatsapp: form.whatsapp.trim().replace(/[^0-9]/g, ''),
-        phone: form.phone.trim(),
+        whatsapp: form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '',
+        phone: form.phone.trim() ? normalizePhoneNumber(form.phone) : '',
         postedAt: 'Just posted',
         isFeatured: form.isFeatured,
         occupancyStatus: isOccupiedBool ? 'Taken' : 'Available',
@@ -697,20 +717,82 @@ export default function AdminPropertiesPage() {
                 <option value="Developer">Property Developer</option>
               </AdminSelect>
 
-              <AdminInput
-                label="Landlord Direct Phone"
-                placeholder="+263 77 123 4567"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                hint="This is the contact number protected behind the $1 paywall."
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Landlord Direct Phone
+                  </label>
+                  {detectedPhoneCountry && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span>{detectedPhoneCountry.flag}</span>
+                      <span>{detectedPhoneCountry.name} ({detectedPhoneCountry.dialCode})</span>
+                    </span>
+                  )}
+                </div>
+                <AdminInput
+                  label=""
+                  placeholder="e.g. 9030098304 or +263 77 123 4567"
+                  value={form.phone}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, phone: val });
+                    const res = detectCountryFromPhone(val);
+                    if (res.detected && res.country) {
+                      setDetectedPhoneCountry(res.country);
+                    } else if (!val.trim()) {
+                      setDetectedPhoneCountry(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const res = detectCountryFromPhone(pasted);
+                      if (res.detected && res.country) {
+                        setDetectedPhoneCountry(res.country);
+                      }
+                    }
+                  }}
+                  hint="This is the contact number protected behind the $1 paywall."
+                />
+              </div>
 
-              <AdminInput
-                label="WhatsApp Number (Numbers only)"
-                placeholder="263771234567"
-                value={form.whatsapp}
-                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    WhatsApp Number
+                  </label>
+                  {detectedWhatsappCountry && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span>{detectedWhatsappCountry.flag}</span>
+                      <span>{detectedWhatsappCountry.name} ({detectedWhatsappCountry.dialCode})</span>
+                    </span>
+                  )}
+                </div>
+                <AdminInput
+                  label=""
+                  placeholder="e.g. 9030098304 or 263771234567"
+                  value={form.whatsapp}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, whatsapp: val });
+                    const res = detectCountryFromPhone(val);
+                    if (res.detected && res.country) {
+                      setDetectedWhatsappCountry(res.country);
+                    } else if (!val.trim()) {
+                      setDetectedWhatsappCountry(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const res = detectCountryFromPhone(pasted);
+                      if (res.detected && res.country) {
+                        setDetectedWhatsappCountry(res.country);
+                      }
+                    }
+                  }}
+                />
+              </div>
             </ModalGrid>
           </ModalSection>
 

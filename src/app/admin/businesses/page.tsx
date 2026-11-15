@@ -65,6 +65,8 @@ import {
 } from '@/data/platformStore';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { cn } from '@/lib/utils/cn';
+import { detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 export function getEffectiveBusinessPrice(b: BusinessListing, st: PlatformSettings) {
   if (b.customMonthlyPriceUsd !== undefined && b.customMonthlyPriceUsd !== null) {
@@ -130,14 +132,16 @@ export default function AdminBusinessesPage() {
   const [inspectingReport, setInspectingReport] = useState<ModerationReportItem | null>(null);
   const [enforcementNotes, setEnforcementNotes] = useState('');
   const [isApplyingEnforcement, setIsApplyingEnforcement] = useState(false);
+  const [detectedPhoneCountry, setDetectedPhoneCountry] = useState<CountryDialInfo | null>(null);
+  const [detectedWhatsappCountry, setDetectedWhatsappCountry] = useState<CountryDialInfo | null>(null);
 
   const [form, setForm] = useState({
     name: '',
     categoryName: BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy',
     province: 'Harare',
     address: '',
-    phone: '+263 77 ',
-    whatsapp: '26377',
+    phone: '',
+    whatsapp: '',
     email: '',
     description: '',
     services: '',
@@ -350,8 +354,8 @@ export default function AdminBusinessesPage() {
       categoryName: BUSINESS_CATEGORIES[0]?.name || 'Solar & Clean Energy',
       province: 'Harare',
       address: '',
-      phone: '+263 77 ',
-      whatsapp: '26377',
+      phone: '',
+      whatsapp: '',
       email: '',
       description: '',
       services: '',
@@ -365,11 +369,27 @@ export default function AdminBusinessesPage() {
       featured: false,
       images: [],
     });
+    setDetectedPhoneCountry(null);
+    setDetectedWhatsappCountry(null);
     setFormOpen(true);
   }
 
   function openEdit(b: BusinessListing) {
     setEditingId(b.id);
+    if (b.phone) {
+      const dp = detectCountryFromPhone(b.phone);
+      setDetectedPhoneCountry(dp.detected && dp.country ? dp.country : null);
+    } else {
+      setDetectedPhoneCountry(null);
+    }
+
+    if (b.whatsapp) {
+      const dw = detectCountryFromPhone(b.whatsapp);
+      setDetectedWhatsappCountry(dw.detected && dw.country ? dw.country : null);
+    } else {
+      setDetectedWhatsappCountry(null);
+    }
+
     setForm({
       name: b.name,
       categoryName: b.categoryName,
@@ -1222,19 +1242,82 @@ export default function AdminBusinessesPage() {
               />
             </ModalGrid>
             <ModalGrid cols={2}>
-              <AdminInput
-                label="Direct WhatsApp Number (No + sign)"
-                value={form.whatsapp}
-                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                placeholder="263771234567"
-                required
-              />
-              <AdminInput
-                label="Calling Phone Number"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+263 77 123 4567"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Direct WhatsApp Number
+                  </label>
+                  {detectedWhatsappCountry && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span>{detectedWhatsappCountry.flag}</span>
+                      <span>{detectedWhatsappCountry.name} ({detectedWhatsappCountry.dialCode})</span>
+                    </span>
+                  )}
+                </div>
+                <AdminInput
+                  label=""
+                  value={form.whatsapp}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, whatsapp: val });
+                    const res = detectCountryFromPhone(val);
+                    if (res.detected && res.country) {
+                      setDetectedWhatsappCountry(res.country);
+                    } else if (!val.trim()) {
+                      setDetectedWhatsappCountry(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const res = detectCountryFromPhone(pasted);
+                      if (res.detected && res.country) {
+                        setDetectedWhatsappCountry(res.country);
+                      }
+                    }
+                  }}
+                  placeholder="e.g. 9030098304 or 263771234567"
+                  required
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Calling Phone Number
+                  </label>
+                  {detectedPhoneCountry && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span>{detectedPhoneCountry.flag}</span>
+                      <span>{detectedPhoneCountry.name} ({detectedPhoneCountry.dialCode})</span>
+                    </span>
+                  )}
+                </div>
+                <AdminInput
+                  label=""
+                  value={form.phone}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, phone: val });
+                    const res = detectCountryFromPhone(val);
+                    if (res.detected && res.country) {
+                      setDetectedPhoneCountry(res.country);
+                    } else if (!val.trim()) {
+                      setDetectedPhoneCountry(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      const res = detectCountryFromPhone(pasted);
+                      if (res.detected && res.country) {
+                        setDetectedPhoneCountry(res.country);
+                      }
+                    }
+                  }}
+                  placeholder="e.g. 9030098304 or +263 77 123 4567"
+                />
+              </div>
             </ModalGrid>
           </ModalSection>
 
@@ -1286,6 +1369,9 @@ export default function AdminBusinessesPage() {
                 form.images[0]?.src ||
                 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1200&q=80';
 
+              const normalizedWhatsapp = form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '';
+              const normalizedPhone = form.phone.trim() ? normalizePhoneNumber(form.phone) : '';
+
               if (editingId) {
                 const existing = businesses.find((b) => b.id === editingId);
                 if (existing) {
@@ -1300,7 +1386,8 @@ export default function AdminBusinessesPage() {
                         province: form.province,
                         address: form.address,
                         sector: catObj.name,
-                        whatsapp: form.whatsapp,
+                        whatsapp: normalizedWhatsapp,
+                        phone: normalizedPhone,
                         is_featured: form.featured,
                         is_verified: form.cr14Verified,
                         verification_status: form.cr14Verified ? 'Verified' : 'Pending',
@@ -1317,8 +1404,8 @@ export default function AdminBusinessesPage() {
                         categoryName: catObj.name,
                         province: form.province,
                         address: form.address,
-                        phone: form.phone,
-                        whatsapp: form.whatsapp,
+                        phone: normalizedPhone,
+                        whatsapp: normalizedWhatsapp,
                         email: form.email,
                         cr14Verified: form.cr14Verified,
                         featured: form.featured,
@@ -1342,8 +1429,8 @@ export default function AdminBusinessesPage() {
                   province: form.province,
                   city: form.province,
                   address: form.address,
-                  phone: form.phone,
-                  whatsapp: form.whatsapp,
+                  phone: normalizedPhone,
+                  whatsapp: normalizedWhatsapp,
                   email: form.email,
                   openingHours: form.openingHours,
                   verifiedTier: form.cr14Verified ? 'tier2_corporate' : 'unverified',

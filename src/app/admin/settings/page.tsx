@@ -32,6 +32,8 @@ import {
 } from '@/data/platformStore';
 import { PLATFORM_PRICING } from '@/lib/constants/pricing';
 import { getClientAccessToken } from '@/shared/utils/api-client';
+import { detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
+import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 
 type SectionId =
   | 'profile'
@@ -131,6 +133,8 @@ export default function AdminSettingsPage() {
     city: 'Harare',
     province: 'Harare',
   });
+  const [detectedPhoneCountry, setDetectedPhoneCountry] = useState<CountryDialInfo | null>(null);
+  const [detectedWhatsappCountry, setDetectedWhatsappCountry] = useState<CountryDialInfo | null>(null);
 
   // Commercial Pricing & USD/ZiG Rates
   const [pricing, setPricing] = useState({
@@ -350,8 +354,8 @@ export default function AdminSettingsPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          support_whatsapp: contact.whatsapp || undefined,
-          support_phone: contact.phone || undefined,
+          support_whatsapp: contact.whatsapp ? sanitizePhoneNumber(contact.whatsapp) : undefined,
+          support_phone: contact.phone ? normalizePhoneNumber(contact.phone) : undefined,
           support_email: contact.email && contact.email.includes('@') ? contact.email.trim() : undefined,
           hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
           harare_address: `${contact.line1}, ${contact.city}`,
@@ -583,16 +587,81 @@ export default function AdminSettingsPage() {
                     value={contact.email}
                     onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
                   />
-                  <AdminInput
-                    label="Primary Landline / Desk Phone"
-                    value={contact.phone}
-                    onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
-                  />
-                  <AdminInput
-                    label="Official WhatsApp Hotline"
-                    value={contact.whatsapp}
-                    onChange={(e) => setContact((c) => ({ ...c, whatsapp: e.target.value }))}
-                  />
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Primary Landline / Desk Phone
+                      </label>
+                      {detectedPhoneCountry && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          <span>{detectedPhoneCountry.flag}</span>
+                          <span>{detectedPhoneCountry.name} ({detectedPhoneCountry.dialCode})</span>
+                        </span>
+                      )}
+                    </div>
+                    <AdminInput
+                      label=""
+                      placeholder="e.g. 9030098304 or +263 242 708 411"
+                      value={contact.phone}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setContact((c) => ({ ...c, phone: val }));
+                        const res = detectCountryFromPhone(val);
+                        if (res.detected && res.country) {
+                          setDetectedPhoneCountry(res.country);
+                        } else if (!val.trim()) {
+                          setDetectedPhoneCountry(null);
+                        }
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData('text');
+                        if (pasted) {
+                          const res = detectCountryFromPhone(pasted);
+                          if (res.detected && res.country) {
+                            setDetectedPhoneCountry(res.country);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Official WhatsApp Hotline
+                      </label>
+                      {detectedWhatsappCountry && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          <span>{detectedWhatsappCountry.flag}</span>
+                          <span>{detectedWhatsappCountry.name} ({detectedWhatsappCountry.dialCode})</span>
+                        </span>
+                      )}
+                    </div>
+                    <AdminInput
+                      label=""
+                      placeholder="e.g. 9030098304 or +263 77 200 1001"
+                      value={contact.whatsapp}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setContact((c) => ({ ...c, whatsapp: val }));
+                        const res = detectCountryFromPhone(val);
+                        if (res.detected && res.country) {
+                          setDetectedWhatsappCountry(res.country);
+                        } else if (!val.trim()) {
+                          setDetectedWhatsappCountry(null);
+                        }
+                      }}
+                      onPaste={(e) => {
+                        const pasted = e.clipboardData.getData('text');
+                        if (pasted) {
+                          const res = detectCountryFromPhone(pasted);
+                          if (res.detected && res.country) {
+                            setDetectedWhatsappCountry(res.country);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
                   <AdminInput
                     label="Operating Hours"
                     value={contact.hours}

@@ -96,7 +96,7 @@ import {
   type OnboardingProgressInfo,
 } from '@/lib/utils/onboarding-state';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
-import { formatE164Phone, parsePhoneComponents } from '@/lib/data/countries';
+import { formatE164Phone, parsePhoneComponents, detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
 import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
 type DashboardTab =
@@ -324,6 +324,7 @@ export default function BusinessDashboardPage() {
   const [editProvince, setEditProvince] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [detectedEditWhatsappCountry, setDetectedEditWhatsappCountry] = useState<CountryDialInfo | null>(null);
   const [editHours, setEditHours] = useState('');
   const [editServices, setEditServices] = useState('');
   const [editEntityType, setEditEntityType] = useState<BusinessListing['businessType']>(
@@ -597,6 +598,12 @@ export default function BusinessDashboardPage() {
     setEditProvince(currentBusiness.province);
     setEditAddress(currentBusiness.address);
     setEditWhatsapp(currentBusiness.whatsapp);
+    if (currentBusiness.whatsapp) {
+      const initDet = detectCountryFromPhone(currentBusiness.whatsapp);
+      if (initDet.detected && initDet.country) {
+        setDetectedEditWhatsappCountry(initDet.country);
+      }
+    }
     setEditHours(currentBusiness.openingHours || 'Mon - Sat: 08:00 - 17:00');
     setEditServices((currentBusiness.services || []).join(', '));
     setEditEntityType(currentBusiness.businessType || 'Registered Company (Pvt Ltd)');
@@ -1522,9 +1529,7 @@ export default function BusinessDashboardPage() {
 
     const existingDialCode = parsePhoneComponents(currentBusiness.whatsapp || currentBusiness.phone).dialCode || '+263';
     const finalWhatsapp = editWhatsapp.trim()
-      ? (editWhatsapp.trim().startsWith('+')
-          ? editWhatsapp.trim()
-          : formatE164Phone(existingDialCode, editWhatsapp.trim()))
+      ? normalizePhoneNumber(editWhatsapp.trim(), existingDialCode)
       : editWhatsapp.trim();
 
     // Persist to database while strictly preserving locked fields
@@ -3686,10 +3691,40 @@ export default function BusinessDashboardPage() {
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              Active WhatsApp Sales Line
+                            </label>
+                            {detectedEditWhatsappCountry && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                <span>{detectedEditWhatsappCountry.flag}</span>
+                                <span>{detectedEditWhatsappCountry.name} ({detectedEditWhatsappCountry.dialCode})</span>
+                              </span>
+                            )}
+                          </div>
                           <AdminInput
-                            label="Active WhatsApp Sales Line"
+                            label=""
+                            placeholder="e.g. 9030098304 or +263 77 123 4567"
                             value={editWhatsapp}
-                            onChange={(e) => setEditWhatsapp(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditWhatsapp(val);
+                              const res = detectCountryFromPhone(val);
+                              if (res.detected && res.country) {
+                                setDetectedEditWhatsappCountry(res.country);
+                              } else if (!val.trim()) {
+                                setDetectedEditWhatsappCountry(null);
+                              }
+                            }}
+                            onPaste={(e) => {
+                              const pasted = e.clipboardData.getData('text');
+                              if (pasted) {
+                                const res = detectCountryFromPhone(pasted);
+                                if (res.detected && res.country) {
+                                  setDetectedEditWhatsappCountry(res.country);
+                                }
+                              }
+                            }}
                           />
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                             Live buyer WhatsApp link:{' '}

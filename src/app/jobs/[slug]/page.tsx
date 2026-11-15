@@ -34,6 +34,7 @@ import { mapDbJobToOpening } from '@/lib/data/job-mapper';
 import { createJobInquiryLink } from '@/lib/utils/whatsapp';
 import { Modal, PublicModalBody, PublicModalFooter } from '@/components/ui/Modal';
 import { useToast } from '@/components/providers/ToastProvider';
+import { detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
 
 export default function JobDetailPage() {
   const params = useParams<{ slug: string }>();
@@ -50,6 +51,7 @@ export default function JobDetailPage() {
   const [applicantName, setApplicantName] = useState('');
   const [applicantEmail, setApplicantEmail] = useState('');
   const [applicantPhone, setApplicantPhone] = useState('');
+  const [detectedPhoneCountry, setDetectedPhoneCountry] = useState<CountryDialInfo | null>(null);
   const [experienceSummary, setExperienceSummary] = useState('');
   const [cvFileName, setCvFileName] = useState('');
 
@@ -172,6 +174,8 @@ export default function JobDetailPage() {
       return;
     }
 
+    const normalizedPhone = normalizePhoneNumber(applicantPhone.trim());
+
     try {
       await fetch(`/api/v1/jobs/${encodeURIComponent(job.slug)}/apply`, {
         method: 'POST',
@@ -179,7 +183,7 @@ export default function JobDetailPage() {
         body: JSON.stringify({
           applicant_name: applicantName.trim(),
           applicant_email: applicantEmail.trim(),
-          applicant_phone: applicantPhone.trim(),
+          applicant_phone: normalizedPhone,
           experience_summary: experienceSummary.trim() || null,
           cv_file_name: cvFileName || 'Resume_Document.pdf',
         }),
@@ -196,7 +200,7 @@ export default function JobDetailPage() {
       province: job.province,
       applicantName: applicantName.trim(),
       applicantEmail: applicantEmail.trim(),
-      applicantPhone: applicantPhone.trim(),
+      applicantPhone: normalizedPhone,
       experienceSummary: experienceSummary.trim(),
       cvFileName: cvFileName || 'Resume_Document.pdf',
       appliedDate: 'Just now',
@@ -509,15 +513,41 @@ export default function JobDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    WhatsApp Phone (+263) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      WhatsApp Phone *
+                    </label>
+                    {detectedPhoneCountry && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        <span>{detectedPhoneCountry.flag}</span>
+                        <span>{detectedPhoneCountry.name} ({detectedPhoneCountry.dialCode})</span>
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="tel"
                     required
-                    placeholder="+263 77 123 4567"
+                    placeholder="e.g. 9030098304 or +263 77 123 4567"
                     value={applicantPhone}
-                    onChange={(e) => setApplicantPhone(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setApplicantPhone(val);
+                      const res = detectCountryFromPhone(val);
+                      if (res.detected && res.country) {
+                        setDetectedPhoneCountry(res.country);
+                      } else if (!val.trim()) {
+                        setDetectedPhoneCountry(null);
+                      }
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (pasted) {
+                        const res = detectCountryFromPhone(pasted);
+                        if (res.detected && res.country) {
+                          setDetectedPhoneCountry(res.country);
+                        }
+                      }
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-base sm:text-sm text-slate-900 dark:text-white"
                   />
                 </div>
