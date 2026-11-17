@@ -40,6 +40,7 @@ import {
   TOURISM_DESTINATIONS,
   getStoredTourisms,
   saveStoredTourism,
+  syncTourismsFromApi,
 } from '@/data/tourismStore';
 import { CLEAN_PROVINCES } from '@/data/advertsStore';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -134,13 +135,23 @@ export default function TourismDirectoryPage() {
   };
 
   useEffect(() => {
+    let mounted = true;
     const loadListings = () => {
       setListings(getStoredTourisms());
-      setIsLoading(false);
     };
     loadListings();
+    syncTourismsFromApi()
+      .then((fresh) => {
+        if (mounted) setListings(fresh);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
     window.addEventListener('sadza-tourism-updated', loadListings);
-    return () => window.removeEventListener('sadza-tourism-updated', loadListings);
+    return () => {
+      mounted = false;
+      window.removeEventListener('sadza-tourism-updated', loadListings);
+    };
   }, []);
 
   const filteredListings = useMemo(() => {

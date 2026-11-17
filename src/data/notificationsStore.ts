@@ -85,20 +85,30 @@ export const DEFAULT_NOTIFICATIONS: PlatformNotification[] = [
   },
 ];
 
+import { getClientAccessToken } from '@/shared/utils/api-client';
+
 const NOTIFICATIONS_STORAGE_KEY = 'sadza_notifications_v1';
 
+function getAuthHeaders(): Record<string, string> {
+  const token = getClientAccessToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export function loadStoredNotifications(): PlatformNotification[] {
-  if (typeof window === 'undefined') return DEFAULT_NOTIFICATIONS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-    if (!raw) return DEFAULT_NOTIFICATIONS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
-    return DEFAULT_NOTIFICATIONS;
+    return [];
   } catch {
-    return DEFAULT_NOTIFICATIONS;
+    return [];
   }
 }
 
@@ -112,24 +122,101 @@ export function saveStoredNotifications(list: PlatformNotification[]): void {
   }
 }
 
+export async function syncNotificationsFromApi(): Promise<{
+  notifications: PlatformNotification[];
+  unreadCount: number;
+  authenticated: boolean;
+}> {
+  if (typeof window === 'undefined') {
+    return { notifications: [], unreadCount: 0, authenticated: false };
+  }
+  try {
+    const res = await fetch('/api/v1/notifications?limit=50', {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const cached = loadStoredNotifications();
+      return {
+        notifications: cached,
+        unreadCount: cached.filter((n) => !n.read).length,
+        authenticated: false,
+      };
+    }
+    const json = await res.json();
+    const payload = json.data || json;
+    const list: PlatformNotification[] = Array.isArray(payload?.notifications)
+      ? payload.notifications
+      : [];
+    const authenticated = Boolean(payload?.authenticated);
+    const unreadCount = typeof payload?.unreadCount === 'number'
+      ? payload.unreadCount
+      : list.filter((n) => !n.read).length;
+
+    saveStoredNotifications(list);
+    return { notifications: list, unreadCount, authenticated };
+  } catch (err) {
+    console.warn('[NotificationsStore] Failed to sync from API:', err);
+    const cached = loadStoredNotifications();
+    return {
+      notifications: cached,
+      unreadCount: cached.filter((n) => !n.read).length,
+      authenticated: false,
+    };
+  }
+}
+
 export function markNotificationAsRead(id: string): void {
   const current = loadStoredNotifications();
   const updated = current.map((item) => (item.id === id ? { ...item, read: true } : item));
   saveStoredNotifications(updated);
+
+  if (typeof window !== 'undefined') {
+    fetch(`/api/v1/notifications/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    }).catch((err) => console.warn('[NotificationsStore] API mark read failed:', err));
+  }
 }
 
 export function markAllNotificationsAsRead(): void {
   const current = loadStoredNotifications();
   const updated = current.map((item) => ({ ...item, read: true }));
   saveStoredNotifications(updated);
+
+  if (typeof window !== 'undefined') {
+    fetch('/api/v1/notifications', {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ action: 'mark_all_read' }),
+    }).catch((err) => console.warn('[NotificationsStore] API mark all read failed:', err));
+  }
 }
 
 export function deleteNotification(id: string): void {
   const current = loadStoredNotifications();
   const updated = current.filter((item) => item.id !== id);
   saveStoredNotifications(updated);
+
+  if (typeof window !== 'undefined') {
+    fetch(`/api/v1/notifications/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    }).catch((err) => console.warn('[NotificationsStore] API delete failed:', err));
+  }
 }
 
 export function clearAllNotifications(): void {
   saveStoredNotifications([]);
+
+  if (typeof window !== 'undefined') {
+    fetch('/api/v1/notifications', {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    }).catch((err) => console.warn('[NotificationsStore] API clear all failed:', err));
+  }
 }

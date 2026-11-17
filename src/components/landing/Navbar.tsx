@@ -19,7 +19,10 @@ import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { RegisterTypeModal } from '@/components/ui/RegisterTypeModal';
 import { useAuth } from '@/context/AuthContext';
-import { loadStoredNotifications } from '@/data/notificationsStore';
+import {
+  loadStoredNotifications,
+  syncNotificationsFromApi,
+} from '@/data/notificationsStore';
 import {
   calculateOnboardingProgress,
   type OnboardingProgressInfo,
@@ -35,8 +38,14 @@ export function Navbar() {
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgressInfo | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  const { user, isAuthenticated, isLoading, logout, logoutError, clearLogoutError } = useAuth();
+
   useEffect(() => {
     const updateCount = () => {
+      if (!isAuthenticated) {
+        setUnreadNotifsCount(0);
+        return;
+      }
       try {
         const notifs = loadStoredNotifications();
         setUnreadNotifsCount(notifs.filter((n) => !n.read).length);
@@ -54,7 +63,14 @@ export function Navbar() {
       }
     };
 
-    updateCount();
+    if (isAuthenticated && user?.id) {
+      syncNotificationsFromApi().then((res) => {
+        setUnreadNotifsCount(res.unreadCount);
+      });
+    } else {
+      setUnreadNotifsCount(0);
+    }
+
     updateOnboarding();
 
     if (typeof sessionStorage !== 'undefined') {
@@ -67,7 +83,7 @@ export function Navbar() {
       window.removeEventListener('sadza-notifications-updated', updateCount);
       window.removeEventListener('sadza-onboarding-updated', updateOnboarding);
     };
-  }, []);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (!mobileMenuOpen || typeof document === 'undefined') return;
@@ -84,8 +100,6 @@ export function Navbar() {
       sessionStorage.setItem('sadza_onboarding_banner_dismissed', 'true');
     }
   };
-
-  const { user, isAuthenticated, isLoading, logout, logoutError, clearLogoutError } = useAuth();
 
   const handleLogout = async () => {
     try {

@@ -49,6 +49,7 @@ import {
   deleteStoredTourism,
   toggleTourismVerification,
   toggleTourismFeatured,
+  syncTourismsFromApi,
 } from '@/data/tourismStore';
 import { cn } from '@/lib/utils/cn';
 import { detectCountryFromPhone, normalizePhoneNumber, CountryDialInfo } from '@/lib/data/countries';
@@ -98,16 +99,23 @@ export default function AdminTourismPage() {
       setTourisms(items);
     } catch {
       setTourisms([]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    let isMounted = true;
     loadData();
+    syncTourismsFromApi(true)
+      .then((fresh) => {
+        if (isMounted) setTourisms(fresh);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
     const handleUpdate = () => loadData();
     window.addEventListener('sadza-tourism-updated', handleUpdate);
     return () => {
+      isMounted = false;
       window.removeEventListener('sadza-tourism-updated', handleUpdate);
     };
   }, []);
@@ -264,7 +272,7 @@ export default function AdminTourismPage() {
         reviewsCount: parseInt(form.reviewsCount, 10) || 12,
         postedAt: existing?.postedAt || 'Verified Partner',
       };
-      saveStoredTourism(updated);
+      saveStoredTourism(updated, true);
       showToast('Accommodation updated successfully.');
     } else {
       const newItem: TourismListing = {
@@ -292,7 +300,7 @@ export default function AdminTourismPage() {
         reviewsCount: parseInt(form.reviewsCount, 10) || 5,
         postedAt: 'Verified Partner',
       };
-      saveStoredTourism(newItem);
+      saveStoredTourism(newItem, false);
       showToast('New accommodation added successfully.');
     }
 

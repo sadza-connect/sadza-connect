@@ -309,7 +309,17 @@ export const DEFAULT_TOURISMS: TourismListing[] = [
   },
 ];
 
+import { getClientAccessToken } from '@/shared/utils/api-client';
+
 const STORAGE_KEY = 'sadza_tourism_v1';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = getClientAccessToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 export function getStoredTourisms(): TourismListing[] {
   if (typeof window === 'undefined') return DEFAULT_TOURISMS;
@@ -317,7 +327,7 @@ export function getStoredTourisms(): TourismListing[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_TOURISMS;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
     return DEFAULT_TOURISMS;
@@ -326,15 +336,60 @@ export function getStoredTourisms(): TourismListing[] {
   }
 }
 
-export function saveStoredTourism(item: TourismListing): void {
+export async function syncTourismsFromApi(isAdmin = false): Promise<TourismListing[]> {
+  if (typeof window === 'undefined') return DEFAULT_TOURISMS;
+  try {
+    const url = isAdmin ? '/api/v1/tourism?admin=true&limit=100' : '/api/v1/tourism?limit=100';
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) return getStoredTourisms();
+    const json = await res.json();
+    const list = json.data?.listings || json.listings;
+    if (Array.isArray(list)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      window.dispatchEvent(new Event('sadza-tourism-updated'));
+      return list;
+    }
+    return getStoredTourisms();
+  } catch (err) {
+    console.warn('[TourismStore] Failed to fetch from API, using local cache:', err);
+    return getStoredTourisms();
+  }
+}
+
+export function saveStoredTourism(item: TourismListing, isEdit = false): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredTourisms();
+    const existsLocally = existing.some((t) => t.id === item.id);
     const updated = [item, ...existing.filter((t) => t.id !== item.id)];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-tourism-updated'));
+
+    const headers = getAuthHeaders();
+    if (isEdit || existsLocally) {
+      fetch(`/api/v1/tourism/${item.id}`, {
+        method: 'PUT',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(item),
+      })
+        .then((res) => (res.ok ? syncTourismsFromApi(isEdit) : null))
+        .catch((err) => console.warn('[TourismStore] API PUT failed:', err));
+    } else {
+      fetch('/api/v1/tourism', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(item),
+      })
+        .then((res) => (res.ok ? syncTourismsFromApi(false) : null))
+        .catch((err) => console.warn('[TourismStore] API POST failed:', err));
+    }
   } catch (err) {
-    console.error('Failed to save tourism listing to localStorage:', err);
+    console.error('Failed to save tourism listing:', err);
   }
 }
 
@@ -345,6 +400,12 @@ export function deleteStoredTourism(id: string): void {
     const updated = existing.filter((t) => t.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-tourism-updated'));
+
+    fetch(`/api/v1/tourism/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    }).catch((err) => console.warn('[TourismStore] API DELETE failed:', err));
   } catch (err) {
     console.error('Failed to delete tourism listing:', err);
   }
@@ -354,9 +415,23 @@ export function toggleTourismVerification(id: string): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredTourisms();
-    const updated = existing.map((t) => (t.id === id ? { ...t, isVerified: !t.isVerified } : t));
+    let nextVal = true;
+    const updated = existing.map((t) => {
+      if (t.id === id) {
+        nextVal = !t.isVerified;
+        return { ...t, isVerified: nextVal };
+      }
+      return t;
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-tourism-updated'));
+
+    fetch(`/api/v1/tourism/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ action: 'toggle_verification', isVerified: nextVal }),
+    }).catch((err) => console.warn('[TourismStore] API toggle verification failed:', err));
   } catch (err) {
     console.error('Failed to toggle verification:', err);
   }
@@ -366,11 +441,24 @@ export function toggleTourismFeatured(id: string): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getStoredTourisms();
-    const updated = existing.map((t) => (t.id === id ? { ...t, isFeatured: !t.isFeatured } : t));
+    let nextVal = true;
+    const updated = existing.map((t) => {
+      if (t.id === id) {
+        nextVal = !t.isFeatured;
+        return { ...t, isFeatured: nextVal };
+      }
+      return t;
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('sadza-tourism-updated'));
+
+    fetch(`/api/v1/tourism/${id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ action: 'toggle_featured', isFeatured: nextVal }),
+    }).catch((err) => console.warn('[TourismStore] API toggle featured failed:', err));
   } catch (err) {
     console.error('Failed to toggle featured:', err);
   }
 }
-

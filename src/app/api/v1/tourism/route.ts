@@ -6,16 +6,16 @@ import {
   errorResponse,
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
-import {
-  DEFAULT_TOURISMS,
-  TourismListing,
-} from '@/data/tourismStore';
+import { tourismRepository } from '@/infrastructure/database/repositories/tourism-repository';
+import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const createTourismSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(2, 'Name is required'),
+  slug: z.string().optional(),
   category: z.enum([
     'Lodges & Safari Camps',
     'Bed & Breakfast (BnB)',
@@ -29,8 +29,8 @@ const createTourismSchema = z.object({
   city: z.string().min(2, 'City is required'),
   addressOrLocation: z.string().optional(),
   pricePerNightUSD: z.number().positive('Nightly price must be positive'),
-  guestsCapacity: z.number().optional().default(2),
-  bedrooms: z.number().optional().default(1),
+  guestsCapacity: z.number().int().positive().optional().default(2),
+  bedrooms: z.number().int().nonnegative().optional().default(1),
   amenities: z.array(z.string()).default([]),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   images: z.array(z.string()).default([]),
@@ -43,9 +43,13 @@ const createTourismSchema = z.object({
       'Guesthouse Manager',
     ])
     .default('Private BnB Host'),
+  isVerified: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
   whatsapp: z.string().min(5, 'WhatsApp number is required'),
   phone: z.string().min(5, 'Phone number is required'),
   email: z.string().email().optional(),
+  rating: z.number().min(0).max(5).optional(),
+  reviewsCount: z.number().int().nonnegative().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -53,40 +57,41 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search')?.toLowerCase() || '';
-    const category = searchParams.get('category') || 'All Categories';
-    const destination = searchParams.get('destination') || 'All Destinations';
-    const province = searchParams.get('province') || 'All Provinces';
+    const search = searchParams.get('search') || undefined;
+    const category = searchParams.get('category') || undefined;
+    const destinationArea =
+      searchParams.get('destination') || searchParams.get('destinationArea') || undefined;
+    const province = searchParams.get('province') || undefined;
+    const isFeaturedParam = searchParams.get('isFeatured') || searchParams.get('is_featured');
+    const isFeatured = isFeaturedParam !== null ? isFeaturedParam === 'true' : undefined;
+    const adminRequested = searchParams.get('admin') === 'true';
+    const includeStats = searchParams.get('stats') === 'true';
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 50;
+    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0;
 
-    let list = DEFAULT_TOURISMS;
+    const user = await getAuthenticatedUser(req, false);
+    const isAdmin = user?.role === 'admin';
 
-    if (search) {
-      list = list.filter(
-        (t) =>
-          t.name.toLowerCase().includes(search) ||
-          t.destinationArea.toLowerCase().includes(search) ||
-          t.city.toLowerCase().includes(search) ||
-          t.description.toLowerCase().includes(search) ||
-          t.amenities.some((a) => a.toLowerCase().includes(search))
-      );
-    }
+    const { listings, total } = await tourismRepository.findMany({
+      search,
+      category,
+      destinationArea,
+      province,
+      isFeatured,
+      limit,
+      offset,
+    });
 
-    if (category !== 'All Categories') {
-      list = list.filter((t) => t.category === category);
-    }
-
-    if (destination !== 'All Destinations') {
-      list = list.filter((t) => t.destinationArea === destination);
-    }
-
-    if (province !== 'All Provinces') {
-      list = list.filter((t) => t.province === province);
+    let stats = undefined;
+    if (includeStats || (isAdmin && adminRequested)) {
+      stats = await tourismRepository.getStats();
     }
 
     return jsonResponse(
       {
-        listings: list,
-        total: list.length,
+        listings,
+        total,
+        stats,
       },
       requestId,
       200
@@ -100,12 +105,23 @@ export async function POST(req: NextRequest) {
   const requestId = req.headers.get('x-request-id') || randomUUID();
 
   try {
+    const user = await getAuthenticatedUser(req, false);
     const body = await parseAndValidateBody(req, createTourismSchema);
 
-    const created: TourismListing = {
-      id: `tour-${Date.now()}`,
+    const isAdmin = user?.role === 'admin';
+    const isVerified = isAdmin ? (body.isVerified ?? true) : false;
+    const isFeatured = isAdmin ? (body.isFeatured ?? false) : false;
+
+    const images =
+      body.images && body.images.length > 0
+        ? body.images
+        : ['https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=1000&q=80'];
+
+    const listing = await tourismRepository.create({
+      id: body.id,
+      userId: user?.id || null,
       name: body.name.trim(),
-      slug: body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      slug: body.slug,
       category: body.category,
       destinationArea: body.destinationArea.trim(),
       province: body.province,
@@ -116,25 +132,21 @@ export async function POST(req: NextRequest) {
       bedrooms: body.bedrooms,
       amenities: body.amenities || [],
       description: body.description.trim(),
-      images:
-        body.images && body.images.length > 0
-          ? body.images
-          : ['https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=1000&q=80'],
+      images,
       hostName: body.hostName.trim(),
-      hostType: (body.hostType || 'Private BnB Host') as TourismListing['hostType'],
-      isVerified: true,
-      isFeatured: false,
+      hostType: body.hostType,
+      isVerified,
+      isFeatured,
       whatsapp: body.whatsapp.replace(/\D/g, ''),
-      phone: body.phone,
+      phone: body.phone.trim(),
       email: body.email,
-      rating: 5.0,
-      reviewsCount: 1,
-      postedAt: 'Just now',
-    };
+      rating: isAdmin ? body.rating : undefined,
+      reviewsCount: isAdmin ? body.reviewsCount : undefined,
+    });
 
     return jsonResponse(
       {
-        listing: created,
+        listing,
         message: 'Tourism & hospitality listing created successfully.',
       },
       requestId,

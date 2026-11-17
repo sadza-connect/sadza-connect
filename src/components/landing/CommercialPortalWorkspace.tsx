@@ -53,10 +53,12 @@ import {
   getUnlockedContacts,
   PropertyListing,
   UnlockedContactRecord,
+  syncPropertiesFromApi,
 } from '@/data/propertiesStore';
 import {
   getStoredTourisms,
   TourismListing,
+  syncTourismsFromApi,
 } from '@/data/tourismStore';
 import {
   getStoredEvents,
@@ -444,6 +446,7 @@ export function CommercialPortalWorkspace() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     const loadPropsAndEvents = () => {
       setProperties(getStoredProperties());
       setUnlockedPropertyContacts(getUnlockedContacts());
@@ -451,11 +454,18 @@ export function CommercialPortalWorkspace() {
       setEvents(getStoredEvents());
     };
     loadPropsAndEvents();
+    syncPropertiesFromApi().then((fresh) => {
+      if (mounted) setProperties(fresh);
+    });
+    syncTourismsFromApi().then((fresh) => {
+      if (mounted) setTourisms(fresh);
+    });
     window.addEventListener('sadza-properties-updated', loadPropsAndEvents);
     window.addEventListener('sadza-unlocked-updated', loadPropsAndEvents);
     window.addEventListener('sadza-tourism-updated', loadPropsAndEvents);
     window.addEventListener('sadza-events-updated', loadPropsAndEvents);
     return () => {
+      mounted = false;
       window.removeEventListener('sadza-properties-updated', loadPropsAndEvents);
       window.removeEventListener('sadza-unlocked-updated', loadPropsAndEvents);
       window.removeEventListener('sadza-tourism-updated', loadPropsAndEvents);

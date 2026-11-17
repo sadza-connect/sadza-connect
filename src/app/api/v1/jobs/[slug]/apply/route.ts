@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { jobRepository } from '@/infrastructure/database/repositories/job-repository';
+import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import {
   jsonResponse,
   errorResponse,
@@ -47,6 +49,21 @@ export async function POST(
       cv_file_name: body.cv_file_name || 'Application_Summary.pdf',
       cv_url: body.cv_url || null,
     });
+
+    if (job.business_id) {
+      const biz = await businessRepository.findById(job.business_id);
+      if (biz?.user_id) {
+        await notificationRepository.createSafely({
+          userId: biz.user_id,
+          title: 'New Job Candidate Application',
+          message: `${body.applicant_name.trim()} submitted an application for "${job.title}".`,
+          category: 'job',
+          actionUrl: '/dashboard/business',
+          actionLabel: 'Review Candidate',
+          severity: 'info',
+        });
+      }
+    }
 
     const hrPhone = job.whatsapp || '263773333444';
     const whatsappLink = `https://wa.me/${sanitizePhoneNumber(hrPhone)}?text=${encodeURIComponent(

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { orderRepository } from '@/infrastructure/database/repositories/order-repository';
 import { mapDbOrderToAdminOrderItem } from '@/lib/data/order-mapper';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -118,6 +119,18 @@ export async function POST(req: NextRequest) {
       carrier: body.carrier?.trim() || 'Swift Transit',
       status: body.status || 'Processing',
     });
+
+    if (user?.id) {
+      await notificationRepository.createSafely({
+        userId: user.id,
+        title: `Order ${generatedOrderNum} Placed`,
+        message: `Your order with ${body.business_name?.trim() || 'Verified Zimbabwean Supplier'} ($${Number(body.total_usd).toFixed(2)}) has been assigned waybill ${generatedWaybill}.`,
+        category: 'order',
+        actionUrl: '/dashboard/user',
+        actionLabel: 'Track Delivery',
+        severity: 'info',
+      });
+    }
 
     return jsonResponse(
       {

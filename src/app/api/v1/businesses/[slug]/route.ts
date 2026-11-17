@@ -5,6 +5,7 @@ import { businessRepository } from '@/infrastructure/database/repositories/busin
 import { productRepository } from '@/infrastructure/database/repositories/product-repository';
 import { advertRepository } from '@/infrastructure/database/repositories/advert-repository';
 import { jobRepository } from '@/infrastructure/database/repositories/job-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
@@ -176,6 +177,18 @@ export async function PATCH(
 
     const updated = await businessRepository.update(existing.id, body);
     invalidateBusinessDirectoryCache();
+
+    if (existing.user_id && body.is_verified === true && !existing.is_verified) {
+      await notificationRepository.createSafely({
+        userId: existing.user_id,
+        title: `${existing.name} Verified`,
+        message: 'Your business storefront passed KYC verification and now displays the Verified badge across the national directory.',
+        category: 'subscription',
+        actionUrl: '/dashboard/business',
+        actionLabel: 'Open Business Studio',
+        severity: 'success',
+      });
+    }
 
     return jsonResponse(
       {

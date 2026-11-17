@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID, randomInt } from 'node:crypto';
 import { z } from 'zod';
 import { billRepository } from '@/infrastructure/database/repositories/bill-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import { getPlatformSettings } from '@/data/platformStore';
 import {
@@ -154,6 +155,18 @@ export async function POST(req: NextRequest) {
     const tokenMsg = isZesa
       ? `Token: ${token} (${unitsKwh} kWh units). Meter: ${body.account_number}`
       : `Reference: ${paymentRef}. Account: ${body.account_number}`;
+
+    await notificationRepository.createSafely({
+      userId: user.id,
+      title: isZesa ? 'ZESA Prepaid Token Generated' : `${body.biller} Payment Completed`,
+      message: isZesa
+        ? `Token ${token} credited for meter ${body.account_number} (${unitsKwh} kWh) via ${body.payment_method || 'EcoCash'} ($${amountUsd.toFixed(2)} USD).`
+        : `Payment reference ${paymentRef} recorded for ${body.biller} account ${body.account_number} ($${amountUsd.toFixed(2)} USD).`,
+      category: 'utility',
+      actionUrl: '/dashboard/user',
+      actionLabel: 'View Meter Receipt',
+      severity: 'success',
+    });
 
     const whatsappLink = `https://wa.me/${sanitizePhoneNumber(body.customer_phone)}?text=${encodeURIComponent(
       `Sadza Connect Utility Receipt (${body.biller}): Paid ${body.currency} ${body.amount}. ${tokenMsg}. Thank you!`

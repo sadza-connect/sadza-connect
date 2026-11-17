@@ -103,7 +103,7 @@ export default function AdminOverviewPage() {
       if (isMounted) setSettings(s);
 
       try {
-        const [bizRes, prodRes, advRes, jobRes, usrRes, msgRes] = await Promise.allSettled([
+        const [bizRes, prodRes, advRes, jobRes, usrRes, msgRes, propRes, tourRes] = await Promise.allSettled([
           fetch('/api/v1/businesses?limit=100&include_expired=true', {
             headers: getAuthHeaders(),
             credentials: 'include',
@@ -128,6 +128,14 @@ export default function AdminOverviewPage() {
             headers: getAuthHeaders(),
             credentials: 'include',
           }).then((r) => r.json()),
+          fetch('/api/v1/properties?limit=1', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
+          fetch('/api/v1/tourism?limit=1', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
         ]);
 
         const bizData = bizRes.status === 'fulfilled' ? bizRes.value?.data || bizRes.value : null;
@@ -136,6 +144,8 @@ export default function AdminOverviewPage() {
         const jobData = jobRes.status === 'fulfilled' ? jobRes.value?.data || jobRes.value : null;
         const usrData = usrRes.status === 'fulfilled' ? usrRes.value?.data || usrRes.value : null;
         const msgData = msgRes.status === 'fulfilled' ? msgRes.value?.data || msgRes.value : null;
+        const propData = propRes.status === 'fulfilled' ? propRes.value?.data || propRes.value : null;
+        const tourData = tourRes.status === 'fulfilled' ? tourRes.value?.data || tourRes.value : null;
 
         if (isMounted) {
           if (Array.isArray(bizData?.businesses)) {
@@ -168,10 +178,16 @@ export default function AdminOverviewPage() {
           setJobsCount(Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
           setUsersCount(Array.isArray(usrData?.users) ? usrData.users.length : 0);
 
-          const propList = getStoredProperties();
-          const tourList = getStoredTourisms();
-          setPropertiesCount(propList.length);
-          setTourismsCount(tourList.length);
+          setPropertiesCount(
+            typeof propData?.total === 'number'
+              ? propData.total
+              : getStoredProperties().length
+          );
+          setTourismsCount(
+            typeof tourData?.total === 'number'
+              ? tourData.total
+              : getStoredTourisms().length
+          );
 
           if (Array.isArray(msgData?.messages) && msgData.messages.length > 0) {
             setRecentEnquiries(
