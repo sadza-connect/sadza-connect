@@ -69,8 +69,9 @@ import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/co
 type UserTab = 'overview' | 'utilities' | 'saved' | 'jobs' | 'settings';
 
 export default function UserDashboardPage() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser, logout, isLoading: authLoading } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
   const { toast } = useToast();
 
   const handleLogout = async () => {
@@ -90,6 +91,7 @@ export default function UserDashboardPage() {
   const [receipts, setReceipts] = useState<UtilityReceipt[]>([]);
   const [applications, setApplications] = useState<JobApplicationRecord[]>([]);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
+  const [myBusinesses, setMyBusinesses] = useState<BusinessListing[]>([]);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [savedBizIds, setSavedBizIds] = useState<string[]>([]);
   const [savedProdIds, setSavedProdIds] = useState<string[]>([]);
@@ -208,15 +210,18 @@ export default function UserDashboardPage() {
 
   useEffect(() => {
     let isMounted = true;
+    if (authLoading) return;
+
     const sync = async () => {
       setSettings(getPlatformSettings());
       setSavedBizIds(getSavedBusinessIds());
       setSavedProdIds(getSavedProductIds());
 
       try {
-        const [appRes, bRes, pRes, billRes] = await Promise.allSettled([
+        const [appRes, bRes, myBizRes, pRes, billRes] = await Promise.allSettled([
           fetch('/api/v1/jobs/applications?my_applications=true&limit=50', { credentials: 'include' }).then((r) => r.json()),
           fetch('/api/v1/businesses?limit=50').then((r) => r.json()),
+          fetch('/api/v1/businesses?my_business=true', { credentials: 'include' }).then((r) => r.json()),
           fetch('/api/v1/products?limit=50').then((r) => r.json()),
           fetch('/api/v1/bills?my_bills=true', { credentials: 'include' }).then((r) => r.json()),
         ]);
@@ -232,6 +237,12 @@ export default function UserDashboardPage() {
             setBusinesses(bRes.value.data.businesses.map(mapDbBusinessToListing));
           } else {
             setBusinesses([]);
+          }
+
+          if (myBizRes.status === 'fulfilled' && myBizRes.value?.success && Array.isArray(myBizRes.value.data?.businesses)) {
+            setMyBusinesses(myBizRes.value.data.businesses.map(mapDbBusinessToListing));
+          } else {
+            setMyBusinesses([]);
           }
 
           if (pRes.status === 'fulfilled' && pRes.value?.success && Array.isArray(pRes.value.data?.products)) {
@@ -250,8 +261,13 @@ export default function UserDashboardPage() {
         if (isMounted) {
           setApplications([]);
           setBusinesses([]);
+          setMyBusinesses([]);
           setProducts([]);
           setReceipts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingDashboard(false);
         }
       }
     };
@@ -261,7 +277,7 @@ export default function UserDashboardPage() {
       isMounted = false;
       window.removeEventListener('sadza-platform-updated', sync);
     };
-  }, [user?.id]);
+  }, [authLoading, user?.id]);
 
   const showToast = (msg: string) => {
     toast({
@@ -530,12 +546,26 @@ export default function UserDashboardPage() {
 
       {/* Quick Actions Footer */}
       <div className="shrink-0 border-t border-white/10 p-4 space-y-2.5">
-        <Link
-          href="/onboarding/business"
-          className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-2.5 text-xs font-bold text-white transition shadow-sm cursor-pointer"
-        >
-          <Building2 className="h-4 w-4" /> Register Your Business
-        </Link>
+        {authLoading || isLoadingDashboard ? (
+          <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] py-2.5 text-xs font-medium text-slate-300 animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#1e57eb]" />
+            <span>Loading workspace...</span>
+          </div>
+        ) : myBusinesses.length > 0 ? (
+          <Link
+            href="/dashboard/business"
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 py-2.5 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+          >
+            <Building2 className="h-4 w-4" /> Business Studio
+          </Link>
+        ) : (
+          <Link
+            href="/onboarding/business"
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-2.5 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+          >
+            <Building2 className="h-4 w-4" /> Register Your Business
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => setZesaModalOpen(true)}
@@ -665,45 +695,84 @@ export default function UserDashboardPage() {
                   value={receipts.length}
                   hint={`${savedMeters.length} saved meter accounts`}
                   icon={Zap}
+                  loading={authLoading || isLoadingDashboard}
                 />
                 <StatCard
                   label="Bookmarked Watchlist"
                   value={savedBusinesses.length + savedProducts.length}
                   hint={`${savedBusinesses.length} suppliers • ${savedProducts.length} products`}
                   icon={Bookmark}
+                  loading={authLoading || isLoadingDashboard}
                 />
                 <StatCard
                   label="Job Applications Sent"
                   value={applications.length}
                   hint={`CV: ${cvFileName}`}
                   icon={Briefcase}
+                  loading={authLoading || isLoadingDashboard}
                 />
               </div>
 
-              {/* Register Storefront Promo Card */}
-              <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-white to-indigo-50 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-                <div className="flex items-start gap-3.5">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-                    <Building2 className="h-5 w-5" />
+              {/* Business Storefront Card */}
+              {authLoading || isLoadingDashboard ? (
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 flex items-center gap-3.5 shadow-xs animate-pulse">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-[#1e57eb]">
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Own a business, retail shop, or artisan trade in Zimbabwe?
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                      Register your storefront on Sadza Connect with a 30-day complimentary trial to list products, get verified, and reach nationwide buyers.
-                    </p>
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 w-56 rounded bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-3 w-80 max-w-full rounded bg-slate-100 dark:bg-slate-800/70" />
                   </div>
                 </div>
-                <Link
-                  href="/onboarding/business"
-                  className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-xs"
-                >
-                  <Building2 className="h-3.5 w-3.5" />
-                  <span>Register Storefront</span>
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
+              ) : myBusinesses.length > 0 ? (
+                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-gradient-to-r from-emerald-50 via-white to-teal-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-teal-950/40 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        {myBusinesses[0].name}
+                      </h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                        Your registered business storefront is active. Open Business Studio to manage products, verification, and leads.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard/business"
+                    className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-xs"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Manage Your Business Storefront</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-white to-indigo-50 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Own a business, retail shop, or artisan trade in Zimbabwe?
+                      </h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                        Register your storefront on MySadza Connect with a 30-day complimentary trial to list products, get verified, and reach nationwide buyers.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/onboarding/business"
+                    className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-xs"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Register Storefront</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              )}
 
               {/* 1-Click ZESA Token Top-Up Panel */}
               <Panel>

@@ -156,6 +156,7 @@ export default function BusinessDashboardPage() {
   };
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
+  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState<boolean>(true);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [adverts, setAdverts] = useState<PaidAdvertItem[]>([]);
@@ -356,80 +357,66 @@ export default function BusinessDashboardPage() {
     const syncAll = async () => {
       setSettings(getPlatformSettings());
 
-      // 1. Fetch businesses strictly according to user role
-      if (isAdmin) {
-        // Super Admin: Load all platform businesses for inspection & master switching
-        try {
-          const res = await fetch('/api/v1/businesses?limit=100&include_expired=true', { credentials: 'include' });
-          const json = await res.json();
-          if (isMounted && json.success && Array.isArray(json.data?.businesses)) {
-            const mapped = json.data.businesses.map(mapDbBusinessToListing);
-            setBusinesses(mapped);
-            if (mapped[0]) {
-              setSelectedBusinessId((prev) => (prev && mapped.some((b: BusinessListing) => b.id === prev) ? prev : mapped[0].id));
-            }
-          } else if (isMounted) {
-            setBusinesses([]);
-          }
-        } catch {
-          if (isMounted) setBusinesses([]);
+      const businessEndpoint = isAdmin
+        ? '/api/v1/businesses?limit=100&include_expired=true'
+        : '/api/v1/businesses?my_business=true';
+
+      const [bizResult, invResult, appResult] = await Promise.allSettled([
+        fetch(businessEndpoint, { credentials: 'include' }).then((r) => r.json()),
+        fetch('/api/v1/invoices?limit=50', { credentials: 'include' }).then((r) => r.json()),
+        fetch('/api/v1/jobs/applications?limit=50', { credentials: 'include' }).then((r) => r.json()),
+      ]);
+
+      if (!isMounted) return;
+
+      // 1. Businesses strictly according to user role
+      if (
+        bizResult.status === 'fulfilled' &&
+        bizResult.value?.success &&
+        Array.isArray(bizResult.value.data?.businesses)
+      ) {
+        const mapped = bizResult.value.data.businesses.map(mapDbBusinessToListing);
+        setBusinesses(mapped);
+        if (mapped[0]) {
+          setSelectedBusinessId((prev) =>
+            prev && mapped.some((b: BusinessListing) => b.id === prev) ? prev : mapped[0].id
+          );
+        } else {
+          setSelectedBusinessId('');
         }
       } else {
-        // Merchant: Strictly load only businesses registered by the authenticated user
-        try {
-          const myRes = await fetch('/api/v1/businesses?my_business=true', { credentials: 'include' });
-          const myJson = await myRes.json();
-          if (isMounted && myJson.success && Array.isArray(myJson.data?.businesses)) {
-            const myMapped = myJson.data.businesses.map(mapDbBusinessToListing);
-            setBusinesses(myMapped);
-            if (myMapped[0]) {
-              setSelectedBusinessId((prev) => (prev && myMapped.some((b: BusinessListing) => b.id === prev) ? prev : myMapped[0].id));
-            } else {
-              setSelectedBusinessId('');
-            }
-          } else if (isMounted) {
-            setBusinesses([]);
-            setSelectedBusinessId('');
-          }
-        } catch {
-          if (isMounted) {
-            setBusinesses([]);
-            setSelectedBusinessId('');
-          }
-        }
+        setBusinesses([]);
+        if (!isAdmin) setSelectedBusinessId('');
+      }
+      setIsLoadingBusinesses(false);
+
+      // 2. Invoices
+      if (
+        invResult.status === 'fulfilled' &&
+        invResult.value?.success &&
+        Array.isArray(invResult.value.data?.invoices)
+      ) {
+        setInvoices(invResult.value.data.invoices.map(mapDbInvoiceToSubscriptionInvoice));
+      } else {
+        setInvoices([]);
       }
 
-      // 2. Load Invoices strictly for authenticated user
-      try {
-        const invRes = await fetch('/api/v1/invoices?limit=50', { credentials: 'include' });
-        const invJson = await invRes.json();
-        if (isMounted && invJson.success && Array.isArray(invJson.data?.invoices)) {
-          setInvoices(invJson.data.invoices.map(mapDbInvoiceToSubscriptionInvoice));
-        } else if (isMounted) {
-          setInvoices([]);
-        }
-      } catch {
-        if (isMounted) setInvoices([]);
+      // 3. Applications
+      if (
+        appResult.status === 'fulfilled' &&
+        appResult.value?.success &&
+        Array.isArray(appResult.value.data?.applications)
+      ) {
+        setApplications(appResult.value.data.applications.map(mapDbApplicationToRecord));
+      } else {
+        setApplications([]);
       }
 
-      // 3. Load Applications strictly for authenticated user
+      // 4. Redemptions
       try {
-        const aRes = await fetch('/api/v1/jobs/applications?limit=50', { credentials: 'include' });
-        const aJson = await aRes.json();
-        if (isMounted && aJson.success && Array.isArray(aJson.data?.applications)) {
-          setApplications(aJson.data.applications.map(mapDbApplicationToRecord));
-        } else if (isMounted) {
-          setApplications([]);
-        }
+        setRedemptions(loadStoredRedemptions());
       } catch {
-        if (isMounted) setApplications([]);
-      }
-
-      // 4. Load Redemptions
-      try {
-        if (isMounted) setRedemptions(loadStoredRedemptions());
-      } catch {
-        if (isMounted) setRedemptions([]);
+        setRedemptions([]);
       }
     };
 
@@ -1680,7 +1667,12 @@ export default function BusinessDashboardPage() {
           </div>
 
           {/* Role-isolated Storefront Selector */}
-          {isAdmin ? (
+          {authLoading || isLoadingBusinesses ? (
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-medium text-slate-300 animate-pulse">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-[#1e57eb] shrink-0" />
+              <span>Syncing storefront...</span>
+            </div>
+          ) : isAdmin ? (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-300">
                 <ShieldCheck className="h-3 w-3 text-purple-400" />
@@ -1890,32 +1882,44 @@ export default function BusinessDashboardPage() {
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                  <h1 className="truncate max-w-full text-sm sm:text-lg font-bold text-slate-950">
-                    {currentBusiness.name}
-                  </h1>
-                  <AdminBadge tone={currentBusiness.cr14Verified ? 'success' : 'warning'} dot className="max-w-full shrink-0">
-                    <span className="truncate">
-                      {currentBusiness.cr14Verified
-                        ? (currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Company'))
-                        : 'Unverified (Pending Admin Review)'}
-                    </span>
-                  </AdminBadge>
-                </div>
-                <p className="hidden sm:flex items-center gap-2 text-xs text-slate-500 mt-0.5 truncate">
-                  <MapPin className="h-3.5 w-3.5 text-[#1e57eb] shrink-0" />
-                  <span className="shrink-0">{currentBusiness.province}</span>
-                  <span className="shrink-0">•</span>
-                  <span className="shrink-0">{currentBusiness.categoryName}</span>
-                  {user && (
-                    <>
+                {authLoading || isLoadingBusinesses ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-44 rounded-md bg-slate-200 animate-pulse" />
+                      <div className="h-5 w-28 rounded-full bg-slate-200 animate-pulse" />
+                    </div>
+                    <div className="hidden sm:block h-3.5 w-64 rounded bg-slate-100 animate-pulse" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                      <h1 className="truncate max-w-full text-sm sm:text-lg font-bold text-slate-950">
+                        {currentBusiness.name}
+                      </h1>
+                      <AdminBadge tone={currentBusiness.cr14Verified ? 'success' : 'warning'} dot className="max-w-full shrink-0">
+                        <span className="truncate">
+                          {currentBusiness.cr14Verified
+                            ? (currentBusiness.verificationBadge || (effectiveTrack === 'owner_operated' ? 'Identity Verified (National ID)' : 'Verified Company'))
+                            : 'Unverified (Pending Admin Review)'}
+                        </span>
+                      </AdminBadge>
+                    </div>
+                    <p className="hidden sm:flex items-center gap-2 text-xs text-slate-500 mt-0.5 truncate">
+                      <MapPin className="h-3.5 w-3.5 text-[#1e57eb] shrink-0" />
+                      <span className="shrink-0">{currentBusiness.province}</span>
                       <span className="shrink-0">•</span>
-                      <span className="truncate text-slate-600 font-medium">
-                        Signed in as {user.fullName} ({user.email})
-                      </span>
-                    </>
-                  )}
-                </p>
+                      <span className="shrink-0">{currentBusiness.categoryName}</span>
+                      {user && (
+                        <>
+                          <span className="shrink-0">•</span>
+                          <span className="truncate text-slate-600 font-medium">
+                            Signed in as {user.fullName} ({user.email})
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1966,6 +1970,24 @@ export default function BusinessDashboardPage() {
 
         {/* Workspace Body */}
         <main className="mx-auto w-full max-w-[1600px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          {authLoading || isLoadingBusinesses ? (
+            <div className="space-y-6">
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-14 text-center shadow-xs">
+                <Loader2 className="h-8 w-8 animate-spin text-[#1e57eb] mb-3" />
+                <p className="text-sm font-bold text-slate-900">Loading your business storefront...</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Syncing verification status, products, and account metrics from the database.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard label="Loading" value="" loading />
+                <StatCard label="Loading" value="" loading />
+                <StatCard label="Loading" value="" loading />
+                <StatCard label="Loading" value="" loading />
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Super Admin Storefront Inspector Banner */}
           {isAdmin && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-purple-300 bg-purple-50/90 dark:bg-purple-950/40 dark:border-purple-800 px-5 py-3.5 text-purple-950 dark:text-purple-200 shadow-xs">
@@ -4049,6 +4071,8 @@ export default function BusinessDashboardPage() {
                 </div>
               )}
             </Panel>
+          )}
+            </>
           )}
         </main>
       </div>
