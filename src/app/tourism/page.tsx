@@ -158,7 +158,18 @@ export default function TourismDirectoryPage() {
         selectedCategory === 'All Categories' || item.category === selectedCategory;
 
       const matchesDestination =
-        selectedDestination === 'All Destinations' || item.destinationArea === selectedDestination;
+        selectedDestination === 'All Destinations' ||
+        item.destinationArea === selectedDestination ||
+        selectedDestination
+          .split('&')
+          .map((part) => part.trim().toLowerCase())
+          .some(
+            (token) =>
+              token.length > 2 &&
+              (item.destinationArea.toLowerCase().includes(token) ||
+                item.city.toLowerCase().includes(token) ||
+                item.province.toLowerCase().includes(token))
+          );
 
       const matchesProvince =
         selectedProvince === 'All Provinces' || item.province === selectedProvince;

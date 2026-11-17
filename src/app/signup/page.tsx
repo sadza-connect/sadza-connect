@@ -833,10 +833,11 @@ function SignupFormContent() {
       {/* Footer */}
       <footer className="w-full max-w-5xl mx-auto p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 z-10">
         <div>© {new Date().getFullYear()} MySadza Connect. National Commercial Network of Zimbabwe.</div>
-        <div className="flex gap-4 mt-2 sm:mt-0">
-          <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
-          <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Terms of Service</Link>
-          <Link href="#" className="hover:text-slate-800 dark:hover:text-slate-200">Compliance</Link>
+        <div className="flex flex-wrap justify-center gap-4 mt-2 sm:mt-0">
+          <Link href="/privacy" className="hover:text-slate-800 dark:hover:text-slate-200">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-slate-800 dark:hover:text-slate-200">Terms of Service</Link>
+          <Link href="/cookie-policy" className="hover:text-slate-800 dark:hover:text-slate-200">Cookie Policy</Link>
+          <Link href="/disclaimer" className="hover:text-slate-800 dark:hover:text-slate-200">Disclaimer</Link>
         </div>
       </footer>
 

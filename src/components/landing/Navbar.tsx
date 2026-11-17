@@ -181,7 +181,7 @@ export function Navbar() {
             href="/tourism"
             className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors whitespace-nowrap"
           >
-            Tourism &amp; Stays
+            Tourism &amp; Hospitality
           </Link>
           <Link
             href="/jobs"
@@ -507,7 +507,7 @@ export function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
             >
-              Tourism &amp; Stays
+              Tourism &amp; Hospitality
             </Link>
             <Link
               href="/jobs"

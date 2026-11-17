@@ -50,6 +50,7 @@ export const TOURISM_DESTINATIONS = [
   'Kariba & Lake Stays',
   'Harare & Suburbs',
   'Bulawayo & Matopos',
+  'Gweru & Midlands',
   'Hwange National Park',
   'Great Zimbabwe & Masvingo',
   'Vumba Mountains',

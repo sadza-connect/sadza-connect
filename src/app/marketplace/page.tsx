@@ -46,6 +46,10 @@ const SECTORS_WITH_COUNTS = [
   { name: 'Construction', count: 48 },
   { name: 'Energy & Solar', count: 37 },
   { name: 'Manufacturing', count: 28 },
+  { name: 'Mining', count: 24 },
+  { name: 'Printing & Branding', count: 16 },
+  { name: 'Properties', count: 21 },
+  { name: 'Tourism & Hospitality', count: 19 },
   { name: 'Vehicles & Transport', count: 31 },
   { name: 'Tools & Equipment', count: 22 },
   { name: 'Business Services', count: 19 },
@@ -204,11 +208,15 @@ export default function MarketplacePage() {
 
       const matchesSector =
         selectedSectors.length === 0 ||
-        selectedSectors.some(
-          (s) =>
-            prod.category.toLowerCase().includes(s.toLowerCase()) ||
-            s.toLowerCase().includes(prod.category.toLowerCase())
-        );
+        selectedSectors.some((s) => {
+          const catLower = prod.category.toLowerCase();
+          const secLower = s.toLowerCase();
+          if (catLower.includes(secLower) || secLower.includes(catLower)) return true;
+          const tokens = secLower
+            .split(/[&\s,/]+/)
+            .filter((t) => t.length > 2 && t !== 'and');
+          return tokens.some((tok) => catLower.includes(tok));
+        });
 
       const matchesProvince =
         selectedProvinces === 'All Provinces' || prod.province === selectedProvinces;

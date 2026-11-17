@@ -271,7 +271,7 @@ export default function AdminOverviewPage() {
       { section: 'Business Directory', views: directoryViews },
       { section: 'B2B Marketplace', views: marketplaceViews },
       { section: 'Properties & Rentals', views: propertiesViews },
-      { section: 'Tourism & Stays', views: tourismsViews },
+      { section: 'Tourism & Hospitality', views: tourismsViews },
       { section: 'Sponsored Adverts', views: advertsViews },
       { section: 'Jobs & Careers', views: jobsViews },
     ];
@@ -304,7 +304,7 @@ export default function AdminOverviewPage() {
         { label: 'Supplier Inquiries & Quotes', val: Math.round((quoteDemand / total) * 100), count: quoteDemand, color: '#1e57eb' },
         { label: 'Marketplace Catalogue Products', val: Math.round((productsDemand / total) * 100), count: productsDemand, color: '#0d9488' },
         { label: 'Properties & Rental Units', val: Math.round((propertiesDemand / total) * 100), count: propertiesDemand, color: '#0284c7' },
-        { label: 'Tourism & Lodge Stays', val: Math.round((tourismsDemand / total) * 100), count: tourismsDemand, color: '#059669' },
+        { label: 'Tourism & Hospitality', val: Math.round((tourismsDemand / total) * 100), count: tourismsDemand, color: '#059669' },
         { label: 'Sponsored Adverts Active', val: Math.round((advertsDemand / total) * 100), count: advertsDemand, color: '#dd6e02' },
         { label: 'Talent & Open Vacancies', val: Math.round((jobsDemand / total) * 100), count: jobsDemand, color: '#7c3aed' },
       ],

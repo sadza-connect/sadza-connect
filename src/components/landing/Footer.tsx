@@ -256,6 +256,22 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link
+                  href="/cookie-policy"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/disclaimer"
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  Disclaimer
+                </Link>
+              </li>
+              <li>
                 <button
                   type="button"
                   onClick={openPreferences}

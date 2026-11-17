@@ -242,13 +242,36 @@ export default function PropertiesDirectoryPage() {
 
   useEffect(() => {
     const loadProps = () => {
-      setProperties(getStoredProperties());
+      const stored = getStoredProperties();
+      setProperties(stored);
       setUnlockedContacts(getUnlockedContacts());
       setIsLoading(false);
+      return stored;
     };
-    loadProps();
+    const initialList = loadProps();
+
+    const triggerDeepLinkUnlock = (list: PropertyListing[]) => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const unlockId = params.get('unlock');
+      if (unlockId) {
+        const target = list.find((p) => p.id === unlockId);
+        if (target && !getUnlockedContacts()[target.id]) {
+          setUnlockSuccessData(null);
+          setUnlockModalProperty(target);
+          // Clean up URL param so closing modal doesn't re-trigger
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    };
+
+    triggerDeepLinkUnlock(initialList);
+
     syncPropertiesFromApi().then((fresh) => {
-      if (fresh && fresh.length > 0) setProperties(fresh);
+      if (fresh && fresh.length > 0) {
+        setProperties(fresh);
+        triggerDeepLinkUnlock(fresh);
+      }
     });
     window.addEventListener('sadza-properties-updated', loadProps);
     window.addEventListener('sadza-unlocked-updated', loadProps);
@@ -725,10 +748,11 @@ export default function PropertiesDirectoryPage() {
                                   setUnlockSuccessData(null);
                                   setUnlockModalProperty(property);
                                 }}
+                                title="Click to unlock landlord WhatsApp and phone contact ($2.00 USD)"
                                 className="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition-transform active:scale-95 cursor-pointer"
                               >
                                 <Lock className="h-3 w-3" />
-                                <span>Unlock • $2.00</span>
+                                <span>WhatsApp / Contact</span>
                               </button>
                             )}
                           </div>
@@ -949,7 +973,7 @@ export default function PropertiesDirectoryPage() {
                       className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
                     >
                       <Lock className="h-4 w-4" />
-                      <span>Unlock Direct Landlord Contact • $2.00 USD (~53 ZiG)</span>
+                      <span>WhatsApp / Contact • Unlock for $2.00 USD</span>
                     </button>
                   </div>
                 );

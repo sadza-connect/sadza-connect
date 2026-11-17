@@ -157,8 +157,8 @@ export const BUSINESS_CATEGORIES: Category[] = [
   },
   {
     id: 'cat-7',
-    slug: 'hotels-tourism',
-    name: 'Hotels & Tourism',
+    slug: 'tourism-hospitality',
+    name: 'Tourism & Hospitality',
     description: 'Safari lodges, business hotels, conference venues & tour operators',
     count: 147,
     iconName: 'Palmtree',
@@ -204,6 +204,22 @@ export const BUSINESS_CATEGORIES: Category[] = [
     description: 'Chartered accountants, ZIMRA tax advisory, legal firms & business consultants',
     count: 183,
     iconName: 'Briefcase',
+  },
+  {
+    id: 'cat-14',
+    slug: 'printing-branding',
+    name: 'Printing & Branding',
+    description: 'Corporate signage, vehicle wraps, embroidered workwear, banners & commercial print',
+    count: 74,
+    iconName: 'Printer',
+  },
+  {
+    id: 'cat-15',
+    slug: 'properties-real-estate',
+    name: 'Properties & Real Estate',
+    description: 'Residential rentals, serviced stands, commercial offices & warehouse leases',
+    count: 96,
+    iconName: 'Home',
   },
   {
     id: 'cat-13',

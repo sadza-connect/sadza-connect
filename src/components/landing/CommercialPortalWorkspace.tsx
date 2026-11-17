@@ -50,7 +50,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
   getStoredProperties,
+  getUnlockedContacts,
   PropertyListing,
+  UnlockedContactRecord,
 } from '@/data/propertiesStore';
 import {
   getStoredTourisms,
@@ -386,6 +388,9 @@ export function CommercialPortalWorkspace() {
 
   // Properties, Tourism & Events State
   const [properties, setProperties] = useState<PropertyListing[]>([]);
+  const [unlockedPropertyContacts, setUnlockedPropertyContacts] = useState<
+    Record<string, UnlockedContactRecord>
+  >({});
   const [tourisms, setTourisms] = useState<TourismListing[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
 
@@ -441,15 +446,18 @@ export function CommercialPortalWorkspace() {
   useEffect(() => {
     const loadPropsAndEvents = () => {
       setProperties(getStoredProperties());
+      setUnlockedPropertyContacts(getUnlockedContacts());
       setTourisms(getStoredTourisms());
       setEvents(getStoredEvents());
     };
     loadPropsAndEvents();
     window.addEventListener('sadza-properties-updated', loadPropsAndEvents);
+    window.addEventListener('sadza-unlocked-updated', loadPropsAndEvents);
     window.addEventListener('sadza-tourism-updated', loadPropsAndEvents);
     window.addEventListener('sadza-events-updated', loadPropsAndEvents);
     return () => {
       window.removeEventListener('sadza-properties-updated', loadPropsAndEvents);
+      window.removeEventListener('sadza-unlocked-updated', loadPropsAndEvents);
       window.removeEventListener('sadza-tourism-updated', loadPropsAndEvents);
       window.removeEventListener('sadza-events-updated', loadPropsAndEvents);
     };
@@ -2503,17 +2511,27 @@ export function CommercialPortalWorkspace() {
                           >
                             Details
                           </Link>
-                          <a
-                            href={`https://wa.me/${prop.whatsapp}?text=${encodeURIComponent(
-                              `Hello, I saw your property listing for "${prop.title}" on Sadza Connect. Is it still available?`
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 text-xs font-bold transition-transform active:scale-95 shadow-sm"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            <span>WhatsApp</span>
-                          </a>
+                          {unlockedPropertyContacts[prop.id] ? (
+                            <a
+                              href={`https://wa.me/${unlockedPropertyContacts[prop.id].whatsapp || prop.whatsapp}?text=${encodeURIComponent(
+                                `Hello, I unlocked your contact for "${prop.title}" on MySadza Connect. Is it still available?`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 text-xs font-bold transition-transform active:scale-95 shadow-sm"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              <span>WhatsApp</span>
+                            </a>
+                          ) : (
+                            <Link
+                              href={`/properties?unlock=${encodeURIComponent(prop.id)}`}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white px-3.5 py-2 text-xs font-bold transition-transform active:scale-95 shadow-sm"
+                            >
+                              <Lock className="h-3.5 w-3.5" />
+                              <span>WhatsApp / Contact</span>
+                            </Link>
+                          )}
                         </div>
                       </div>
                     ))

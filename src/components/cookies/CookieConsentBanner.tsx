@@ -55,6 +55,13 @@ export function CookieConsentBanner() {
                         className="font-bold text-emerald-400 underline underline-offset-2 hover:text-emerald-300 transition-colors"
                       >
                         Privacy &amp; Data Policy
+                      </Link>{' '}
+                      and{' '}
+                      <Link
+                        href="/cookie-policy"
+                        className="font-bold text-emerald-400 underline underline-offset-2 hover:text-emerald-300 transition-colors"
+                      >
+                        Cookie Policy
                       </Link>
                       .
                     </p>
