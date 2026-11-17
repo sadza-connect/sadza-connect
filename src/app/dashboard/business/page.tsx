@@ -34,6 +34,8 @@ import {
   Upload,
   Image as ImageIcon,
   Ticket,
+  LogOut,
+  Loader2,
 } from 'lucide-react';
 import {
   ZIMBABWE_PROVINCES,
@@ -139,9 +141,19 @@ const EMPTY_FALLBACK_BUSINESS: BusinessListing = {
 };
 
 export default function BusinessDashboardPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>('');
@@ -1604,9 +1616,9 @@ export default function BusinessDashboardPage() {
   ];
 
   const SidebarContent = (
-    <div className="flex h-full flex-col bg-[#0c1424] text-white">
+    <div className="flex h-full flex-col overflow-y-auto lg:overflow-hidden bg-[#0c1424] text-white">
       {/* Brand Header */}
-      <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5">
         <Link href="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#1e57eb] to-emerald-500 font-bold text-white shadow-sm">
             SC
@@ -1628,7 +1640,7 @@ export default function BusinessDashboardPage() {
       </div>
 
       {/* Active Business Card */}
-      <div className="border-b border-white/10 p-4 space-y-2.5">
+      <div className="shrink-0 border-b border-white/10 p-4 space-y-2.5">
         {user && (
           <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
             {user.avatarUrl ? (
@@ -1730,7 +1742,7 @@ export default function BusinessDashboardPage() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 lg:min-h-0 space-y-1 lg:overflow-y-auto px-3 py-4">
         <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
           Storefront Operations
         </div>
@@ -1828,6 +1840,19 @@ export default function BusinessDashboardPage() {
             Main Site <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/35 bg-rose-500/15 hover:bg-rose-500/25 py-2.5 text-xs font-bold text-rose-200 transition cursor-pointer disabled:opacity-50"
+        >
+          {isLoggingOut ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          <span>{isLoggingOut ? 'Signing out...' : 'Sign Out / Logout'}</span>
+        </button>
       </div>
     </div>
   );
@@ -1917,6 +1942,21 @@ export default function BusinessDashboardPage() {
                     : `Activate ${activeMonthlyRateStr}/mo`}
                 </span>
               </AdminButton>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                title="Sign out"
+                aria-label="Logout"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isLoggingOut ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <LogOut className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">{isLoggingOut ? 'Signing out...' : 'Logout'}</span>
+              </button>
             </div>
           </div>
         </header>

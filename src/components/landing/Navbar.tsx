@@ -69,6 +69,15 @@ export function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!mobileMenuOpen || typeof document === 'undefined') return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileMenuOpen]);
+
   const handleDismissBanner = () => {
     setBannerDismissed(true);
     if (typeof sessionStorage !== 'undefined') {
@@ -455,238 +464,261 @@ export function Navbar() {
         </div>
       )}
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer — Fixed viewport sheet with scrollable nav & pinned bottom auth/logout footer */}
       {mobileMenuOpen && (
-        <div className="w-full max-w-6xl mt-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-5 lg:hidden shadow-xl animate-in slide-in-from-top-2 duration-200 z-50 max-h-[calc(100svh-5rem)] overflow-y-auto overscroll-contain">
-          <nav className="flex flex-col gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
-            <Link
-              href="/notifications"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-[#1e57eb]" />
-                <span>Notifications &amp; Activity</span>
-              </span>
-              {unreadNotifsCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#1e57eb] text-white">
-                  {unreadNotifsCount} new
-                </span>
-              )}
-            </Link>
-            <Link
-              href="/businesses"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Directory &amp; Map
-            </Link>
-            <Link
-              href="/marketplace"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Marketplace
-            </Link>
-            <Link
-              href="/adverts"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Adverts &amp; Deals
-            </Link>
-            <Link
-              href="/properties"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Property &amp; Rentals
-            </Link>
-            <Link
-              href="/tourism"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Tourism &amp; Hospitality
-            </Link>
-            <Link
-              href="/jobs"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Jobs
-            </Link>
-            <Link
-              href="/events"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Events
-            </Link>
-            <Link
-              href="/bill-payments"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Bill Payments
-            </Link>
-            <Link
-              href="/pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
-            >
-              Pricing
-            </Link>
+        <div className="fixed inset-0 z-50 flex flex-col justify-start p-3 sm:p-6 lg:hidden">
+          <div
+            className="fixed inset-0 bg-slate-950/55 backdrop-blur-xs"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
 
-            {/* Role-gated workspace links for authenticated users only */}
-            {isAuthenticated && (
-              <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  {user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin')
-                    ? 'Administration & Overviews'
-                    : 'My Account Workspace'}
-                </div>
-                <div className="flex flex-col gap-1 mt-1">
-                  {user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin') ? (
-                    <>
-                      <Link
-                        href="/admin"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 py-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-xs font-bold text-emerald-800 dark:text-emerald-300"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Executive Admin HQ (13 Modules)</span>
-                      </Link>
-                      <Link
-                        href="/dashboard/business"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 text-xs font-medium text-slate-800 dark:text-slate-200 hover:text-emerald-600"
-                      >
-                        <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Business Storefront View</span>
-                      </Link>
+          <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col max-h-[calc(100dvh-1.5rem)] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Drawer Header */}
+            <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <Logo size="sm" />
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Close navigation menu"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Links List */}
+            <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 flex flex-col gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <Link
+                href="/notifications"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-[#1e57eb]" />
+                  <span>Notifications &amp; Activity</span>
+                </span>
+                {unreadNotifsCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#1e57eb] text-white">
+                    {unreadNotifsCount} new
+                  </span>
+                )}
+              </Link>
+              <Link
+                href="/businesses"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Directory &amp; Map
+              </Link>
+              <Link
+                href="/marketplace"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Marketplace
+              </Link>
+              <Link
+                href="/adverts"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Adverts &amp; Deals
+              </Link>
+              <Link
+                href="/properties"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Property &amp; Rentals
+              </Link>
+              <Link
+                href="/tourism"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Tourism &amp; Hospitality
+              </Link>
+              <Link
+                href="/jobs"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Jobs
+              </Link>
+              <Link
+                href="/events"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Events
+              </Link>
+              <Link
+                href="/bill-payments"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Bill Payments
+              </Link>
+              <Link
+                href="/pricing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600"
+              >
+                Pricing
+              </Link>
+
+              {/* Role-gated workspace links for authenticated users only */}
+              {isAuthenticated && (
+                <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800 pb-2">
+                  <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    {user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin')
+                      ? 'Administration & Overviews'
+                      : 'My Account Workspace'}
+                  </div>
+                  <div className="flex flex-col gap-1 mt-1">
+                    {user?.role === 'admin' || user?.role === 'super_admin' || user?.role?.toLowerCase().includes('admin') ? (
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 py-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-xs font-bold text-emerald-800 dark:text-emerald-300"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Executive Admin HQ (13 Modules)</span>
+                        </Link>
+                        <Link
+                          href="/dashboard/business"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 text-xs font-medium text-slate-800 dark:text-slate-200 hover:text-emerald-600"
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Business Storefront View</span>
+                        </Link>
+                        <Link
+                          href="/dashboard/user"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 text-xs font-medium text-slate-800 dark:text-slate-200 hover:text-emerald-600"
+                        >
+                          <User className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Consumer Vault View</span>
+                        </Link>
+                      </>
+                    ) : user?.role === 'business' || user?.role === 'merchant' || user?.accountType === 'business' ? (
+                      <>
+                        <Link
+                          href="/dashboard/business"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 py-2.5 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-xs font-bold text-emerald-800 dark:text-emerald-300"
+                        >
+                          <Building2 className="w-4 h-4 text-emerald-600" />
+                          <span>Business Dashboard (Storefront &amp; Sales)</span>
+                        </Link>
+                        {onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted && (
+                          <Link
+                            href="/onboarding/business"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-xs font-bold text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/80"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                              <span>Resume Setup ({onboardingProgress.stepTitle})</span>
+                            </span>
+                            <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full font-bold">
+                              {onboardingProgress.progressPercent}%
+                            </span>
+                          </Link>
+                        )}
+                      </>
+                    ) : (
                       <Link
                         href="/dashboard/user"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/70 text-xs font-medium text-slate-800 dark:text-slate-200 hover:text-emerald-600"
+                        className="flex items-center gap-2 py-2.5 px-3 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-xs font-bold text-blue-800 dark:text-blue-300"
                       >
-                        <User className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Consumer Vault View</span>
+                        <User className="w-4 h-4 text-[#1e57eb]" />
+                        <span>My Dashboard (Orders &amp; Utilities)</span>
                       </Link>
-                    </>
-                  ) : user?.role === 'business' || user?.role === 'merchant' || user?.accountType === 'business' ? (
-                    <>
-                      <Link
-                        href="/dashboard/business"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 py-2.5 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-xs font-bold text-emerald-800 dark:text-emerald-300"
-                      >
-                        <Building2 className="w-4 h-4 text-emerald-600" />
-                        <span>Business Dashboard (Storefront &amp; Sales)</span>
-                      </Link>
-                      {onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted && (
-                        <Link
-                          href="/onboarding/business"
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center justify-between py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-xs font-bold text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/80"
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                            <span>Resume Setup ({onboardingProgress.stepTitle})</span>
-                          </span>
-                          <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full font-bold">
-                            {onboardingProgress.progressPercent}%
-                          </span>
-                        </Link>
-                      )}
-                    </>
-                  ) : (
-                    <Link
-                      href="/dashboard/user"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 py-2.5 px-3 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-xs font-bold text-blue-800 dark:text-blue-300"
-                    >
-                      <User className="w-4 h-4 text-[#1e57eb]" />
-                      <span>My Dashboard (Orders &amp; Utilities)</span>
-                    </Link>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </nav>
+              )}
+            </nav>
 
-          <div className="mt-4 flex flex-col gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-            {isLoading ? (
-              <div className="flex flex-col gap-2 py-1" aria-hidden="true">
-                <div className="h-9 w-full rounded-lg bg-slate-200/70 dark:bg-slate-800/70 animate-pulse" />
-                <div className="h-9 w-full rounded-lg bg-slate-200/70 dark:bg-slate-800/70 animate-pulse" />
-              </div>
-            ) : isAuthenticated ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <User className="h-4 w-4 text-emerald-500 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 dark:text-white truncate">
-                        {user?.fullName || 'User Account'}
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {user?.email}
+            {/* Pinned Bottom Account & Auth Footer — Always visible without clipping */}
+            <div className="shrink-0 flex flex-col gap-2 p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/70">
+              {isLoading ? (
+                <div className="flex flex-col gap-2 py-1" aria-hidden="true">
+                  <div className="h-9 w-full rounded-lg bg-slate-200/70 dark:bg-slate-800/70 animate-pulse" />
+                  <div className="h-9 w-full rounded-lg bg-slate-200/70 dark:bg-slate-800/70 animate-pulse" />
+                </div>
+              ) : isAuthenticated ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 dark:text-white truncate">
+                          {user?.fullName || 'User Account'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {user?.email}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {isLoggingOut ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <LogOut className="h-4 w-4" />
-                  )}
-                  <span>{isLoggingOut ? 'Signing out...' : 'Logout'}</span>
-                </button>
-              </div>
-            ) : (
-              <>
-                {onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted && (
-                  <Link
-                    href="/onboarding/business"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-xs font-bold text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/80 mb-1"
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                      <span>Resume Business Setup</span>
-                    </span>
-                    <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full font-bold">
-                      {onboardingProgress.progressPercent}%
-                    </span>
+                    {isLoggingOut ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4" />
+                    )}
+                    <span>{isLoggingOut ? 'Signing out...' : 'Logout'}</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {onboardingProgress?.hasDraft && !onboardingProgress?.isCompleted && (
+                    <Link
+                      href="/onboarding/business"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-xs font-bold text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/80 mb-1"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Resume Business Setup</span>
+                      </span>
+                      <span className="text-[10px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full font-bold">
+                        {onboardingProgress.progressPercent}%
+                      </span>
+                    </Link>
+                  )}
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full text-center py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    Sign In
                   </Link>
-                )}
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  Sign In
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setRegisterModalOpen(true);
-                  }}
-                  className="w-full text-center py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-xs cursor-pointer"
-                >
-                  + Post a Listing / Register
-                </button>
-              </>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setRegisterModalOpen(true);
+                    }}
+                    className="w-full text-center py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-xs cursor-pointer"
+                  >
+                    + Post a Listing / Register
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
