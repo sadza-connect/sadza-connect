@@ -256,6 +256,41 @@ export class EmailService {
       text,
     });
   }
+
+  async sendSubscriptionNoticeEmail(
+    to: string,
+    notice: {
+      businessName: string;
+      title: string;
+      message: string;
+      actionLabel: string;
+    }
+  ): Promise<void> {
+    logger.info({ to, businessName: notice.businessName }, '[SUBSCRIPTION] Dispatched subscription notice email');
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0a1018 0%, #007a3d 100%); padding: 28px 24px; text-align: center; color: #ffffff;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">MYSADZA CONNECT</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; color: #facc15;">Subscription Notice</p>
+        </div>
+        <div style="padding: 28px 24px;">
+          <h2 style="margin-top: 0; font-size: 18px; color: #0f172a;">${notice.title}</h2>
+          <p style="font-size: 14px; line-height: 1.6; color: #1e293b;">${notice.message}</p>
+          <p style="text-align: center; margin: 24px 0;">
+            <a href="https://sadzaconnect.co.zw/pricing" style="background: #007a3d; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px;">${notice.actionLabel}</a>
+          </p>
+          <p style="font-size: 12px; color: #64748b;">Need help? Contact our support team on WhatsApp at +263 77 210 1101.</p>
+        </div>
+      </div>
+    `;
+    const text = `${notice.title}\n\n${notice.message}\n\n${notice.actionLabel}: https://sadzaconnect.co.zw/pricing\n\nMySadza Connect Support`;
+    await this.sendEmail({
+      to,
+      subject: `MySadza Connect: ${notice.title}`,
+      html,
+      text,
+    });
+  }
 }
 
 export const emailService = new EmailService();

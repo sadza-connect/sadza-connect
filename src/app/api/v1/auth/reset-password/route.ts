@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { AuthService } from '@/application/auth/auth-service';
 import { resetPasswordSchema } from '@/shared/validators/auth-validators';
 import { authRateLimiter } from '@/shared/utils/rate-limiter';
@@ -23,7 +24,18 @@ export async function POST(req: NextRequest) {
     authRateLimiter.check(clientIp);
 
     const body = await parseAndValidateBody(req, resetPasswordSchema);
-    await authService.resetPassword(body.resetToken, body.password);
+    const userId = await authService.resetPassword(body.resetToken, body.password);
+
+    await notificationRepository.createSafely({
+      userId,
+      title: 'Password Reset',
+      message:
+        'Your password was reset and all other sessions were signed out. If this was not you, contact support immediately.',
+      category: 'system',
+      severity: 'warning',
+      actionUrl: '/contact',
+      actionLabel: 'Contact Support',
+    });
 
     return jsonResponse(null, requestId, 200);
   } catch (err) {

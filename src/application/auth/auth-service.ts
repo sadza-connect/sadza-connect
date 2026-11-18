@@ -357,7 +357,7 @@ export class AuthService {
     return { resetToken };
   }
 
-  async resetPassword(resetToken: string, newPassword: string): Promise<void> {
+  async resetPassword(resetToken: string, newPassword: string): Promise<string> {
     let payload;
     try {
       payload = this.jwtService.verifyPasswordResetToken(resetToken);
@@ -376,6 +376,8 @@ export class AuthService {
 
     // Invalidate all active refresh tokens/sessions for this user
     await this.refreshTokenRepo.revokeAllForUser(user.id);
+
+    return user.id;
   }
 
   async logout(refreshToken: string): Promise<void> {
