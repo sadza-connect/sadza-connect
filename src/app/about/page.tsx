@@ -37,8 +37,12 @@ export default function AboutPage() {
       .then((json) => {
         if (json.success && json.data) {
           const cms = json.data;
+          const customProfile = cms.raw?.extra_config?.profile_configured
+            ? cms.raw?.extra_config?.profile
+            : null;
           setSettings((prev) => ({
             ...prev,
+            siteName: customProfile?.name?.trim() || prev.siteName,
             aboutHeadline: cms.about?.headline || prev.aboutHeadline,
             aboutMission: cms.about?.mission || prev.aboutMission,
             aboutVision: cms.about?.vision || prev.aboutVision,
@@ -46,6 +50,8 @@ export default function AboutPage() {
             supportPhone: cms.contact?.supportPhone || prev.supportPhone,
             supportWhatsApp: cms.contact?.supportWhatsApp || prev.supportWhatsApp,
             hqAddress: cms.contact?.hqAddress || prev.hqAddress,
+            harareAddress: cms.contact?.harareAddress || prev.harareAddress,
+            operatingHours: cms.contact?.operatingHours || prev.operatingHours,
           }));
         }
       })

@@ -95,43 +95,30 @@ export default function AdminSettingsPage() {
   const { toast } = useToast();
   const [active, setActive] = useState<SectionId>('profile');
 
-  // Company profile
+  // Company profile — intentionally blank by default (no hardcoded demo values)
   const [profile, setProfile] = useState({
-    name: 'Sadza Connect Integrated Commerce Ltd',
-    cr14Number: 'CR14-ZW-2025-88412',
-    zimraTin: '1004928174',
-    tagline: "Zimbabwe's Trusted B2B & Retail Digital Commerce Infrastructure",
-    established: '2024',
-    vision:
-      'To connect every verified enterprise, agro-processor, manufacturer, and service provider across all 10 provinces of Zimbabwe with transparent digital trade.',
-    mission:
-      'Delivering verified business directories, inter-provincial marketplace logistics, instant ZESA/utility bill settlement, and executive recruitment in one unified platform.',
+    name: '',
+    cr14Number: '',
+    zimraTin: '',
+    tagline: '',
+    established: '',
+    vision: '',
+    mission: '',
   });
 
-  const [logoAsset, setLogoAsset] = useState<UploadedMediaItem[]>([
-    {
-      src: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?auto=format&fit=crop&w=600&q=80',
-      caption: 'Sadza Connect Official Crest',
-    },
-  ]);
+  const [logoAsset, setLogoAsset] = useState<UploadedMediaItem[]>([]);
+  const [signatureAsset, setSignatureAsset] = useState<UploadedMediaItem[]>([]);
 
-  const [signatureAsset, setSignatureAsset] = useState<UploadedMediaItem[]>([
-    {
-      src: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=600&q=80',
-      caption: 'Authorized Registrar Signature (ID Cards & Receipts)',
-    },
-  ]);
-
-  // Contact details
+  // Contact details — intentionally blank by default (no hardcoded demo values)
   const [contact, setContact] = useState({
-    email: 'operations@sadzaconnect.co.zw',
-    phone: '+263 242 708 411',
-    whatsapp: '+263 77 200 1001',
-    hours: 'Mon – Sat, 07:30 – 18:00 CAT',
-    line1: 'Joina City Commercial Tower, 11th Floor',
-    line2: 'Jason Moyo Avenue / Julius Nyerere Way',
-    city: 'Harare',
-    province: 'Harare',
+    email: '',
+    phone: '',
+    whatsapp: '',
+    hours: '',
+    line1: '',
+    line2: '',
+    city: '',
+    province: '',
   });
   const [detectedPhoneCountry, setDetectedPhoneCountry] = useState<CountryDialInfo | null>(null);
   const [detectedWhatsappCountry, setDetectedWhatsappCountry] = useState<CountryDialInfo | null>(null);
@@ -164,7 +151,7 @@ export default function AdminSettingsPage() {
   // Shipping & Logistics
   const [shipping, setShipping] = useState({
     pickupEnabled: true,
-    pickupName: 'Sadza Connect Central Dispatch Hub (Graniteside)',
+    pickupName: 'MySadza Connect Central Dispatch Hub (Graniteside)',
     pickupPhone: '+263 77 200 1001',
     pickupHours: 'Mon – Sat: 08:00 – 17:00',
     pickupAddress: 'Stand 412 Seke Road, Graniteside Industrial Area, Harare',
@@ -184,11 +171,16 @@ export default function AdminSettingsPage() {
     batteryExtraFee: '10',
   });
 
-  // Verification portals
+  // Verification portals & Platform Governance
   const [verification, setVerification] = useState({
     receiptPortal: true,
     staffPortal: true,
     cr14StrictCheck: true,
+    autoApproveTier1: false,
+    allowPublicReviews: true,
+    allowBusinessRegistration: true,
+    allowPropertySubmissions: true,
+    maintenanceMode: false,
   });
 
   // Notifications
@@ -199,9 +191,16 @@ export default function AdminSettingsPage() {
     smsAlerts: false,
   });
 
-  // Security
+  // Security & Two-Factor Authentication (2FA)
   const [security, setSecurity] = useState({ current: '', next: '', confirm: '' });
-  const [twoFactor, setTwoFactor] = useState(true);
+  const [securityPolicies, setSecurityPolicies] = useState({
+    twoFactorAdmin: true,
+    twoFactorBusiness: false,
+    requireEmailVerification: true,
+    requirePasswordOnDelete: true,
+    revokeTokensOnSuspend: true,
+    sessionTimeoutMinutes: '240',
+  });
 
   // Synchronize with database and persistent platform store on mount
   useEffect(() => {
@@ -221,24 +220,9 @@ export default function AdminSettingsPage() {
         ecocashMerchantCode: local.ecocashMerchantCode ?? prev.ecocashMerchantCode,
         innbucksMerchantCode: local.innbucksMerchantCode ?? prev.innbucksMerchantCode,
       }));
-      setContact((prev) => ({
-        ...prev,
-        email: local.supportEmail || prev.email,
-        phone: local.supportPhone || prev.phone,
-        whatsapp: local.supportWhatsApp || prev.whatsapp,
-        hours: local.operatingHours || prev.hours,
-        line1: local.harareAddress || prev.line1,
-      }));
-      setProfile((prev) => ({
-        ...prev,
-        name: local.siteName || prev.name,
-        tagline: local.tagline || prev.tagline,
-        mission: local.aboutMission || prev.mission,
-        vision: local.aboutVision || prev.vision,
-      }));
-      if (local.shipping) setShipping(local.shipping);
-      if (local.verification) setVerification(local.verification);
-      if (local.notifications) setNotifications(local.notifications);
+      if (local.shipping) setShipping((s) => ({ ...s, ...local.shipping }));
+      if (local.verification) setVerification((v) => ({ ...v, ...local.verification }));
+      if (local.notifications) setNotifications((n) => ({ ...n, ...local.notifications }));
     }
 
     // Sync directly from PostgreSQL API
@@ -271,18 +255,36 @@ export default function AdminSettingsPage() {
             tierEnterpriseLimit: s.tier_enterprise_limit?.toString() || prev.tierEnterpriseLimit,
             tierEnterprisePriceUsd: s.tier_enterprise_price_usd?.toString() || prev.tierEnterprisePriceUsd,
           }));
-          setContact((prev) => ({
-            ...prev,
-            email: s.support_email || prev.email,
-            phone: s.support_phone || prev.phone,
-            whatsapp: s.support_whatsapp || prev.whatsapp,
-            hours: s.operating_hours || prev.hours,
-            line1: s.harare_address || prev.line1,
-          }));
-          if (extra.profile) setProfile((p) => ({ ...p, ...extra.profile }));
-          if (extra.shipping) setShipping(extra.shipping);
-          if (extra.verification) setVerification(extra.verification);
-          if (extra.notifications) setNotifications(extra.notifications);
+          // Only hydrate Company Profile & Contact Details if explicitly saved by admin
+          if (extra.profile_configured && extra.profile) {
+            setProfile({
+              name: extra.profile.name || '',
+              cr14Number: extra.profile.cr14Number || '',
+              zimraTin: extra.profile.zimraTin || '',
+              tagline: extra.profile.tagline || '',
+              established: extra.profile.established || '',
+              vision: extra.profile.vision || '',
+              mission: extra.profile.mission || '',
+            });
+            if (Array.isArray(extra.profile.logoAsset)) setLogoAsset(extra.profile.logoAsset);
+            if (Array.isArray(extra.profile.signatureAsset)) setSignatureAsset(extra.profile.signatureAsset);
+          }
+          if (extra.contact_configured && extra.contact) {
+            setContact({
+              email: extra.contact.email || '',
+              phone: extra.contact.phone || '',
+              whatsapp: extra.contact.whatsapp || '',
+              hours: extra.contact.hours || '',
+              line1: extra.contact.line1 || '',
+              line2: extra.contact.line2 || '',
+              city: extra.contact.city || '',
+              province: extra.contact.province || '',
+            });
+          }
+          if (extra.shipping) setShipping((prev) => ({ ...prev, ...extra.shipping }));
+          if (extra.verification) setVerification((prev) => ({ ...prev, ...extra.verification }));
+          if (extra.notifications) setNotifications((prev) => ({ ...prev, ...extra.notifications }));
+          if (extra.security) setSecurityPolicies((prev) => ({ ...prev, ...extra.security }));
         }
       })
       .catch(() => {});
@@ -291,7 +293,53 @@ export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isRotatingPassword, setIsRotatingPassword] = useState(false);
 
-  async function handleSave(sectionLabel: string) {
+  async function handleSave(
+    sectionLabel: string,
+    overrides?: {
+      profileOverride?: typeof profile;
+      contactOverride?: typeof contact;
+      logoOverride?: UploadedMediaItem[];
+      signatureOverride?: UploadedMediaItem[];
+      profileConfiguredOverride?: boolean;
+      contactConfiguredOverride?: boolean;
+      securityOverride?: typeof securityPolicies;
+      verificationOverride?: typeof verification;
+    }
+  ) {
+    const activeProfile = overrides?.profileOverride ?? profile;
+    const activeContact = overrides?.contactOverride ?? contact;
+    const activeLogo = overrides?.logoOverride ?? logoAsset;
+    const activeSignature = overrides?.signatureOverride ?? signatureAsset;
+    const activeSecurity = overrides?.securityOverride ?? securityPolicies;
+    const activeVerification = overrides?.verificationOverride ?? verification;
+
+    const hasProfileValues =
+      overrides?.profileConfiguredOverride ??
+      Boolean(
+        activeProfile.name.trim() ||
+          activeProfile.cr14Number.trim() ||
+          activeProfile.zimraTin.trim() ||
+          activeProfile.tagline.trim() ||
+          activeProfile.established.trim() ||
+          activeProfile.vision.trim() ||
+          activeProfile.mission.trim() ||
+          activeLogo.length > 0 ||
+          activeSignature.length > 0
+      );
+
+    const hasContactValues =
+      overrides?.contactConfiguredOverride ??
+      Boolean(
+        activeContact.email.trim() ||
+          activeContact.phone.trim() ||
+          activeContact.whatsapp.trim() ||
+          activeContact.hours.trim() ||
+          activeContact.line1.trim() ||
+          activeContact.line2.trim() ||
+          activeContact.city.trim() ||
+          activeContact.province.trim()
+      );
+
     const usdToZig =
       parseFloat(pricing.zigExchangeRate) || PLATFORM_PRICING.STATUTORY.REFERENCE_USD_TO_ZIG;
     const listingUsd = PLATFORM_PRICING.SUBSCRIPTIONS.STANDARD_MONTHLY_USD;
@@ -304,9 +352,16 @@ export default function AdminSettingsPage() {
     const growthLimit = Math.max(1, parseInt(pricing.tierGrowthLimit, 10) || 100);
     const enterpriseLimit = Math.max(1, parseInt(pricing.tierEnterpriseLimit, 10) || 300);
 
+    const computedHqAddress = [activeProfile.name.trim(), activeContact.line1.trim(), activeContact.city.trim()]
+      .filter(Boolean)
+      .join(', ');
+    const computedHarareAddress = [activeContact.line1.trim(), activeContact.line2.trim(), activeContact.city.trim()]
+      .filter(Boolean)
+      .join(', ');
+
     const updatedPlatformSettings: PlatformSettings = {
-      siteName: profile.name,
-      tagline: profile.tagline,
+      siteName: activeProfile.name.trim() || DEFAULT_PLATFORM_SETTINGS.siteName,
+      tagline: activeProfile.tagline.trim() || DEFAULT_PLATFORM_SETTINGS.tagline,
       announcementText: `New Business Registrations Receive a ${graceDays}-Day Free Grace Period • Active Monthly Listing from $${soloUsd}/mo • Direct WhatsApp Trade`,
       usdToZigRate: usdToZig,
       monthlySubscriptionPriceUsd: listingUsd,
@@ -324,25 +379,25 @@ export default function AdminSettingsPage() {
       tierEnterprisePriceUsd: 50.0,
       sponsoredAdvertPriceUsd: advertUsd,
       freeGracePeriodDays: graceDays,
-      supportWhatsApp: contact.whatsapp,
-      supportPhone: contact.phone,
-      supportEmail: contact.email,
-      hqAddress: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
-      harareAddress: `${contact.line1}, ${contact.city}`,
-      operatingHours: contact.hours,
-      autoApproveTier1: verification.staffPortal,
-      requireEmailVerification: verification.cr14StrictCheck,
-      allowPublicReviews: true,
-      aboutHeadline: profile.tagline,
-      aboutMission: profile.mission,
-      aboutVision: profile.vision,
+      supportWhatsApp: activeContact.whatsapp.trim() || DEFAULT_PLATFORM_SETTINGS.supportWhatsApp,
+      supportPhone: activeContact.phone.trim() || DEFAULT_PLATFORM_SETTINGS.supportPhone,
+      supportEmail: activeContact.email.trim() || DEFAULT_PLATFORM_SETTINGS.supportEmail,
+      hqAddress: computedHqAddress || DEFAULT_PLATFORM_SETTINGS.hqAddress,
+      harareAddress: computedHarareAddress || DEFAULT_PLATFORM_SETTINGS.harareAddress,
+      operatingHours: activeContact.hours.trim() || DEFAULT_PLATFORM_SETTINGS.operatingHours,
+      autoApproveTier1: activeVerification.autoApproveTier1,
+      requireEmailVerification: activeSecurity.requireEmailVerification,
+      allowPublicReviews: activeVerification.allowPublicReviews,
+      aboutHeadline: activeProfile.tagline.trim() || DEFAULT_PLATFORM_SETTINGS.aboutHeadline,
+      aboutMission: activeProfile.mission.trim() || DEFAULT_PLATFORM_SETTINGS.aboutMission,
+      aboutVision: activeProfile.vision.trim() || DEFAULT_PLATFORM_SETTINGS.aboutVision,
       vatPct: PLATFORM_PRICING.STATUTORY.ZIMBABWE_VAT_PCT,
       zesaServiceFeePct: PLATFORM_PRICING.COMMISSIONS.ZESA_UTILITY_SERVICE_FEE_PCT,
       ecocashMerchantCode: pricing.ecocashMerchantCode,
       innbucksMerchantCode: pricing.innbucksMerchantCode,
       homepageSlotsCap: 6,
       shipping,
-      verification,
+      verification: activeVerification,
       notifications,
     };
 
@@ -359,15 +414,22 @@ export default function AdminSettingsPage() {
         credentials: 'include',
         body: JSON.stringify({
           usd_to_zig_rate: usdToZig,
-          support_whatsapp: contact.whatsapp ? sanitizePhoneNumber(contact.whatsapp) : undefined,
-          support_phone: contact.phone ? normalizePhoneNumber(contact.phone) : undefined,
-          support_email: contact.email && contact.email.includes('@') ? contact.email.trim() : undefined,
-          hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
-          harare_address: `${contact.line1}, ${contact.city}`,
-          operating_hours: contact.hours || undefined,
-          about_headline: profile.tagline || undefined,
-          about_mission: profile.mission || undefined,
-          about_vision: profile.vision || undefined,
+          support_whatsapp: activeContact.whatsapp.trim()
+            ? sanitizePhoneNumber(activeContact.whatsapp)
+            : DEFAULT_PLATFORM_SETTINGS.supportWhatsApp,
+          support_phone: activeContact.phone.trim()
+            ? normalizePhoneNumber(activeContact.phone)
+            : DEFAULT_PLATFORM_SETTINGS.supportPhone,
+          support_email:
+            activeContact.email.trim() && activeContact.email.includes('@')
+              ? activeContact.email.trim()
+              : DEFAULT_PLATFORM_SETTINGS.supportEmail,
+          hq_address: computedHqAddress || DEFAULT_PLATFORM_SETTINGS.hqAddress,
+          harare_address: computedHarareAddress || DEFAULT_PLATFORM_SETTINGS.harareAddress,
+          operating_hours: activeContact.hours.trim() || DEFAULT_PLATFORM_SETTINGS.operatingHours,
+          about_headline: activeProfile.tagline.trim() || DEFAULT_PLATFORM_SETTINGS.aboutHeadline,
+          about_mission: activeProfile.mission.trim() || DEFAULT_PLATFORM_SETTINGS.aboutMission,
+          about_vision: activeProfile.vision.trim() || DEFAULT_PLATFORM_SETTINGS.aboutVision,
           tier_starter_name: pricing.tierStarterName || 'Starter Storefront',
           tier_starter_limit: starterLimit,
           tier_growth_name: pricing.tierGrowthName || 'Growth Storefront',
@@ -375,10 +437,18 @@ export default function AdminSettingsPage() {
           tier_enterprise_name: pricing.tierEnterpriseName || 'Enterprise Wholesaler',
           tier_enterprise_limit: enterpriseLimit,
           extra_config: {
-            profile,
+            profile_configured: hasProfileValues,
+            contact_configured: hasContactValues,
+            profile: {
+              ...activeProfile,
+              logoAsset: activeLogo,
+              signatureAsset: activeSignature,
+            },
+            contact: activeContact,
             shipping,
-            verification,
+            verification: activeVerification,
             notifications,
+            security: activeSecurity,
           },
         }),
       });
@@ -510,34 +580,65 @@ export default function AdminSettingsPage() {
             <Panel>
               <PanelHeading
                 title="Company Profile & Official Assets"
-                hint="Displayed across official receipts, ID cards, and public verification footers."
+                hint="All fields are blank by default. Only values you explicitly enter and save here will override the default corporate profile."
               />
+
+              <div className="mt-4 rounded-xl border border-blue-200/80 bg-blue-50/60 p-3.5 text-xs text-slate-700 space-y-1">
+                <p className="font-bold text-slate-900">Where Company Profile updates appear in the app:</p>
+                <p className="text-slate-600 leading-relaxed">
+                  • <strong>Tagline, Corporate Vision, Corporate Mission &amp; Registration Details</strong> reflect live on the{' '}
+                  <a href="/about" target="_blank" rel="noopener noreferrer" className="font-bold text-[#1e57eb] underline">
+                    About Us (/about)
+                  </a>{' '}
+                  page.<br />
+                  • <strong>Registered Corporate Name</strong> reflects in the{' '}
+                  <a href="/" target="_blank" rel="noopener noreferrer" className="font-bold text-[#1e57eb] underline">
+                    Public Website Footer
+                  </a>{' '}
+                  and{' '}
+                  <a href="/contact" target="_blank" rel="noopener noreferrer" className="font-bold text-[#1e57eb] underline">
+                    Contact Us (/contact)
+                  </a>{' '}
+                  header.<br />
+                  • <strong>Company Logo &amp; Registrar Signature</strong> are stored for official{' '}
+                  <a href="/admin/id-cards" className="font-bold text-[#1e57eb] underline">
+                    Digital ID Cards (/admin/id-cards)
+                  </a>{' '}
+                  and verification records.
+                </p>
+              </div>
+
               <div className="mt-5 space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <AdminInput
                     label="Registered Corporate Name"
+                    placeholder="Leave blank for default or enter corporate name"
                     value={profile.name}
                     onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
                   />
                   <AdminInput
                     label="CR14 / Corporate Registration Number"
+                    placeholder="Leave blank or enter CR14 registration number"
                     value={profile.cr14Number}
                     onChange={(e) => setProfile((p) => ({ ...p, cr14Number: e.target.value }))}
                   />
                   <AdminInput
                     label="ZIMRA TIN Number"
+                    placeholder="Leave blank or enter ZIMRA TIN"
                     value={profile.zimraTin}
                     onChange={(e) => setProfile((p) => ({ ...p, zimraTin: e.target.value }))}
                   />
                   <AdminInput
                     label="Year Established"
                     type="number"
+                    placeholder="e.g. 2024"
                     value={profile.established}
                     onChange={(e) => setProfile((p) => ({ ...p, established: e.target.value }))}
                   />
                   <div className="sm:col-span-2">
                     <AdminInput
-                      label="Platform Tagline"
+                      label="Platform Tagline (About Us Headline)"
+                      placeholder="Leave blank for default or enter custom headline"
                       value={profile.tagline}
                       onChange={(e) => setProfile((p) => ({ ...p, tagline: e.target.value }))}
                     />
@@ -546,31 +647,33 @@ export default function AdminSettingsPage() {
                 <AdminTextarea
                   label="Corporate Vision"
                   rows={3}
+                  placeholder="Leave blank for default or enter custom corporate vision..."
                   value={profile.vision}
                   onChange={(e) => setProfile((p) => ({ ...p, vision: e.target.value }))}
                 />
                 <AdminTextarea
                   label="Corporate Mission"
                   rows={3}
+                  placeholder="Leave blank for default or enter custom corporate mission..."
                   value={profile.mission}
                   onChange={(e) => setProfile((p) => ({ ...p, mission: e.target.value }))}
                 />
 
                 <div className="space-y-4 border-t border-slate-100 pt-5">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-                    Company Brand Crest & Authorized ID Card Signature
+                    Company Brand Crest &amp; Authorized ID Card Signature
                   </h4>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <ImageUploader
                       label="Company Logo Asset"
-                      hint="Upload official company crest from device or select preset"
+                      hint="Upload official company crest from device (blank by default)"
                       multiple={false}
                       images={logoAsset}
                       onChange={setLogoAsset}
                     />
                     <ImageUploader
                       label="Authorized Signature (For ID Cards & Receipts)"
-                      hint="Upload registrar signature for PVC ID cards & official receipts"
+                      hint="Upload registrar signature for PVC ID cards & official receipts (blank by default)"
                       multiple={false}
                       images={signatureAsset}
                       onChange={setSignatureAsset}
@@ -578,8 +681,38 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <AdminButton onClick={() => handleSave('Company Profile')}>
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <AdminButton
+                    variant="secondary"
+                    disabled={isSaving}
+                    onClick={() => {
+                      const emptyProfile = {
+                        name: '',
+                        cr14Number: '',
+                        zimraTin: '',
+                        tagline: '',
+                        established: '',
+                        vision: '',
+                        mission: '',
+                      };
+                      setProfile(emptyProfile);
+                      setLogoAsset([]);
+                      setSignatureAsset([]);
+                      handleSave('Company Profile (Cleared)', {
+                        profileOverride: emptyProfile,
+                        logoOverride: [],
+                        signatureOverride: [],
+                        profileConfiguredOverride: false,
+                      });
+                    }}
+                  >
+                    Clear to Blank
+                  </AdminButton>
+                  <AdminButton
+                    loading={isSaving}
+                    disabled={isSaving}
+                    onClick={() => handleSave('Company Profile')}
+                  >
                     Save Company Profile
                   </AdminButton>
                 </div>
@@ -591,13 +724,31 @@ export default function AdminSettingsPage() {
             <Panel>
               <PanelHeading
                 title="Headquarters & Contact Details"
-                hint="Used in public headers, footers, receipts, and customer support routing."
+                hint="All fields are blank by default. Only values you explicitly enter and save here will override the default support contact details."
               />
+
+              <div className="mt-4 rounded-xl border border-blue-200/80 bg-blue-50/60 p-3.5 text-xs text-slate-700 space-y-1">
+                <p className="font-bold text-slate-900">Where Contact Details updates appear in the app:</p>
+                <p className="text-slate-600 leading-relaxed">
+                  • <strong>Operations Email, Desk Phone, WhatsApp Hotline, Operating Hours &amp; Addresses</strong> reflect live on the{' '}
+                  <a href="/contact" target="_blank" rel="noopener noreferrer" className="font-bold text-[#1e57eb] underline">
+                    Contact Us (/contact)
+                  </a>{' '}
+                  page.<br />
+                  • <strong>Headquarters Address, Operations Email &amp; WhatsApp Support Button</strong> reflect in the{' '}
+                  <a href="/" target="_blank" rel="noopener noreferrer" className="font-bold text-[#1e57eb] underline">
+                    Public Website Footer
+                  </a>{' '}
+                  across all pages.
+                </p>
+              </div>
+
               <div className="mt-5 space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <AdminInput
                     label="Operations Email"
                     type="email"
+                    placeholder="Leave blank or enter operations email"
                     value={contact.email}
                     onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
                   />
@@ -615,7 +766,7 @@ export default function AdminSettingsPage() {
                     </div>
                     <AdminInput
                       label=""
-                      placeholder="e.g. 9030098304 or +263 242 708 411"
+                      placeholder="Leave blank or enter desk phone"
                       value={contact.phone}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -653,7 +804,7 @@ export default function AdminSettingsPage() {
                     </div>
                     <AdminInput
                       label=""
-                      placeholder="e.g. 9030098304 or +263 77 200 1001"
+                      placeholder="Leave blank or enter WhatsApp number"
                       value={contact.whatsapp}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -678,32 +829,66 @@ export default function AdminSettingsPage() {
                   </div>
                   <AdminInput
                     label="Operating Hours"
+                    placeholder="Leave blank or enter operating hours"
                     value={contact.hours}
                     onChange={(e) => setContact((c) => ({ ...c, hours: e.target.value }))}
                   />
                   <AdminInput
                     label="Address Line 1"
+                    placeholder="Leave blank or enter street address"
                     value={contact.line1}
                     onChange={(e) => setContact((c) => ({ ...c, line1: e.target.value }))}
                   />
                   <AdminInput
                     label="Address Line 2"
+                    placeholder="Leave blank or enter building / suite"
                     value={contact.line2}
                     onChange={(e) => setContact((c) => ({ ...c, line2: e.target.value }))}
                   />
                   <AdminInput
                     label="City"
+                    placeholder="Leave blank or enter city"
                     value={contact.city}
                     onChange={(e) => setContact((c) => ({ ...c, city: e.target.value }))}
                   />
                   <AdminInput
                     label="Province (Clean Name)"
+                    placeholder="Leave blank or enter province"
                     value={contact.province}
                     onChange={(e) => setContact((c) => ({ ...c, province: e.target.value }))}
                   />
                 </div>
-                <div className="flex justify-end pt-2">
-                  <AdminButton onClick={() => handleSave('Contact Details')}>
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <AdminButton
+                    variant="secondary"
+                    disabled={isSaving}
+                    onClick={() => {
+                      const emptyContact = {
+                        email: '',
+                        phone: '',
+                        whatsapp: '',
+                        hours: '',
+                        line1: '',
+                        line2: '',
+                        city: '',
+                        province: '',
+                      };
+                      setContact(emptyContact);
+                      setDetectedPhoneCountry(null);
+                      setDetectedWhatsappCountry(null);
+                      handleSave('Contact Details (Cleared)', {
+                        contactOverride: emptyContact,
+                        contactConfiguredOverride: false,
+                      });
+                    }}
+                  >
+                    Clear to Blank
+                  </AdminButton>
+                  <AdminButton
+                    loading={isSaving}
+                    disabled={isSaving}
+                    onClick={() => handleSave('Contact Details')}
+                  >
                     Save Contact Details
                   </AdminButton>
                 </div>
@@ -1084,37 +1269,82 @@ export default function AdminSettingsPage() {
           )}
 
           {active === 'verification' && (
-            <Panel>
-              <PanelHeading
-                title="Public Verification & KYC Portals"
-                hint="Control QR receipt validation, inspector ID verification, and CR14/ZIMRA checks."
-              />
-              <div className="mt-5 space-y-3">
-                <Toggle
-                  label="Official QR Receipt Verification Portal"
-                  description="Allow customers and auditors to verify subscription, advert, and ZESA receipts online."
-                  checked={verification.receiptPortal}
-                  onChange={(v) => setVerification((s) => ({ ...s, receiptPortal: v }))}
+            <div className="space-y-5">
+              <Panel>
+                <PanelHeading
+                  title="Public Verification & KYC Portals"
+                  hint="Control QR receipt validation, inspector ID verification, and CR14/ZIMRA checks."
                 />
-                <Toggle
-                  label="Staff & Field Inspector ID Verification"
-                  description="Allow businesses to scan and verify Sadza Connect field agent PVC ID cards."
-                  checked={verification.staffPortal}
-                  onChange={(v) => setVerification((s) => ({ ...s, staffPortal: v }))}
-                />
-                <Toggle
-                  label="Strict CR14 / ZIMRA Tax Clearance Matching"
-                  description="Require exact document reference format before granting the Verified Business badge."
-                  checked={verification.cr14StrictCheck}
-                  onChange={(v) => setVerification((s) => ({ ...s, cr14StrictCheck: v }))}
-                />
-                <div className="flex justify-end pt-3">
-                  <AdminButton onClick={() => handleSave('Verification Portals')}>
-                    Save Verification Settings
-                  </AdminButton>
+                <div className="mt-5 space-y-3">
+                  <Toggle
+                    label="Official QR Receipt Verification Portal"
+                    description="Allow customers and auditors to verify subscription, advert, and ZESA receipts online."
+                    checked={verification.receiptPortal}
+                    onChange={(v) => setVerification((s) => ({ ...s, receiptPortal: v }))}
+                  />
+                  <Toggle
+                    label="Staff & Field Inspector ID Verification (/verify-id)"
+                    description="Allow businesses to scan and verify MySadza Connect field agent PVC ID cards."
+                    checked={verification.staffPortal}
+                    onChange={(v) => setVerification((s) => ({ ...s, staffPortal: v }))}
+                  />
+                  <Toggle
+                    label="Strict CR14 / ZIMRA Tax Clearance Matching"
+                    description="Require exact document reference format before granting the Verified Business badge."
+                    checked={verification.cr14StrictCheck}
+                    onChange={(v) => setVerification((s) => ({ ...s, cr14StrictCheck: v }))}
+                  />
                 </div>
-              </div>
-            </Panel>
+              </Panel>
+
+              <Panel>
+                <PanelHeading
+                  title="Platform Access & Onboarding Governance"
+                  hint="Control self-service business onboarding, public reviews, property submissions, and maintenance mode."
+                />
+                <div className="mt-5 space-y-3">
+                  <Toggle
+                    label="Open Self-Service Business Registration"
+                    description="Allow new businesses to register and start their 30-day complimentary grace period."
+                    checked={verification.allowBusinessRegistration}
+                    onChange={(v) => setVerification((s) => ({ ...s, allowBusinessRegistration: v }))}
+                  />
+                  <Toggle
+                    label="Auto-Approve Tier 1 Basic Directory Profiles"
+                    description="Automatically publish basic directory profiles upon registration while CR14 KYC review is pending."
+                    checked={verification.autoApproveTier1}
+                    onChange={(v) => setVerification((s) => ({ ...s, autoApproveTier1: v }))}
+                  />
+                  <Toggle
+                    label="Allow Public Business & Marketplace Reviews"
+                    description="Let verified buyers submit star ratings and reviews on business profiles."
+                    checked={verification.allowPublicReviews}
+                    onChange={(v) => setVerification((s) => ({ ...s, allowPublicReviews: v }))}
+                  />
+                  <Toggle
+                    label="Open Property & Tourism Host Submissions"
+                    description="Allow verified landlords, agents, and hospitality operators to submit new listings for moderation."
+                    checked={verification.allowPropertySubmissions}
+                    onChange={(v) => setVerification((s) => ({ ...s, allowPropertySubmissions: v }))}
+                  />
+                  <Toggle
+                    label="Platform Maintenance Mode Banner"
+                    description="Display a scheduled maintenance notice across public pages while keeping admin access active."
+                    checked={verification.maintenanceMode}
+                    onChange={(v) => setVerification((s) => ({ ...s, maintenanceMode: v }))}
+                  />
+                  <div className="flex justify-end pt-3">
+                    <AdminButton
+                      loading={isSaving}
+                      disabled={isSaving}
+                      onClick={() => handleSave('Verification & Governance Settings')}
+                    >
+                      Save Verification &amp; Governance Settings
+                    </AdminButton>
+                  </div>
+                </div>
+              </Panel>
+            </div>
           )}
 
           {active === 'notifications' && (
@@ -1149,7 +1379,11 @@ export default function AdminSettingsPage() {
                   onChange={(v) => setNotifications((n) => ({ ...n, smsAlerts: v }))}
                 />
                 <div className="flex justify-end pt-3">
-                  <AdminButton onClick={() => handleSave('Notification Preferences')}>
+                  <AdminButton
+                    loading={isSaving}
+                    disabled={isSaving}
+                    onClick={() => handleSave('Notification Preferences')}
+                  >
                     Save Notification Preferences
                   </AdminButton>
                 </div>
@@ -1159,6 +1393,92 @@ export default function AdminSettingsPage() {
 
           {active === 'security' && (
             <div className="space-y-5">
+              <Panel>
+                <PanelHeading
+                  title="Two-Factor Authentication (2FA) & Session Security"
+                  hint="Configure two-factor authentication, login verification gates, and destructive action safeguards."
+                />
+                <div className="mt-5 space-y-3">
+                  <Toggle
+                    label="Require Admin Two-Factor Authentication (2FA)"
+                    description="Enforce 6-digit verification code (TOTP / Email OTP) when signing in to the Super Admin Console."
+                    checked={securityPolicies.twoFactorAdmin}
+                    onChange={(v) => {
+                      const next = { ...securityPolicies, twoFactorAdmin: v };
+                      setSecurityPolicies(next);
+                      handleSave(
+                        v ? 'Admin 2FA Enabled' : 'Admin 2FA Disabled',
+                        { securityOverride: next }
+                      );
+                    }}
+                  />
+                  <Toggle
+                    label="Enable Two-Factor Authentication (2FA) for Business Accounts"
+                    description="Allow verified business owners to enable 2FA security on their merchant dashboard."
+                    checked={securityPolicies.twoFactorBusiness}
+                    onChange={(v) => {
+                      const next = { ...securityPolicies, twoFactorBusiness: v };
+                      setSecurityPolicies(next);
+                      handleSave(
+                        v ? 'Merchant 2FA Enabled' : 'Merchant 2FA Disabled',
+                        { securityOverride: next }
+                      );
+                    }}
+                  />
+                  <Toggle
+                    label="Require Email Verification Before Login"
+                    description="Block newly registered email/password accounts from signing in until their email is verified."
+                    checked={securityPolicies.requireEmailVerification}
+                    onChange={(v) => {
+                      const next = { ...securityPolicies, requireEmailVerification: v };
+                      setSecurityPolicies(next);
+                      handleSave('Email Verification Policy', { securityOverride: next });
+                    }}
+                  />
+                  <Toggle
+                    label="Require Admin Password Confirmation on User/Business Deletion"
+                    description="Prompt Super Admins to re-enter their password before permanently deleting any user or business."
+                    checked={securityPolicies.requirePasswordOnDelete}
+                    onChange={(v) => {
+                      const next = { ...securityPolicies, requirePasswordOnDelete: v };
+                      setSecurityPolicies(next);
+                      handleSave('Deletion Safeguard Policy', { securityOverride: next });
+                    }}
+                  />
+                  <Toggle
+                    label="Immediate Session & Token Revocation on Account Suspension"
+                    description="Automatically revoke all active JWT sessions and refresh tokens the moment a user is suspended."
+                    checked={securityPolicies.revokeTokensOnSuspend}
+                    onChange={(v) => {
+                      const next = { ...securityPolicies, revokeTokensOnSuspend: v };
+                      setSecurityPolicies(next);
+                      handleSave('Session Revocation Policy', { securityOverride: next });
+                    }}
+                  />
+
+                  <div className="pt-2 max-w-xs">
+                    <AdminInput
+                      label="Admin Session Idle Timeout (Minutes)"
+                      type="number"
+                      value={securityPolicies.sessionTimeoutMinutes}
+                      onChange={(e) =>
+                        setSecurityPolicies((s) => ({ ...s, sessionTimeoutMinutes: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <AdminButton
+                      loading={isSaving}
+                      disabled={isSaving}
+                      onClick={() => handleSave('Security & 2FA Policies')}
+                    >
+                      Save Security &amp; 2FA Settings
+                    </AdminButton>
+                  </div>
+                </div>
+              </Panel>
+
               <Panel>
                 <PanelHeading
                   title="Rotate Administrator Password"
@@ -1194,27 +1514,6 @@ export default function AdminSettingsPage() {
                     </AdminButton>
                   </div>
                 </form>
-              </Panel>
-
-              <Panel>
-                <PanelHeading
-                  title="Two-Factor Authentication (2FA)"
-                  hint="Protect administrative actions and payout approvals."
-                />
-                <div className="mt-5">
-                  <Toggle
-                    label="Require Authenticator App Code (TOTP)"
-                    description="Prompt for a 6-digit verification code when signing in to the Executive Admin Console."
-                    checked={twoFactor}
-                    onChange={(v) => {
-                      setTwoFactor(v);
-                      toast({
-                        title: v ? 'Two-Factor Authentication Enabled' : 'Two-Factor Authentication Disabled',
-                        variant: 'success',
-                      });
-                    }}
-                  />
-                </div>
               </Panel>
             </div>
           )}
