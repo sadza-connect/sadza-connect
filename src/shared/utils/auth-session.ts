@@ -35,10 +35,18 @@ export async function getAuthenticatedUser(
       }
       return null;
     }
+    if (!user.canLogin()) {
+      if (required) {
+        throw new AuthenticationError('Your account has been suspended or is inactive');
+      }
+      return null;
+    }
     return user;
   } catch (err) {
     if (required) {
-      throw new AuthenticationError('Invalid or expired authentication session');
+      throw err instanceof AuthenticationError
+        ? err
+        : new AuthenticationError('Invalid or expired authentication session');
     }
     return null;
   }

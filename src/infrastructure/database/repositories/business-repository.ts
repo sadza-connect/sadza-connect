@@ -86,6 +86,7 @@ export interface CreateBusinessDTO {
   operating_hours?: Record<string, any>;
   kyc_documents?: any[];
   is_verified?: boolean;
+  is_featured?: boolean;
   verification_status?: string;
   custom_monthly_price_usd?: number | null;
   subscription_status?: string;
@@ -377,7 +378,7 @@ export class BusinessRepository {
         kyc_documents: JSON.stringify(data.kyc_documents || []),
         is_verified: data.is_verified || false,
         verification_status: data.verification_status || 'Pending',
-        is_featured: false,
+        is_featured: Boolean(data.is_featured),
         rating_avg: 0.0,
         reviews_count: 0,
         views_count: 0,

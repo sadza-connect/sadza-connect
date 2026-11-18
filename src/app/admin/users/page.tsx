@@ -187,6 +187,7 @@ export default function AdminUsersPage() {
   const [emailEyebrow, setEmailEyebrow] = useState(BROADCAST_TEMPLATES[0].eyebrow);
   const [emailBody, setEmailBody] = useState(BROADCAST_TEMPLATES[0].defaultContentHtml.trim());
   const [targetAudience, setTargetAudience] = useState<'all' | 'businesses' | 'corporate' | 'customers'>('all');
+  const [directRecipientEmail, setDirectRecipientEmail] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
 
   // Helper for auth headers
@@ -204,6 +205,7 @@ export default function AdminUsersPage() {
       setIsLoadingUsers(true);
       const res = await fetch('/api/v1/users?limit=100', {
         headers: getAuthHeaders(),
+        credentials: 'include',
       });
       if (!res.ok) return;
       const json = await res.json();
@@ -265,7 +267,7 @@ export default function AdminUsersPage() {
     setEmailBody(tpl.defaultContentHtml.trim());
   }
 
-  function handleSendBroadcast(e: React.FormEvent) {
+  async function handleSendBroadcast(e: React.FormEvent) {
     e.preventDefault();
     if (!emailSubject.trim() || !emailBody.trim()) {
       toast({
@@ -276,20 +278,52 @@ export default function AdminUsersPage() {
       return;
     }
 
-    toast({
-      title: 'Broadcast Campaign Dispatched!',
-      description: `Delivered "${emailSubject}" to segment "${targetAudience.toUpperCase()}".`,
-      variant: 'success',
-    });
-    setBroadcastOpen(false);
+    try {
+      setIsSubmitting(true);
+      const res = await fetch('/api/v1/users/broadcast', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          subject: emailSubject.trim(),
+          eyebrow: emailEyebrow.trim(),
+          htmlBody: emailBody,
+          segment: targetAudience,
+          ...(directRecipientEmail ? { directEmail: directRecipientEmail } : {}),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error?.message || json.message || 'Failed to dispatch broadcast');
+      }
+
+      toast({
+        title: 'Broadcast Dispatched',
+        description:
+          json.data?.message ||
+          `Delivered "${emailSubject}" to ${directRecipientEmail || targetAudience.toUpperCase()}.`,
+        variant: 'success',
+      });
+      setDirectRecipientEmail(null);
+      setBroadcastOpen(false);
+    } catch (err: any) {
+      toast({
+        title: 'Broadcast Failed',
+        description: err.message || 'Could not dispatch broadcast email.',
+        variant: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function openDirectBroadcast(user: UserRecord) {
-    setEmailSubject(`Sadza Connect Executive Notice — ${user.organization}`);
+    setEmailSubject(`MySadza Connect Notice — ${user.organization}`);
     setEmailEyebrow('Direct Account Notice');
     setEmailBody(
-      `<p>Dear ${user.name},</p><p>We are reaching out from Sadza Connect Operations regarding your account (${user.organization}).</p>`
+      `<p>Dear ${user.name},</p><p>We are reaching out from MySadza Connect Operations regarding your account (${user.organization}).</p>`
     );
+    setDirectRecipientEmail(user.email);
     setTargetAudience('all');
     setBroadcastOpen(true);
   }
@@ -547,7 +581,7 @@ export default function AdminUsersPage() {
           }
           toast({
             title: 'Account Deleted',
-            description: `User account for ${user.name} has been deleted.`,
+            description: json.data?.message || `User account for ${user.name} has been deleted.`,
             variant: 'success',
           });
           setSelectedUser(null);
@@ -558,6 +592,7 @@ export default function AdminUsersPage() {
             description: err.message || 'Could not delete user account.',
             variant: 'error',
           });
+          throw err;
         } finally {
           setActionLoadingId(null);
         }
@@ -585,7 +620,12 @@ export default function AdminUsersPage() {
             <UserPlus className="h-4 w-4" />
             Add User Account
           </AdminButton>
-          <AdminButton onClick={() => setBroadcastOpen(true)}>
+          <AdminButton
+            onClick={() => {
+              setDirectRecipientEmail(null);
+              setBroadcastOpen(true);
+            }}
+          >
             <Send className="h-4 w-4" /> New Email Broadcast
           </AdminButton>
         </div>
@@ -1089,12 +1129,14 @@ export default function AdminUsersPage() {
 
           <ModalFooter>
             <p className="hidden sm:block text-xs text-slate-500 mr-auto">
-              Dispatched with official Sadza Connect executive branding.
+              {directRecipientEmail
+                ? `Direct recipient: ${directRecipientEmail}`
+                : 'Dispatched with official MySadza Connect branding.'}
             </p>
-            <AdminButton type="button" variant="outline" onClick={() => setBroadcastOpen(false)}>
+            <AdminButton type="button" variant="outline" onClick={() => setBroadcastOpen(false)} disabled={isSubmitting}>
               Cancel
             </AdminButton>
-            <AdminButton type="submit">
+            <AdminButton type="submit" loading={isSubmitting} disabled={isSubmitting}>
               <Send className="h-4 w-4" /> Dispatch Broadcast Email
             </AdminButton>
           </ModalFooter>

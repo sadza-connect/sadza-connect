@@ -291,6 +291,38 @@ export class EmailService {
       text,
     });
   }
+
+  async sendBroadcastEmail(
+    to: string,
+    payload: {
+      subject: string;
+      eyebrow?: string;
+      htmlBody: string;
+    }
+  ): Promise<void> {
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0a1018 0%, #007a3d 100%); padding: 26px 24px; text-align: center; color: #ffffff;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">MYSADZA CONNECT</h1>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #facc15;">${payload.eyebrow || 'Platform Notice'}</p>
+        </div>
+        <div style="padding: 28px 24px; font-size: 14px; line-height: 1.6; color: #1e293b;">
+          ${payload.htmlBody}
+          <div style="border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 16px; font-size: 12px; color: #64748b;">
+            <p style="margin: 0; font-weight: 600; color: #0f172a;">MySadza Connect Zimbabwe</p>
+            <p style="margin: 4px 0 0 0;">Support &amp; Partnerships: +263 77 210 1101</p>
+          </div>
+        </div>
+      </div>
+    `;
+    const text = payload.htmlBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    await this.sendEmail({
+      to,
+      subject: payload.subject,
+      html,
+      text,
+    });
+  }
 }
 
 export const emailService = new EmailService();

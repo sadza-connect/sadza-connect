@@ -38,6 +38,7 @@ import {
   DEFAULT_PLATFORM_SETTINGS,
 } from '@/data/platformStore';
 import { mapDbProductToMarketplaceProduct } from '@/lib/data/product-mapper';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 
 export default function AdminMarketplacePage() {
   const [productsList, setProductsList] = useState<MarketplaceProduct[]>([]);
@@ -209,12 +210,18 @@ export default function AdminMarketplacePage() {
     const productImages = (form.image || []).map((img) => img.src).filter(Boolean).slice(0, 5);
     const imgSrc = productImages[0] || '';
     const usd = Math.max(1, Number(form.priceUsd) || 0);
+    const token = getClientAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
 
     if (editingSlug) {
+      let updatedFromDb: MarketplaceProduct | null = null;
       try {
-        await fetch(`/api/v1/products/${encodeURIComponent(editingSlug)}`, {
+        const res = await fetch(`/api/v1/products/${encodeURIComponent(editingSlug)}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             name: form.title,
@@ -225,13 +232,21 @@ export default function AdminMarketplacePage() {
             images: productImages,
           }),
         });
-      } catch (err) {
-        console.error('Failed to update product in database:', err);
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error?.message || json.message || 'Failed to update product');
+        }
+        if (json.data?.product) {
+          updatedFromDb = mapDbProductToMarketplaceProduct(json.data.product);
+        }
+      } catch (err: any) {
+        showToast(`Error: ${err.message || 'Could not update product'}`);
+        return;
       }
 
       const next = productsList.map((p) =>
         p.slug === editingSlug
-          ? {
+          ? updatedFromDb || {
               ...p,
               title: form.title,
               sellerName: form.sellerName,
@@ -256,10 +271,11 @@ export default function AdminMarketplacePage() {
         availableBusinesses.find((b) => b.id === form.selectedBusinessId) ||
         availableBusinesses[0];
 
+      let createdFromDb: MarketplaceProduct | null = null;
       try {
-        await fetch('/api/v1/products', {
+        const res = await fetch('/api/v1/products', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             business_id: targetBiz?.id,
@@ -273,15 +289,23 @@ export default function AdminMarketplacePage() {
             is_featured: form.featured,
           }),
         });
-      } catch (err) {
-        console.error('Failed to create product in database:', err);
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error?.message || json.message || 'Failed to create product');
+        }
+        if (json.data?.product) {
+          createdFromDb = mapDbProductToMarketplaceProduct(json.data.product);
+        }
+      } catch (err: any) {
+        showToast(`Error: ${err.message || 'Could not create product'}`);
+        return;
       }
 
       const slug = form.title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
-      const newProd: MarketplaceProduct = {
+      const newProd: MarketplaceProduct = createdFromDb || {
         id: `mp-${Date.now()}`,
         slug: slug || `prod-${Date.now()}`,
         title: form.title,
@@ -607,18 +631,25 @@ export default function AdminMarketplacePage() {
         onConfirm={async () => {
           if (deleting) {
             try {
-              await fetch(`/api/v1/products/${encodeURIComponent(deleting.slug)}`, {
+              const token = getClientAccessToken();
+              const res = await fetch(`/api/v1/products/${encodeURIComponent(deleting.slug)}`, {
                 method: 'DELETE',
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 credentials: 'include',
               });
-            } catch (err) {
-              console.error('Failed to delete product from database:', err);
+              const json = await res.json();
+              if (!res.ok || !json.success) {
+                throw new Error(json.error?.message || json.message || 'Failed to delete product');
+              }
+              const next = productsList.filter((p) => p.slug !== deleting.slug);
+              saveStoredProducts(next);
+              setProductsList(next);
+              showToast(`Deleted ${deleting.title}`);
+              setDeleting(null);
+            } catch (err: any) {
+              setDeleting(null);
+              showToast(`Error: ${err.message || 'Could not delete product'}`);
             }
-            const next = productsList.filter((p) => p.slug !== deleting.slug);
-            saveStoredProducts(next);
-            setProductsList(next);
-            showToast(`Deleted ${deleting.title}`);
-            setDeleting(null);
           }
         }}
       />

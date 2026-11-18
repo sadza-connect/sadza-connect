@@ -28,6 +28,7 @@ import {
   AdminButton,
 } from '@/components/admin/AdminUI';
 import { AnalyticsOverviewResult } from '@/infrastructure/database/repositories/analytics-repository';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 
 type TimeframeOption = {
   label: string;
@@ -52,7 +53,9 @@ export default function AdminAnalyticsPage() {
     try {
       setLoading(true);
       setError(null);
+      const token = getClientAccessToken();
       const res = await fetch(`/api/v1/analytics/overview?days=${daysFilter}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         credentials: 'include',
       });
       const json = await res.json();

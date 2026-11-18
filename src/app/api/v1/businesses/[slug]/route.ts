@@ -52,6 +52,7 @@ const updateBusinessSchema = z.object({
   custom_product_limit: z.number().int().positive().nullable().optional(),
   is_verified: z.boolean().optional(),
   verification_status: z.string().optional(),
+  subscription_status: z.string().optional(),
 });
 
 export async function GET(
@@ -160,6 +161,9 @@ export async function PATCH(
       }
       if (body.catalog_tier !== undefined && body.catalog_tier !== existing.catalog_tier) {
         throw new AuthorizationError('Catalog tier can only be modified by Platform Administrators or via tier upgrade.');
+      }
+      if (body.subscription_status !== undefined && body.subscription_status !== (existing as any).subscription_status) {
+        throw new AuthorizationError('Subscription status can only be modified by Platform Administrators.');
       }
     }
 

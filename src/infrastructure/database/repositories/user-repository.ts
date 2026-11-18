@@ -305,6 +305,11 @@ export class UserRepository {
       });
     return count > 0;
   }
+
+  async hardDelete(id: string): Promise<boolean> {
+    const count = await this.db('users').where({ id }).del();
+    return count > 0;
+  }
 }
 
 export const userRepository = new UserRepository();

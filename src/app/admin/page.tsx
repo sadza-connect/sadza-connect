@@ -110,7 +110,7 @@ export default function AdminOverviewPage() {
       if (isMounted) setSettings(s);
 
       try {
-        const [bizRes, prodRes, advRes, jobRes, usrRes, msgRes, propRes, tourRes] = await Promise.allSettled([
+        const [bizRes, prodRes, advRes, jobRes, usrRes, msgRes, propRes, tourRes, invRes] = await Promise.allSettled([
           fetch('/api/v1/businesses?limit=100&include_expired=true', {
             headers: getAuthHeaders(),
             credentials: 'include',
@@ -143,6 +143,10 @@ export default function AdminOverviewPage() {
             headers: getAuthHeaders(),
             credentials: 'include',
           }).then((r) => r.json()),
+          fetch('/api/v1/invoices?limit=100&status=Paid', {
+            headers: getAuthHeaders(),
+            credentials: 'include',
+          }).then((r) => r.json()),
         ]);
 
         const bizData = bizRes.status === 'fulfilled' ? bizRes.value?.data || bizRes.value : null;
@@ -153,6 +157,7 @@ export default function AdminOverviewPage() {
         const msgData = msgRes.status === 'fulfilled' ? msgRes.value?.data || msgRes.value : null;
         const propData = propRes.status === 'fulfilled' ? propRes.value?.data || propRes.value : null;
         const tourData = tourRes.status === 'fulfilled' ? tourRes.value?.data || tourRes.value : null;
+        const invData = invRes.status === 'fulfilled' ? invRes.value?.data || invRes.value : null;
 
         if (isMounted) {
           if (Array.isArray(bizData?.businesses)) {
@@ -180,10 +185,10 @@ export default function AdminOverviewPage() {
             setBusinesses([]);
           }
 
-          setProductsCount(Array.isArray(prodData?.products) ? prodData.products.length : 0);
-          setAdvertsCount(Array.isArray(advData?.adverts) ? advData.adverts.length : 0);
-          setJobsCount(Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
-          setUsersCount(Array.isArray(usrData?.users) ? usrData.users.length : 0);
+          setProductsCount(typeof prodData?.total === 'number' ? prodData.total : Array.isArray(prodData?.products) ? prodData.products.length : 0);
+          setAdvertsCount(typeof advData?.total === 'number' ? advData.total : Array.isArray(advData?.adverts) ? advData.adverts.length : 0);
+          setJobsCount(typeof jobData?.total === 'number' ? jobData.total : Array.isArray(jobData?.jobs) ? jobData.jobs.length : 0);
+          setUsersCount(typeof usrData?.total === 'number' ? usrData.total : Array.isArray(usrData?.users) ? usrData.users.length : 0);
 
           setPropertiesCount(
             typeof propData?.total === 'number'
@@ -195,6 +200,16 @@ export default function AdminOverviewPage() {
               ? tourData.total
               : getStoredTourisms().length
           );
+
+          if (Array.isArray(invData?.invoices)) {
+            const totalPaid = invData.invoices.reduce(
+              (sum: number, inv: any) => sum + (Number(inv.amount_usd) || 0),
+              0
+            );
+            setRevenueUsd(Math.round(totalPaid * 100) / 100);
+          } else {
+            setRevenueUsd(0);
+          }
 
           if (Array.isArray(msgData?.messages) && msgData.messages.length > 0) {
             setRecentEnquiries(
@@ -222,16 +237,13 @@ export default function AdminOverviewPage() {
           setTourismsCount(getStoredTourisms().length);
           setJobsCount(0);
           setUsersCount(0);
+          setRevenueUsd(0);
           setRecentEnquiries([]);
         }
       } finally {
         if (isMounted) {
           setIsLoading(false);
         }
-      }
-
-      if (isMounted) {
-        setRevenueUsd(0);
       }
     };
 
@@ -255,7 +267,7 @@ export default function AdminOverviewPage() {
     [timeRange]
   );
 
-  const scale = (val: number) => (val === 0 ? 0 : Math.max(1, Math.round(val * selectedRange.mult)));
+  const scale = (val: number) => val;
 
   const sectorBreakdown = useMemo(() => {
     const counts: Record<string, number> = {
@@ -370,8 +382,6 @@ export default function AdminOverviewPage() {
         <StatCard
           label="Verified & Listed Enterprises"
           value={scale(businesses.length)}
-          delta={18}
-          trend="up"
           hint={`${businesses.filter((b) => b.subscriptionStatus === 'Paid Subscriber').length} Paid ($${settings.monthlySubscriptionPriceUsd}/mo) · ${businesses.filter((b) => b.subscriptionStatus === 'Month 1 Grace Period').length} in 30d Grace`}
           icon={Building2}
           loading={isLoading}
@@ -380,17 +390,13 @@ export default function AdminOverviewPage() {
           label="Recognised Revenue (USD)"
           value={scale(revenueUsd).toLocaleString()}
           prefix="$"
-          delta={24}
-          trend="up"
-          hint="Subscriptions, $20/mo Adverts & ZESA Settlements"
+          hint="Paid Subscriptions & Advert Invoices"
           icon={Banknote}
           loading={isLoading}
         />
         <StatCard
           label="Catalogue & Sponsored Deals"
           value={scale(productsCount + advertsCount + propertiesCount + tourismsCount)}
-          delta={14}
-          trend="up"
           hint={`${productsCount} Products · ${propertiesCount} Rentals · ${tourismsCount} Stays`}
           icon={ShoppingBag}
           loading={isLoading}
@@ -398,8 +404,6 @@ export default function AdminOverviewPage() {
         <StatCard
           label="Registered Users & Talent"
           value={scale(usersCount)}
-          delta={21}
-          trend="up"
           hint={`${usersCount} Accounts · ${jobsCount} Open Vacancies`}
           icon={Users}
           loading={isLoading}

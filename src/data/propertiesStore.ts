@@ -1,4 +1,13 @@
 import { CLEAN_PROVINCES } from './advertsStore';
+import { getClientAccessToken } from '@/shared/utils/api-client';
+
+function getAuthHeaders(): HeadersInit {
+  const token = getClientAccessToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 export interface PropertyListing {
   id: string;
@@ -313,13 +322,15 @@ export function saveStoredProperty(property: PropertyListing): void {
     if (existsInDb) {
       fetch(`/api/v1/properties/${property.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify(property),
       }).catch((err) => console.warn('[PropertiesStore] API PUT failed:', err));
     } else {
       fetch('/api/v1/properties', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify(property),
       }).catch((err) => console.warn('[PropertiesStore] API POST failed:', err));
     }
@@ -349,7 +360,8 @@ export function togglePropertyOccupancy(propertyId: string): void {
     // Asynchronously synchronize with PostgreSQL
     fetch(`/api/v1/properties/${propertyId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ action: 'toggle_occupancy', occupancyStatus: nextStatus }),
     }).catch((err) => console.warn('[PropertiesStore] API toggle occupancy failed:', err));
   } catch (err) {
@@ -368,6 +380,8 @@ export function deleteStoredProperty(propertyId: string): void {
     // Asynchronously synchronize with PostgreSQL
     fetch(`/api/v1/properties/${propertyId}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
     }).catch((err) => console.warn('[PropertiesStore] API delete failed:', err));
   } catch (err) {
     console.error('Failed to delete property:', err);
@@ -392,7 +406,8 @@ export function togglePropertyVerification(propertyId: string): void {
     // Asynchronously synchronize with PostgreSQL
     fetch(`/api/v1/properties/${propertyId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ action: 'toggle_verification', isVerified: nextVal }),
     }).catch((err) => console.warn('[PropertiesStore] API toggle verification failed:', err));
   } catch (err) {
@@ -418,7 +433,8 @@ export function togglePropertyFeatured(propertyId: string): void {
     // Asynchronously synchronize with PostgreSQL
     fetch(`/api/v1/properties/${propertyId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ action: 'toggle_featured', isFeatured: nextVal }),
     }).catch((err) => console.warn('[PropertiesStore] API toggle featured failed:', err));
   } catch (err) {

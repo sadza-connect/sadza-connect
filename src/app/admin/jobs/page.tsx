@@ -49,6 +49,7 @@ import {
   JobApplicationRecord,
 } from '@/data/platformStore';
 import { mapDbJobToOpening, mapDbApplicationToRecord } from '@/lib/data/job-mapper';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 import { cn } from '@/lib/utils/cn';
 import { detectCountryFromPhone, CountryDialInfo } from '@/lib/data/countries';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
@@ -89,10 +90,12 @@ export default function AdminJobsPage() {
   useEffect(() => {
     let isMounted = true;
     async function loadAdminCareersData() {
+      const token = getClientAccessToken();
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : undefined;
       try {
         // 1. Load jobs
         try {
-          const jRes = await fetch('/api/v1/jobs?limit=100', { credentials: 'include' });
+          const jRes = await fetch('/api/v1/jobs?limit=100', { headers: authHeaders, credentials: 'include' });
           const jJson = await jRes.json();
           if (isMounted && jJson.success && Array.isArray(jJson.data?.jobs)) {
             setJobs(jJson.data.jobs.map(mapDbJobToOpening));
@@ -105,7 +108,7 @@ export default function AdminJobsPage() {
 
         // 2. Load applications
         try {
-          const aRes = await fetch('/api/v1/jobs/applications?limit=100', { credentials: 'include' });
+          const aRes = await fetch('/api/v1/jobs/applications?limit=100', { headers: authHeaders, credentials: 'include' });
           const aJson = await aRes.json();
           if (isMounted && aJson.success && Array.isArray(aJson.data?.applications)) {
             setApplications(aJson.data.applications.map(mapDbApplicationToRecord));
@@ -116,7 +119,7 @@ export default function AdminJobsPage() {
 
         // 3. Load businesses for hiring enterprise dropdown
         try {
-          const bRes = await fetch('/api/v1/businesses?limit=100', { credentials: 'include' });
+          const bRes = await fetch('/api/v1/businesses?limit=100', { headers: authHeaders, credentials: 'include' });
           const bJson = await bRes.json();
           if (isMounted && bJson.success && Array.isArray(bJson.data?.businesses)) {
             setAvailableBusinesses(
@@ -226,13 +229,19 @@ export default function AdminJobsPage() {
 
     const normalizedWhatsapp = form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '';
 
+    const token = getClientAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
     if (editingJobId) {
       const existing = jobs.find((j) => j.id === editingJobId);
       if (existing) {
         try {
           const res = await fetch(`/api/v1/jobs/${existing.slug}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             credentials: 'include',
             body: JSON.stringify({
               title: form.title,
@@ -246,43 +255,25 @@ export default function AdminJobsPage() {
             }),
           });
           const json = await res.json();
-          if (json.success && json.data?.job) {
-            const updated = mapDbJobToOpening(json.data.job);
-            setJobs((prev) => prev.map((j) => (j.id === editingJobId ? updated : j)));
-            showToast(`Updated job vacancy: ${form.title}`);
-            setPosModalOpen(false);
-            return;
+          if (!res.ok || !json.success || !json.data?.job) {
+            throw new Error(json.error?.message || json.message || 'Failed to update job vacancy');
           }
-        } catch (err) {
-          console.warn('Backend patch failed, updating local state', err);
+          const updated = mapDbJobToOpening(json.data.job);
+          setJobs((prev) => prev.map((j) => (j.id === editingJobId ? updated : j)));
+          showToast(`Updated job vacancy: ${form.title}`);
+          setPosModalOpen(false);
+          return;
+        } catch (err: any) {
+          showToast(`Error: ${err.message || 'Could not update job vacancy'}`);
+          return;
         }
       }
-
-      const next = jobs.map((j) =>
-        j.id === editingJobId
-          ? {
-              ...j,
-              title: form.title,
-              company: form.company,
-              province: form.province,
-              city: form.province,
-              type: form.type,
-              salaryUsd: form.salaryUsd,
-              description: form.description,
-              requirements: reqList,
-              whatsapp: normalizedWhatsapp,
-            }
-          : j
-      );
-      saveStoredJobs(next);
-      setJobs(next);
-      showToast(`Updated job vacancy: ${form.title}`);
     } else {
       try {
         const targetBizId = form.selectedBusinessId || availableBusinesses[0]?.id;
         const res = await fetch('/api/v1/jobs', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             business_id: targetBizId,
@@ -299,104 +290,77 @@ export default function AdminJobsPage() {
           }),
         });
         const json = await res.json();
-        if (json.success && json.data?.job) {
-          const created = mapDbJobToOpening(json.data.job);
-          setJobs((prev) => [created, ...prev]);
-          showToast(`Published job vacancy: ${form.title}`);
-          setPosModalOpen(false);
-          return;
+        if (!res.ok || !json.success || !json.data?.job) {
+          throw new Error(json.error?.message || json.message || 'Failed to publish job vacancy');
         }
-      } catch (err) {
-        console.warn('Backend create failed, saving to local store', err);
+        const created = mapDbJobToOpening(json.data.job);
+        setJobs((prev) => [created, ...prev]);
+        showToast(`Published job vacancy: ${form.title}`);
+        setPosModalOpen(false);
+        return;
+      } catch (err: any) {
+        showToast(`Error: ${err.message || 'Could not publish job vacancy'}`);
+        return;
       }
-
-      const slug = form.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-      const newJob: JobOpening = {
-        id: `job-${Date.now()}`,
-        slug: slug || `job-${Date.now()}`,
-        title: form.title,
-        company: form.company,
-        companySlug: 'sunpower-solar-harare',
-        category: 'Solar & Clean Energy',
-        province: form.province,
-        city: form.province,
-        type: form.type,
-        salaryUsd: form.salaryUsd,
-        postedDate: 'Just now',
-        description: form.description,
-        requirements: reqList,
-        whatsapp: normalizedWhatsapp,
-      };
-      const next = [newJob, ...jobs];
-      saveStoredJobs(next);
-      setJobs(next);
-      showToast(`Published job vacancy: ${form.title}`);
     }
     setPosModalOpen(false);
   }
 
   async function handleDeleteJob(job: JobOpening) {
     try {
+      const token = getClientAccessToken();
       const res = await fetch(`/api/v1/jobs/${job.slug}`, {
         method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         credentials: 'include',
       });
       const json = await res.json();
-      if (json.success) {
-        setJobs((prev) => prev.filter((j) => j.id !== job.id));
-        showToast(`Removed vacancy: ${job.title}`);
-        return;
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || 'Failed to delete job vacancy');
       }
-    } catch (err) {
-      console.warn('Backend delete failed, removing locally', err);
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+      showToast(`Removed vacancy: ${job.title}`);
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Could not delete job vacancy'}`);
     }
-    const next = jobs.filter((j) => j.id !== job.id);
-    saveStoredJobs(next);
-    setJobs(next);
-    showToast(`Removed vacancy: ${job.title}`);
   }
 
-  async function updateAppStatus(appId: string, status: JobApplicationRecord['status']) {
+  async function updateAppStatus(appId: string, status: JobApplicationRecord['status']): Promise<boolean> {
     try {
+      const token = getClientAccessToken();
       const res = await fetch(`/api/v1/jobs/applications/${appId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({ status }),
       });
       const json = await res.json();
-      if (json.success && json.data?.application) {
-        const updated = mapDbApplicationToRecord(json.data.application);
-        setApplications((prev) => prev.map((a) => (a.id === appId ? updated : a)));
-        if (selectedApp?.id === appId) {
-          setSelectedApp(updated);
-        }
-        showToast(`Candidate application status updated to "${status}"`);
-        return;
+      if (!res.ok || !json.success || !json.data?.application) {
+        throw new Error(json.error?.message || json.message || 'Failed to update application status');
       }
-    } catch (err) {
-      console.warn('Backend status update failed, saving locally', err);
+      const updated = mapDbApplicationToRecord(json.data.application);
+      setApplications((prev) => prev.map((a) => (a.id === appId ? updated : a)));
+      if (selectedApp?.id === appId) {
+        setSelectedApp(updated);
+      }
+      showToast(`Candidate application status updated to "${status}"`);
+      return true;
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Could not update application status'}`);
+      return false;
     }
-    const next = applications.map((a) => (a.id === appId ? { ...a, status } : a));
-    saveStoredJobApplications(next);
-    setApplications(next);
-    if (selectedApp?.id === appId) {
-      setSelectedApp({ ...selectedApp, status });
-    }
-    showToast(`Candidate application status updated to "${status}"`);
   }
 
-  function handleConfirmHire(e: React.FormEvent) {
+  async function handleConfirmHire(e: React.FormEvent) {
     e.preventDefault();
     if (!hireModalApp) return;
-    updateAppStatus(hireModalApp.id, 'Hired');
-    showToast(
-      `Official Employment Offer Email dispatched to ${hireModalApp.applicantName} (${hireModalApp.applicantEmail})!`
-    );
-    setHireModalApp(null);
+    const ok = await updateAppStatus(hireModalApp.id, 'Hired');
+    if (ok) {
+      setHireModalApp(null);
+    }
   }
 
   return (

@@ -44,6 +44,7 @@ import {
   PaidAdvertItem,
 } from '@/data/advertsStore';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
+import { getClientAccessToken } from '@/shared/utils/api-client';
 
 export default function AdminAdvertsPage() {
   const [adverts, setAdverts] = useState<PaidAdvertItem[]>([]);
@@ -168,12 +169,18 @@ export default function AdminAdvertsPage() {
 
     const origUsd = Number(form.originalPriceUsd) || undefined;
     const promoUsd = Number(form.promoPriceUsd) || undefined;
+    const token = getClientAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
 
     if (editingId) {
+      let updatedAd: PaidAdvertItem | null = null;
       try {
-        await fetch(`/api/v1/adverts/${encodeURIComponent(editingId)}`, {
+        const res = await fetch(`/api/v1/adverts/${encodeURIComponent(editingId)}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             business_name: form.businessName,
@@ -192,13 +199,21 @@ export default function AdminAdvertsPage() {
             image: imgSrc,
           }),
         });
-      } catch (err) {
-        console.error('Failed to update advert in database:', err);
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error?.message || json.message || 'Failed to update advert');
+        }
+        if (json.data?.advert) {
+          updatedAd = mapDbAdvertToPaidAdvert(json.data.advert);
+        }
+      } catch (err: any) {
+        showToast(`Error: ${err.message || 'Could not update advert'}`);
+        return;
       }
 
       const next = adverts.map((a) =>
         a.id === editingId
-          ? {
+          ? updatedAd || {
               ...a,
               businessName: form.businessName,
               category: form.category,
@@ -225,7 +240,7 @@ export default function AdminAdvertsPage() {
       try {
         const res = await fetch('/api/v1/adverts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify({
             business_name: form.businessName,
@@ -246,36 +261,19 @@ export default function AdminAdvertsPage() {
           }),
         });
         const json = await res.json();
-        if (json.success && json.data?.advert) {
-          createdAd = mapDbAdvertToPaidAdvert(json.data.advert);
+        if (!res.ok || !json.success || !json.data?.advert) {
+          throw new Error(json.error?.message || json.message || 'Failed to publish advert');
         }
-      } catch (err) {
-        console.error('Failed to create advert in database:', err);
+        createdAd = mapDbAdvertToPaidAdvert(json.data.advert);
+      } catch (err: any) {
+        showToast(`Error: ${err.message || 'Could not publish advert'}`);
+        return;
       }
 
-      const newAd: PaidAdvertItem = createdAd || {
-        id: `ad-${Date.now()}`,
-        businessName: form.businessName,
-        businessType: 'Registered Company (Pvt Ltd)',
-        category: form.category,
-        province: form.province,
-        offerType: form.offerType,
-        headline: form.headline,
-        offerText: form.offerText,
-        promoBadge: form.promoBadge,
-        originalPriceUSD: origUsd,
-        promoPriceUSD: promoUsd,
-        validUntil: form.validUntil,
-        whatsapp: form.whatsapp,
-        phone: form.phone,
-        image: imgSrc,
-        postedAt: 'Just now',
-        featuredOnHome: form.pinnedToHome,
-      };
-      const next = [newAd, ...adverts];
+      const next = [createdAd, ...adverts];
       saveStoredAdverts(next);
       setAdverts(next);
-      showToast(`Published $20/mo Sponsored Advert: ${form.headline}`);
+      showToast(`Published Sponsored Advert: ${form.headline}`);
     }
     setFormOpen(false);
   }
@@ -283,14 +281,23 @@ export default function AdminAdvertsPage() {
   async function togglePin(ad: PaidAdvertItem) {
     const nextVal = !ad.featuredOnHome;
     try {
-      await fetch(`/api/v1/adverts/${encodeURIComponent(ad.id)}`, {
+      const token = getClientAccessToken();
+      const res = await fetch(`/api/v1/adverts/${encodeURIComponent(ad.id)}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({ featured_on_home: nextVal }),
       });
-    } catch (err) {
-      console.error('Failed to toggle featured status in database:', err);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || 'Failed to update advert pin');
+      }
+    } catch (err: any) {
+      showToast(`Error: ${err.message || 'Could not update homepage pin'}`);
+      return;
     }
 
     const next = adverts.map((a) =>
@@ -574,20 +581,27 @@ export default function AdminAdvertsPage() {
         onClose={() => setDeletingAdvert(null)}
         onConfirm={async () => {
           if (deletingAdvert) {
-            markAdvertDeleted(deletingAdvert.id);
             try {
-              await fetch(`/api/v1/adverts/${encodeURIComponent(deletingAdvert.id)}`, {
+              const token = getClientAccessToken();
+              const res = await fetch(`/api/v1/adverts/${encodeURIComponent(deletingAdvert.id)}`, {
                 method: 'DELETE',
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 credentials: 'include',
               });
-            } catch (err) {
-              console.error('Failed to delete advert from database:', err);
+              const json = await res.json();
+              if (!res.ok || !json.success) {
+                throw new Error(json.error?.message || json.message || 'Failed to delete advert');
+              }
+              markAdvertDeleted(deletingAdvert.id);
+              const next = adverts.filter((a) => a.id !== deletingAdvert.id);
+              saveStoredAdverts(next);
+              setAdverts(next);
+              showToast(`Removed advert: ${deletingAdvert.headline}`);
+              setDeletingAdvert(null);
+            } catch (err: any) {
+              setDeletingAdvert(null);
+              showToast(`Error: ${err.message || 'Could not remove advert'}`);
             }
-            const next = adverts.filter((a) => a.id !== deletingAdvert.id);
-            saveStoredAdverts(next);
-            setAdverts(next);
-            showToast(`Removed advert: ${deletingAdvert.headline}`);
-            setDeletingAdvert(null);
           }
         }}
         title="Remove Sponsored Campaign?"

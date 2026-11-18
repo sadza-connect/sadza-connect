@@ -64,7 +64,8 @@ export function Modal({
 
   useEffect(() => {
     if (!visible) return;
-    const prevOverflow = document.body.style.overflow;
+    const count = parseInt(document.body.dataset.modalLockCount || '0', 10) + 1;
+    document.body.dataset.modalLockCount = String(count);
     document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -73,7 +74,13 @@ export function Modal({
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
+      const nextCount = Math.max(0, parseInt(document.body.dataset.modalLockCount || '1', 10) - 1);
+      if (nextCount === 0) {
+        delete document.body.dataset.modalLockCount;
+        document.body.style.overflow = '';
+      } else {
+        document.body.dataset.modalLockCount = String(nextCount);
+      }
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [visible]);

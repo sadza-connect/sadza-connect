@@ -454,7 +454,7 @@ export default function AdminBusinessesPage() {
         </AdminButton>
       </div>
 
-      {/* 4 Stat Metric Cards (Matching Figma sadza-connect-admin-verification.png) */}
+      {/* 4 Stat Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Stat 1: Pending reviews */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
@@ -463,11 +463,11 @@ export default function AdminBusinessesPage() {
           </div>
           <div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {pendingCount || 12}
+              {pendingCount}
             </div>
             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Pending reviews</p>
             <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-              +3 from yesterday
+              Awaiting KYC approval
             </p>
           </div>
         </div>
@@ -479,11 +479,11 @@ export default function AdminBusinessesPage() {
           </div>
           <div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {verifiedCount > 0 ? (1480 + verifiedCount).toLocaleString() : '1,482'}
+              {verifiedCount}
             </div>
             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Verified businesses</p>
             <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-              +28 this week
+              {businesses.length} total registered
             </p>
           </div>
         </div>
@@ -495,25 +495,27 @@ export default function AdminBusinessesPage() {
           </div>
           <div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {moderationList.length || 18}
+              {moderationList.filter((m) => m.status === 'Under review').length}
             </div>
             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Flagged listings</p>
             <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-0.5">
-              Active moderation
+              {moderationList.length} total case(s)
             </p>
           </div>
         </div>
 
-        {/* Stat 4: Today's transactions */}
+        {/* Stat 4: Paid Subscribers */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
             <BarChart3 className="h-6 w-6" />
           </div>
           <div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">$12,430</div>
-            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Today&apos;s transactions</p>
+            <div className="text-2xl font-black text-slate-900 dark:text-white">
+              {businesses.filter((b) => b.subscriptionStatus === 'Paid Subscriber').length}
+            </div>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Paid subscribers</p>
             <p className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5">
-              +12% from yesterday
+              {businesses.filter((b) => b.subscriptionStatus === 'Month 1 Grace Period').length} in 30d grace
             </p>
           </div>
         </div>
@@ -667,7 +669,7 @@ export default function AdminBusinessesPage() {
                             month: 'short',
                             year: 'numeric',
                           })
-                        : '12 Oct 2026'}
+                        : 'Pending'}
                     </td>
 
                     <td className="px-4 py-4 text-right">
@@ -687,6 +689,14 @@ export default function AdminBusinessesPage() {
                           title="Edit Business"
                         >
                           <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingBiz(b)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
+                          title="Delete Business"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -1372,80 +1382,123 @@ export default function AdminBusinessesPage() {
               const normalizedWhatsapp = form.whatsapp.trim() ? sanitizePhoneNumber(form.whatsapp) : '';
               const normalizedPhone = form.phone.trim() ? normalizePhoneNumber(form.phone) : '';
 
+              const customMonthlyPrice = form.customMonthlyPriceUsd.trim()
+                ? parseFloat(form.customMonthlyPriceUsd)
+                : null;
+              const customProductLimit = form.customProductLimit.trim()
+                ? parseInt(form.customProductLimit, 10)
+                : null;
+
               if (editingId) {
                 const existing = businesses.find((b) => b.id === editingId);
                 if (existing) {
                   try {
-                    await fetch(`/api/v1/businesses/${encodeURIComponent(existing.slug)}`, {
+                    const res = await fetch(`/api/v1/businesses/${encodeURIComponent(existing.slug)}`, {
                       method: 'PATCH',
                       headers: getAuthHeaders(),
                       credentials: 'include',
                       body: JSON.stringify({
-                        name: form.name,
-                        description: form.description,
+                        name: form.name.trim(),
+                        description: form.description.trim(),
                         province: form.province,
-                        address: form.address,
+                        address: form.address.trim(),
                         sector: catObj.name,
                         whatsapp: normalizedWhatsapp,
                         phone: normalizedPhone,
+                        email: form.email.trim() || undefined,
+                        cover_url: form.images[0]?.src || undefined,
                         is_featured: form.featured,
                         is_verified: form.cr14Verified,
                         verification_status: form.cr14Verified ? 'Verified' : 'Pending',
+                        subscription_status: form.subscriptionStatus,
+                        catalog_tier: form.catalogTier,
+                        custom_monthly_price_usd:
+                          customMonthlyPrice !== null && !Number.isNaN(customMonthlyPrice)
+                            ? customMonthlyPrice
+                            : null,
+                        custom_product_limit:
+                          customProductLimit !== null && !Number.isNaN(customProductLimit)
+                            ? customProductLimit
+                            : null,
                       }),
                     });
-                  } catch {}
+                    const json = await res.json();
+                    if (!res.ok || !json.success) {
+                      throw new Error(json.error?.message || json.message || 'Failed to update business');
+                    }
+                    const updatedRow = json.data?.business
+                      ? mapDbBusinessToListing(json.data.business)
+                      : null;
+                    const updated = businesses.map((b) =>
+                      b.id === editingId
+                        ? updatedRow || {
+                            ...b,
+                            name: form.name,
+                            categorySlug: catObj.slug,
+                            categoryName: catObj.name,
+                            province: form.province,
+                            address: form.address,
+                            phone: normalizedPhone,
+                            whatsapp: normalizedWhatsapp,
+                            email: form.email,
+                            cr14Verified: form.cr14Verified,
+                            featured: form.featured,
+                          }
+                        : b
+                    );
+                    saveStoredBusinesses(updated);
+                    setBusinesses(updated);
+                    showToast(`Updated enterprise ${form.name}`);
+                  } catch (err: any) {
+                    showToast(`Error: ${err.message || 'Could not update enterprise'}`);
+                    return;
+                  }
                 }
-                const updated = businesses.map((b) =>
-                  b.id === editingId
-                    ? {
-                        ...b,
-                        name: form.name,
-                        categorySlug: catObj.slug,
-                        categoryName: catObj.name,
-                        province: form.province,
-                        address: form.address,
-                        phone: normalizedPhone,
-                        whatsapp: normalizedWhatsapp,
-                        email: form.email,
-                        cr14Verified: form.cr14Verified,
-                        featured: form.featured,
-                      }
-                    : b
-                );
-                saveStoredBusinesses(updated);
-                setBusinesses(updated);
-                showToast(`Updated enterprise ${form.name}`);
               } else {
-                const newBiz: BusinessListing = {
-                  id: `biz-${Date.now()}`,
-                  slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-                  name: form.name,
-                  categorySlug: catObj.slug,
-                  categoryName: catObj.name,
-                  businessType: 'Registered Company (Pvt Ltd)',
-                  subscriptionStatus: form.subscriptionStatus,
-                  rating: 5.0,
-                  reviewCount: 1,
-                  province: form.province,
-                  city: form.province,
-                  address: form.address,
-                  phone: normalizedPhone,
-                  whatsapp: normalizedWhatsapp,
-                  email: form.email,
-                  openingHours: form.openingHours,
-                  verifiedTier: form.cr14Verified ? 'tier2_corporate' : 'unverified',
-                  cr14Verified: form.cr14Verified,
-                  zimraVerified: form.cr14Verified,
-                  featured: form.featured,
-                  image: coverImg,
-                  description: form.description,
-                  services: parsedServices,
-                  tags: [catObj.name, form.province],
-                };
-                const updated = [newBiz, ...businesses];
-                saveStoredBusinesses(updated);
-                setBusinesses(updated);
-                showToast(`Registered new enterprise ${form.name}`);
+                try {
+                  const res = await fetch('/api/v1/businesses', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
+                    body: JSON.stringify({
+                      name: form.name.trim(),
+                      description: form.description.trim(),
+                      province: form.province,
+                      city: form.province,
+                      address: form.address.trim(),
+                      sector: catObj.name,
+                      whatsapp: normalizedWhatsapp,
+                      phone: normalizedPhone,
+                      email: form.email.trim() || '',
+                      cover_url: coverImg,
+                      is_verified: form.cr14Verified,
+                      verification_status: form.cr14Verified ? 'Verified' : 'Pending',
+                      is_featured: form.featured,
+                      subscription_status: form.subscriptionStatus,
+                      catalog_tier: form.catalogTier,
+                      custom_monthly_price_usd:
+                        customMonthlyPrice !== null && !Number.isNaN(customMonthlyPrice)
+                          ? customMonthlyPrice
+                          : null,
+                      custom_product_limit:
+                        customProductLimit !== null && !Number.isNaN(customProductLimit)
+                          ? customProductLimit
+                          : null,
+                    }),
+                  });
+                  const json = await res.json();
+                  if (!res.ok || !json.success || !json.data?.business) {
+                    throw new Error(json.error?.message || json.message || 'Failed to register business');
+                  }
+                  const createdListing = mapDbBusinessToListing(json.data.business);
+                  const updated = [createdListing, ...businesses];
+                  saveStoredBusinesses(updated);
+                  setBusinesses(updated);
+                  showToast(`Registered new enterprise ${form.name}`);
+                } catch (err: any) {
+                  showToast(`Error: ${err.message || 'Could not register enterprise'}`);
+                  return;
+                }
               }
               setFormOpen(false);
             }}
@@ -1455,6 +1508,45 @@ export default function AdminBusinessesPage() {
           </button>
         </ModalFooter>
       </AdminModal>
+
+      {/* Delete Business Confirmation Modal */}
+      <ConfirmModal
+        open={!!deletingBiz}
+        onClose={() => setDeletingBiz(null)}
+        title={`Delete Business: ${deletingBiz?.name || ''}`}
+        message={
+          <span>
+            Are you sure you want to permanently delete <strong>{deletingBiz?.name}</strong>? All
+            associated products, job postings, adverts, and KYC documents will be permanently removed.
+          </span>
+        }
+        confirmLabel="Delete Business"
+        icon={Trash2}
+        onConfirm={async () => {
+          if (!deletingBiz) return;
+          const target = deletingBiz;
+          try {
+            const res = await fetch(`/api/v1/businesses/${encodeURIComponent(target.slug)}`, {
+              method: 'DELETE',
+              headers: getAuthHeaders(),
+              credentials: 'include',
+            });
+            const json = await res.json();
+            if (!res.ok) {
+              throw new Error(json.error?.message || json.message || 'Failed to delete business');
+            }
+            const updated = businesses.filter((b) => b.id !== target.id);
+            saveStoredBusinesses(updated);
+            setBusinesses(updated);
+            if (reviewingKycBiz?.id === target.id) setReviewingKycBiz(null);
+            setDeletingBiz(null);
+            showToast(`Deleted business "${target.name}" from database`);
+          } catch (err: any) {
+            setDeletingBiz(null);
+            showToast(`Error: ${err.message || 'Could not delete business'}`);
+          }
+        }}
+      />
 
       {/* Complaint Inspector & Enforcement Modal */}
       {inspectingReport && (

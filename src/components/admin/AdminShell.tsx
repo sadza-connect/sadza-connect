@@ -70,17 +70,23 @@ export function AdminShell({
   const handleUpdateRate = async () => {
     const parsed = parseFloat(quickRate);
     if (isNaN(parsed) || parsed <= 0) return;
-    const s = getPlatformSettings();
-    savePlatformSettings({ ...s, usdToZigRate: parsed });
-    setRateSaved(true);
-    setTimeout(() => setRateSaved(false), 2000);
     try {
-      await fetch('/api/v1/settings', {
+      const token =
+        typeof window !== 'undefined' ? window.localStorage.getItem('sadza_access_token') : null;
+      const res = await fetch('/api/v1/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({ usd_to_zig_rate: parsed }),
       });
+      if (!res.ok) return;
+      const s = getPlatformSettings();
+      savePlatformSettings({ ...s, usdToZigRate: parsed });
+      setRateSaved(true);
+      setTimeout(() => setRateSaved(false), 2000);
     } catch {}
   };
 

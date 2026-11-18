@@ -39,6 +39,12 @@ const createBusinessSchema = z.object({
   gallery: z.array(z.any()).optional(),
   operating_hours: z.record(z.any()).optional(),
   kyc_documents: z.array(z.any()).optional(),
+  is_verified: z.boolean().optional(),
+  verification_status: z.string().optional(),
+  is_featured: z.boolean().optional(),
+  subscription_status: z.string().optional(),
+  catalog_tier: z.string().optional(),
+  custom_product_limit: z.number().int().positive().nullable().optional(),
 });
 
 interface DirectoryCacheEntry {
@@ -158,8 +164,9 @@ export async function POST(req: NextRequest) {
     const user = await getAuthenticatedUser(req, false);
     const body = await parseAndValidateBody(req, createBusinessSchema);
 
+    const isAdmin = user?.role === 'admin';
     const business = await businessRepository.create({
-      user_id: user?.id || null,
+      user_id: isAdmin ? null : user?.id || null,
       name: body.name.trim(),
       province: body.province.trim(),
       city: body.city?.trim() || null,
@@ -171,6 +178,10 @@ export async function POST(req: NextRequest) {
       applicant_role: body.applicant_role || 'owner',
       verification_badge: body.verification_badge || 'Verified Registered Company',
       registration_number: body.registration_number?.trim() || null,
+      custom_monthly_price_usd: isAdmin ? body.custom_monthly_price_usd : undefined,
+      catalog_tier: isAdmin ? body.catalog_tier : undefined,
+      custom_product_limit: isAdmin ? body.custom_product_limit : undefined,
+      subscription_status: isAdmin ? body.subscription_status : undefined,
       phone: body.phone?.trim() || null,
       email: body.email?.trim() || null,
       whatsapp: body.whatsapp?.trim() || null,
@@ -181,8 +192,11 @@ export async function POST(req: NextRequest) {
       gallery: body.gallery || [],
       operating_hours: body.operating_hours || {},
       kyc_documents: body.kyc_documents || [],
-      is_verified: false,
-      verification_status: 'Pending',
+      is_verified: isAdmin ? Boolean(body.is_verified) : false,
+      verification_status: isAdmin
+        ? body.verification_status || (body.is_verified ? 'Verified' : 'Pending')
+        : 'Pending',
+      is_featured: isAdmin ? Boolean(body.is_featured) : false,
     });
 
     invalidateBusinessDirectoryCache();

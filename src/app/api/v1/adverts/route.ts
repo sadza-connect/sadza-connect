@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       whatsapp: body.whatsapp || null,
       phone: body.phone || null,
       image: body.image || null,
-      featured_on_home: body.featured_on_home ?? true,
+      featured_on_home: user?.role === 'admin' ? (body.featured_on_home ?? true) : false,
       is_active: body.is_active ?? true,
     });
 
