@@ -1066,16 +1066,30 @@ export default function AdminBusinessesPage() {
                     <div className="flex items-center justify-between text-xs py-2 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Company registration number</span>
                       <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
-                        <span>{reviewingKycBiz.registrationNumber || '52024/123456'}</span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                          ✓ Verified
+                        <span>{reviewingKycBiz.registrationNumber || 'Pending submission'}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            reviewingKycBiz.cr14Verified
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          }`}
+                        >
+                          {reviewingKycBiz.cr14Verified ? '✓ Verified' : 'Pending'}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between text-xs py-2 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Incorporation date</span>
-                      <span className="font-bold text-slate-900 dark:text-white">5 Mar 2024</span>
+                      <span className="text-slate-500">Verification date</span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {reviewingKycBiz.firstVerifiedAt
+                          ? new Date(reviewingKycBiz.firstVerifiedAt).toLocaleDateString('en-GB', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : 'Awaiting KYC review'}
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between text-xs py-2 border-b border-slate-100 dark:border-slate-800">
@@ -1093,14 +1107,20 @@ export default function AdminBusinessesPage() {
                     </h5>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500">National ID / Passport</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        ✓ Verified
+                      <span
+                        className={`font-bold ${
+                          reviewingKycBiz.cr14Verified
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {reviewingKycBiz.cr14Verified ? '✓ Verified' : 'Under review'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500">Name match</span>
                       <span className="font-medium text-slate-700 dark:text-slate-300">
-                        Matches company records
+                        {reviewingKycBiz.cr14Verified ? 'Matches company records' : 'Pending verification'}
                       </span>
                     </div>
                   </div>
@@ -1153,8 +1173,14 @@ export default function AdminBusinessesPage() {
                     <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                       <FileCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-white">Documents Parsed</p>
-                        <p className="text-[11px] text-slate-500">Certificate of Incorporation &amp; Tax records verified</p>
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          {reviewingKycBiz.cr14Verified ? 'Documents Verified' : 'Awaiting Document Review'}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {reviewingKycBiz.cr14Verified
+                            ? 'Certificate of Incorporation & statutory records verified'
+                            : 'Queued for administrative compliance verification'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1162,7 +1188,7 @@ export default function AdminBusinessesPage() {
               )}
             </div>
 
-            {/* Sticky Actions Footer (Matching Figma: 3 Action Buttons) */}
+            {/* Sticky Actions Footer */}
             <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 sticky bottom-0 space-y-2.5">
               <button
                 type="button"
@@ -1176,8 +1202,29 @@ export default function AdminBusinessesPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    showToast(`Replacement document request sent to ${reviewingKycBiz.name}`);
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(
+                        `/api/v1/businesses/${encodeURIComponent(reviewingKycBiz.slug)}/verify`,
+                        {
+                          method: 'POST',
+                          headers: getAuthHeaders(),
+                          credentials: 'include',
+                          body: JSON.stringify({
+                            status: 'Pending',
+                            reason: 'Please upload a clearer copy of your KYC registration document in Business Studio.',
+                          }),
+                        }
+                      );
+                      const json = await res.json();
+                      if (!res.ok || !json.success) {
+                        throw new Error(json.error?.message || 'Failed to send replacement request');
+                      }
+                      await toggleKyc(reviewingKycBiz, false);
+                      showToast(`Replacement document request sent to ${reviewingKycBiz.name}`);
+                    } catch (err: any) {
+                      showToast(`Error: ${err.message || 'Could not request document replacement'}`);
+                    }
                   }}
                   className="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
@@ -1187,7 +1234,29 @@ export default function AdminBusinessesPage() {
 
                 <button
                   type="button"
-                  onClick={() => toggleKyc(reviewingKycBiz, false)}
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(
+                        `/api/v1/businesses/${encodeURIComponent(reviewingKycBiz.slug)}/verify`,
+                        {
+                          method: 'POST',
+                          headers: getAuthHeaders(),
+                          credentials: 'include',
+                          body: JSON.stringify({
+                            status: 'Rejected',
+                            reason: 'KYC verification rejected during administrative review. Please update your statutory records.',
+                          }),
+                        }
+                      );
+                      const json = await res.json();
+                      if (!res.ok || !json.success) {
+                        throw new Error(json.error?.message || 'Failed to reject KYC');
+                      }
+                      await toggleKyc(reviewingKycBiz, false);
+                    } catch (err: any) {
+                      showToast(`Error: ${err.message || 'Could not reject KYC'}`);
+                    }
+                  }}
                   className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />

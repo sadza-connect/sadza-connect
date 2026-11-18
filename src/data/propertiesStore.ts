@@ -281,7 +281,7 @@ export function getStoredProperties(): PropertyListing[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PROPERTIES;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
     return DEFAULT_PROPERTIES;
@@ -293,8 +293,11 @@ export function getStoredProperties(): PropertyListing[] {
 export async function syncPropertiesFromApi(isAdmin = false): Promise<PropertyListing[]> {
   if (typeof window === 'undefined') return DEFAULT_PROPERTIES;
   try {
-    const url = isAdmin ? '/api/v1/properties?admin=true' : '/api/v1/properties';
-    const res = await fetch(url);
+    const url = isAdmin ? '/api/v1/properties?admin=true&limit=100' : '/api/v1/properties?limit=100';
+    const res = await fetch(url, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) return getStoredProperties();
     const json = await res.json();
     if (json.data?.properties && Array.isArray(json.data.properties)) {

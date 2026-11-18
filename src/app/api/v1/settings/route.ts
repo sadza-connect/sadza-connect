@@ -17,12 +17,16 @@ export const dynamic = 'force-dynamic';
 // tier prices, grace period) are hardcoded and static for payment gateway integrity (Flutterwave sync).
 // They cannot be modified via API.
 const updateSettingsSchema = z.object({
+  usd_to_zig_rate: z.number().positive().optional(),
   support_whatsapp: z.string().optional(),
   support_phone: z.string().optional(),
   support_email: z.string().email().optional(),
   hq_address: z.string().optional(),
   harare_address: z.string().optional(),
   operating_hours: z.string().optional(),
+  about_headline: z.string().optional(),
+  about_mission: z.string().optional(),
+  about_vision: z.string().optional(),
   tier_starter_name: z.string().optional(),
   tier_starter_limit: z.number().int().positive().optional(),
   tier_growth_name: z.string().optional(),

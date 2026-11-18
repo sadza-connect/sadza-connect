@@ -105,20 +105,25 @@ export default function AdminPropertiesPage() {
       setUnlockedCount(Object.keys(unlocked).length);
     } catch {
       setProperties([]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-    syncPropertiesFromApi(true).then((fresh) => {
-      if (fresh && fresh.length > 0) setProperties(fresh);
-    });
+    let isMounted = true;
+    const unlocked = getUnlockedContacts();
+    setUnlockedCount(Object.keys(unlocked).length);
+    syncPropertiesFromApi(true)
+      .then((fresh) => {
+        if (isMounted && Array.isArray(fresh)) setProperties(fresh);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
     const handleUpdate = () => loadData();
     window.addEventListener('sadza-properties-updated', handleUpdate);
     window.addEventListener('sadza-unlocked-updated', handleUpdate);
     return () => {
+      isMounted = false;
       window.removeEventListener('sadza-properties-updated', handleUpdate);
       window.removeEventListener('sadza-unlocked-updated', handleUpdate);
     };

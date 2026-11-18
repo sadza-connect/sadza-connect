@@ -104,7 +104,6 @@ export default function AdminTourismPage() {
 
   useEffect(() => {
     let isMounted = true;
-    loadData();
     syncTourismsFromApi(true)
       .then((fresh) => {
         if (isMounted) setTourisms(fresh);

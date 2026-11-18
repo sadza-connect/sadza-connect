@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
+import { invalidateBusinessDirectoryCache } from '../../route';
 import {
   jsonResponse,
   errorResponse,
@@ -43,6 +44,7 @@ export async function POST(
     const body = await parseAndValidateBody(req, verifySchema);
 
     const updated = await businessRepository.verify(existing.id, body.status, body.reason);
+    invalidateBusinessDirectoryCache();
 
     if (existing.user_id) {
       const severity =

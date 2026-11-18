@@ -292,13 +292,17 @@ export default function AdminSettingsPage() {
   const [isRotatingPassword, setIsRotatingPassword] = useState(false);
 
   async function handleSave(sectionLabel: string) {
-    const usdToZig = PLATFORM_PRICING.STATUTORY.REFERENCE_USD_TO_ZIG;
+    const usdToZig =
+      parseFloat(pricing.zigExchangeRate) || PLATFORM_PRICING.STATUTORY.REFERENCE_USD_TO_ZIG;
     const listingUsd = PLATFORM_PRICING.SUBSCRIPTIONS.STANDARD_MONTHLY_USD;
     const soloUsd = PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_B_SOLO_OPERATOR_USD;
     const coopUsd = PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_C_COOPERATIVE_USD;
     const corporateUsd = PLATFORM_PRICING.SUBSCRIPTIONS.TRACK_A_CORPORATE_USD;
     const advertUsd = PLATFORM_PRICING.SINGLE_SPONSORED_ADVERT_USD;
     const graceDays = PLATFORM_PRICING.GRACE_PERIOD.DAYS;
+    const starterLimit = Math.max(1, parseInt(pricing.tierStarterLimit, 10) || 25);
+    const growthLimit = Math.max(1, parseInt(pricing.tierGrowthLimit, 10) || 100);
+    const enterpriseLimit = Math.max(1, parseInt(pricing.tierEnterpriseLimit, 10) || 300);
 
     const updatedPlatformSettings: PlatformSettings = {
       siteName: profile.name,
@@ -309,14 +313,14 @@ export default function AdminSettingsPage() {
       soloMonthlyPriceUsd: soloUsd,
       coopMonthlyPriceUsd: coopUsd,
       corporateMonthlyPriceUsd: corporateUsd,
-      tierStarterName: 'Starter Storefront',
-      tierStarterLimit: 25,
+      tierStarterName: pricing.tierStarterName || 'Starter Storefront',
+      tierStarterLimit: starterLimit,
       tierStarterPriceUsd: 15.0,
-      tierGrowthName: 'Growth Storefront',
-      tierGrowthLimit: 100,
+      tierGrowthName: pricing.tierGrowthName || 'Growth Storefront',
+      tierGrowthLimit: growthLimit,
       tierGrowthPriceUsd: 25.0,
-      tierEnterpriseName: 'Enterprise Wholesaler',
-      tierEnterpriseLimit: 300,
+      tierEnterpriseName: pricing.tierEnterpriseName || 'Enterprise Wholesaler',
+      tierEnterpriseLimit: enterpriseLimit,
       tierEnterprisePriceUsd: 50.0,
       sponsoredAdvertPriceUsd: advertUsd,
       freeGracePeriodDays: graceDays,
@@ -354,12 +358,22 @@ export default function AdminSettingsPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
+          usd_to_zig_rate: usdToZig,
           support_whatsapp: contact.whatsapp ? sanitizePhoneNumber(contact.whatsapp) : undefined,
           support_phone: contact.phone ? normalizePhoneNumber(contact.phone) : undefined,
           support_email: contact.email && contact.email.includes('@') ? contact.email.trim() : undefined,
           hq_address: `${profile.name} HQ, ${contact.line1}, ${contact.city}`,
           harare_address: `${contact.line1}, ${contact.city}`,
           operating_hours: contact.hours || undefined,
+          about_headline: profile.tagline || undefined,
+          about_mission: profile.mission || undefined,
+          about_vision: profile.vision || undefined,
+          tier_starter_name: pricing.tierStarterName || 'Starter Storefront',
+          tier_starter_limit: starterLimit,
+          tier_growth_name: pricing.tierGrowthName || 'Growth Storefront',
+          tier_growth_limit: growthLimit,
+          tier_enterprise_name: pricing.tierEnterpriseName || 'Enterprise Wholesaler',
+          tier_enterprise_limit: enterpriseLimit,
           extra_config: {
             profile,
             shipping,
@@ -379,7 +393,7 @@ export default function AdminSettingsPage() {
 
       toast({
         title: `${sectionLabel} Saved`,
-        description: 'Your configuration updates are now live across Sadza Connect.',
+        description: 'Your configuration updates are now live across MySadza Connect.',
         variant: 'success',
       });
     } catch (err: any) {
