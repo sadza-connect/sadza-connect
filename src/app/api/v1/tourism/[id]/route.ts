@@ -7,6 +7,7 @@ import {
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
 import { tourismRepository } from '@/infrastructure/database/repositories/tourism-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { NotFoundError, AuthorizationError } from '@/shared/errors/AppError';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 
@@ -148,6 +149,31 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (body.action === 'toggle_featured' || body.isFeatured !== undefined) {
       const res = await tourismRepository.toggleFeatured(id, body.isFeatured);
       if (res) updated = res;
+    }
+
+    if (listing.userId) {
+      if (updated.isVerified !== listing.isVerified) {
+        await notificationRepository.createSafely({
+          userId: listing.userId,
+          title: `Hospitality Listing ${updated.isVerified ? 'Verified' : 'Pending Review'}`,
+          message: `"${listing.name}" verification status is now ${updated.isVerified ? 'Verified Partner' : 'Unverified'}.`,
+          category: 'system',
+          actionUrl: '/tourism',
+          actionLabel: 'View Listing',
+          severity: updated.isVerified ? 'success' : 'warning',
+        });
+      }
+      if (updated.isFeatured !== listing.isFeatured && updated.isFeatured) {
+        await notificationRepository.createSafely({
+          userId: listing.userId,
+          title: 'Stay Featured on Tourism Portal',
+          message: `"${listing.name}" is now featured on Tourism & Hospitality.`,
+          category: 'system',
+          actionUrl: '/tourism',
+          actionLabel: 'View Listing',
+          severity: 'success',
+        });
+      }
     }
 
     return jsonResponse(

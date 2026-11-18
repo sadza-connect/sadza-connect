@@ -12,6 +12,7 @@ import {
 } from '@/data/propertiesStore';
 import { propertyRepository } from '@/infrastructure/database/repositories/property-repository';
 import { invoiceRepository } from '@/infrastructure/database/repositories/invoice-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import { NotFoundError } from '@/shared/errors/AppError';
 
@@ -97,6 +98,30 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       console.warn('[Property Unlock] Failed to create invoice:', err);
+    }
+
+    if (user?.id) {
+      await notificationRepository.createSafely({
+        userId: user.id,
+        title: `Contact Unlocked: ${propertyTitle.slice(0, 80)}`,
+        message: `Direct WhatsApp (${revealedWhatsapp}) and phone (${revealedPhone}) unlocked (Ref: ${reference}).`,
+        category: 'order',
+        actionUrl: '/properties',
+        actionLabel: 'View Properties',
+        severity: 'success',
+      });
+    }
+
+    if (property.userId && property.userId !== user?.id) {
+      await notificationRepository.createSafely({
+        userId: property.userId,
+        title: `New Property Contact Lead`,
+        message: `A prospective tenant/buyer unlocked direct contact details for "${propertyTitle.slice(0, 80)}".`,
+        category: 'order',
+        actionUrl: '/properties',
+        actionLabel: 'View Listing',
+        severity: 'info',
+      });
     }
 
     return jsonResponse(

@@ -141,6 +141,56 @@ export class NotificationRepository {
     }
   }
 
+  /**
+   * Emits a notification to a registered user looked up by email address.
+   */
+  async createForEmailSafely(
+    email: string | null | undefined,
+    dto: Omit<CreateNotificationDTO, 'userId'>
+  ): Promise<void> {
+    if (!email || !email.trim()) return;
+    try {
+      const user = await this.db('users')
+        .whereRaw('LOWER(email) = ?', [email.trim().toLowerCase()])
+        .select('id')
+        .first();
+      if (user?.id) {
+        await this.create({ ...dto, userId: user.id });
+      }
+    } catch (err) {
+      console.warn('[NotificationRepository] Failed to emit email-targeted notification:', err);
+    }
+  }
+
+  /**
+   * Broadcasts an administrative alert notification to all active admin accounts.
+   */
+  async notifyAdminsSafely(dto: Omit<CreateNotificationDTO, 'userId'>): Promise<void> {
+    try {
+      const admins = await this.db('users').where({ role: 'admin' }).select('id');
+      if (!admins || admins.length === 0) return;
+
+      const now = new Date().toISOString();
+      await this.db('notifications').insert(
+        admins.map((admin: { id: string }) => ({
+          id: randomUUID(),
+          user_id: admin.id,
+          title: dto.title.slice(0, 200),
+          message: dto.message,
+          category: dto.category,
+          action_url: dto.actionUrl ? dto.actionUrl.slice(0, 255) : null,
+          action_label: dto.actionLabel ? dto.actionLabel.slice(0, 100) : null,
+          severity: dto.severity || 'info',
+          is_read: false,
+          created_at: now,
+          updated_at: now,
+        }))
+      );
+    } catch (err) {
+      console.warn('[NotificationRepository] Failed to notify admins:', err);
+    }
+  }
+
   async markAsRead(id: string, userId: string): Promise<PlatformNotification | null> {
     const [row] = await this.db('notifications')
       .where({ id, user_id: userId })

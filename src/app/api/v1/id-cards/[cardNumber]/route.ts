@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { idCardRepository } from '@/infrastructure/database/repositories/id-card-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -102,6 +103,21 @@ export async function PATCH(
 
     const body = await parseAndValidateBody(req, updateIdCardSchema);
     const updated = await idCardRepository.update(card.id, body);
+
+    if (body.status && body.status !== card.status && card.business_id) {
+      const ownerBiz = await businessRepository.findById(card.business_id);
+      if (ownerBiz?.user_id) {
+        await notificationRepository.createSafely({
+          userId: ownerBiz.user_id,
+          title: `ID Card ${body.status}`,
+          message: `ID card ${card.card_number} for ${card.member_name} is now ${body.status.toLowerCase()}.`,
+          category: 'system',
+          severity: body.status === 'Active' ? 'success' : 'warning',
+          actionUrl: `/verify-id/${card.card_number}`,
+          actionLabel: 'View Card',
+        });
+      }
+    }
 
     return jsonResponse(
       {

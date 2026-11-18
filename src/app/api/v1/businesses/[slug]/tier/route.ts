@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { settingsRepository } from '@/infrastructure/database/repositories/settings-repository';
 import { invoiceRepository } from '@/infrastructure/database/repositories/invoice-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -95,6 +96,16 @@ export async function POST(
       payment_method: body.payment_method,
       period_covered: `${startDate} – ${endDate}`,
       status: 'Paid',
+    });
+
+    await notificationRepository.createSafely({
+      userId: business.user_id || user.id,
+      title: `Upgraded to ${tierName}`,
+      message: `${business.name} now supports up to ${quotaLimit} product listings ($${priceUsd.toFixed(2)} paid via ${body.payment_method}).`,
+      category: 'subscription',
+      actionUrl: '/dashboard/business',
+      actionLabel: 'Manage Catalog',
+      severity: 'success',
     });
 
     return jsonResponse(

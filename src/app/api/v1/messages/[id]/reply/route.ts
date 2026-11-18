@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { contactMessageRepository } from '@/infrastructure/database/repositories/contact-message-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { emailService } from '@/infrastructure/messaging/email-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
@@ -53,6 +54,13 @@ export async function POST(
     const updated = await contactMessageRepository.update(id, {
       status: 'Resolved',
       admin_notes: updatedNotes,
+    });
+
+    await notificationRepository.createForEmailSafely(message.email, {
+      title: 'Support Replied to Your Inquiry',
+      message: `Our team has replied to your "${message.topic}" inquiry. Check your email for details.`,
+      category: 'system',
+      severity: 'success',
     });
 
     return jsonResponse(

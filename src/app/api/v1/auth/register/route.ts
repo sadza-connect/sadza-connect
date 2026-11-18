@@ -10,6 +10,7 @@ import {
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
 import { sanitizeUser } from '@/shared/utils/sanitize-user';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,17 @@ export async function POST(req: NextRequest) {
       businessName: body.businessName,
       sector: body.sector,
       businessStructure: body.businessStructure,
+    });
+
+    await notificationRepository.createSafely({
+      userId: user.id,
+      title: 'Welcome to MySadza Connect',
+      message:
+        'Your account has been created. Verify your email, complete your profile and explore the marketplace.',
+      category: 'system',
+      severity: 'success',
+      actionUrl: '/dashboard/user',
+      actionLabel: 'Open Dashboard',
     });
 
     return jsonResponse(

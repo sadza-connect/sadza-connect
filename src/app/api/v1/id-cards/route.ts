@@ -3,6 +3,7 @@ import { randomUUID, randomInt } from 'node:crypto';
 import { z } from 'zod';
 import { idCardRepository } from '@/infrastructure/database/repositories/id-card-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -120,6 +121,21 @@ export async function POST(req: NextRequest) {
       qr_code_payload: verificationUrl,
       photo_url: body.photo_url?.trim() || null,
     });
+
+    const ownerBiz = targetBizId ? await businessRepository.findById(targetBizId) : null;
+    const recipientIds = new Set<string>([user.id]);
+    if (ownerBiz?.user_id) recipientIds.add(ownerBiz.user_id);
+    for (const recipientId of recipientIds) {
+      await notificationRepository.createSafely({
+        userId: recipientId,
+        title: 'Digital ID Card Issued',
+        message: `ID card ${cardNumber} was issued to ${body.member_name.trim()} (${body.member_role.trim()}).`,
+        category: 'system',
+        severity: 'success',
+        actionUrl: `/verify-id/${cardNumber}`,
+        actionLabel: 'View Card',
+      });
+    }
 
     return jsonResponse(
       {

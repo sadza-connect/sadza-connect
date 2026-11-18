@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { contactMessageRepository } from '@/infrastructure/database/repositories/contact-message-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   getClientIp,
@@ -40,6 +41,15 @@ export async function POST(req: NextRequest) {
       message: body.message,
       status: 'New',
       priority: 'Normal',
+    });
+
+    await notificationRepository.notifyAdminsSafely({
+      title: 'New Contact Inquiry',
+      message: `${body.name} (${body.email}) sent a "${body.topic}" inquiry.`,
+      category: 'system',
+      severity: 'info',
+      actionUrl: '/admin/messages',
+      actionLabel: 'View Inbox',
     });
 
     return jsonResponse(

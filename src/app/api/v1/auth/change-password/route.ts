@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import { userRepository } from '@/infrastructure/database/repositories/user-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import {
   jsonResponse,
   errorResponse,
@@ -51,6 +52,17 @@ export async function POST(req: NextRequest) {
     if (!updated) {
       throw new Error('Failed to update password in database');
     }
+
+    await notificationRepository.createSafely({
+      userId: caller.id,
+      title: 'Password Changed',
+      message:
+        'Your account password was just changed. If this was not you, reset your password immediately and contact support.',
+      category: 'system',
+      severity: 'warning',
+      actionUrl: '/contact',
+      actionLabel: 'Contact Support',
+    });
 
     return jsonResponse(
       {

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getDb } from '@/infrastructure/database/connection';
 import { JwtService } from '@/application/auth/jwt-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
@@ -185,6 +186,27 @@ export async function POST(req: NextRequest) {
     });
 
     invalidateBusinessDirectoryCache();
+
+    if (user?.id) {
+      await notificationRepository.createSafely({
+        userId: user.id,
+        title: `${business.name} Submitted for Verification`,
+        message: 'Your business storefront is registered and queued for KYC review. Complimentary 30-day grace access is active.',
+        category: 'subscription',
+        actionUrl: '/dashboard/business',
+        actionLabel: 'Open Business Studio',
+        severity: 'info',
+      });
+    }
+
+    await notificationRepository.notifyAdminsSafely({
+      title: `New KYC Submission: ${business.name}`,
+      message: `${business.name} (${business.sector || 'General'}, ${business.province}) registered and awaits KYC verification.`,
+      category: 'subscription',
+      actionUrl: '/admin/businesses',
+      actionLabel: 'Review KYC',
+      severity: 'info',
+    });
 
     let updatedAccessToken: string | undefined;
     if (user && user.role === 'customer') {

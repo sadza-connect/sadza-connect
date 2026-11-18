@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { invoiceRepository } from '@/infrastructure/database/repositories/invoice-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -122,6 +123,25 @@ export async function POST(req: NextRequest) {
       } catch (subErr) {
         console.warn('Failed to update business subscription status on invoice creation:', subErr);
       }
+    }
+
+    let ownerUserId = user?.id || null;
+    if (targetBusinessId) {
+      const targetBiz = await businessRepository.findById(targetBusinessId);
+      if (targetBiz?.user_id) ownerUserId = targetBiz.user_id;
+    }
+
+    if (ownerUserId) {
+      const isPaid = (body.status || 'Paid') === 'Paid';
+      await notificationRepository.createSafely({
+        userId: ownerUserId,
+        title: isPaid ? `Invoice ${invoice.invoice_number} Settled` : `Invoice ${invoice.invoice_number} Issued`,
+        message: `${body.plan_type} ($${Number(body.amount_usd).toFixed(2)} USD via ${body.payment_method}) for ${body.business_name.trim()} is ${isPaid ? 'settled and active' : 'pending payment'}.`,
+        category: 'subscription',
+        actionUrl: '/dashboard/business',
+        actionLabel: 'View Billing',
+        severity: isPaid ? 'success' : 'warning',
+      });
     }
 
     return jsonResponse(

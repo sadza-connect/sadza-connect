@@ -132,6 +132,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (body.business_id) {
+      const supplierBiz = await businessRepository.findById(body.business_id);
+      if (supplierBiz?.user_id && supplierBiz.user_id !== user?.id) {
+        await notificationRepository.createSafely({
+          userId: supplierBiz.user_id,
+          title: `New Customer Order (${generatedOrderNum})`,
+          message: `${body.customer_name.trim()} placed an order ($${Number(body.total_usd).toFixed(2)}) assigned waybill ${generatedWaybill}.`,
+          category: 'order',
+          actionUrl: '/dashboard/business',
+          actionLabel: 'Manage Orders',
+          severity: 'success',
+        });
+      }
+    }
+
     return jsonResponse(
       {
         message: 'Order created and assigned logistics waybill successfully.',

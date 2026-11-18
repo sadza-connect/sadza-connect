@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { invoiceRepository } from '../database/repositories/invoice-repository';
+import { notificationRepository } from '../database/repositories/notification-repository';
 import { emailService } from '../messaging/email-service';
 import { logger } from '../../shared/logging/logger';
 
@@ -269,9 +270,9 @@ export class PaynowService {
       }
     }
 
-    // 3. Dispatch receipt email
-    if (isPaid && (sim?.email || payload.authemail)) {
-      const targetEmail = sim?.email || payload.authemail;
+    // 3. Dispatch receipt email & in-app payment notification
+    const targetEmail = sim?.email || payload.authemail;
+    if (isPaid && targetEmail) {
       try {
         await emailService.sendInvoiceReceiptEmail(targetEmail, {
           invoiceNumber: sim?.invoiceNumber || reference,
@@ -282,6 +283,19 @@ export class PaynowService {
       } catch (err) {
         logger.warn({ err }, 'Failed to dispatch payment receipt email');
       }
+    }
+
+    if (targetEmail) {
+      await notificationRepository.createForEmailSafely(targetEmail, {
+        title: isPaid ? `Payment Confirmed (${reference})` : `Payment Failed (${reference})`,
+        message: isPaid
+          ? `Your payment of $${(sim?.amount || Number(payload.amount) || 0).toFixed(2)} via ${sim?.paymentMethod || 'Paynow'} was confirmed (Ref: ${paynowReference}).`
+          : `Your payment attempt for ${reference} did not complete (Status: ${status}).`,
+        category: 'subscription',
+        actionUrl: '/dashboard/user',
+        actionLabel: isPaid ? 'View Account' : 'Retry Payment',
+        severity: isPaid ? 'success' : 'warning',
+      });
     }
 
     return {

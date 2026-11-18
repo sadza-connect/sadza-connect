@@ -10,6 +10,7 @@ import {
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
 import { sanitizeUser } from '@/shared/utils/sanitize-user';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,14 @@ export async function POST(req: NextRequest) {
 
     const body = await parseAndValidateBody(req, verifyEmailSchema);
     const { user, tokens } = await authService.verifyEmail(body.token);
+
+    await notificationRepository.createSafely({
+      userId: user.id,
+      title: 'Email Verified',
+      message: 'Your email address has been verified. Your account is now fully active.',
+      category: 'system',
+      severity: 'success',
+    });
 
     const response = jsonResponse(
       {

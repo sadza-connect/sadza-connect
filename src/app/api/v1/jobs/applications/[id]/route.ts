@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { jobRepository } from '@/infrastructure/database/repositories/job-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { storageService } from '@/infrastructure/storage/storage-service';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
@@ -56,6 +57,19 @@ export async function PATCH(
 
     const body = await parseAndValidateBody(req, updateStatusSchema);
     const updated = await jobRepository.updateApplicationStatus(id, body.status);
+
+    if (application.applicant_email) {
+      const severity =
+        body.status === 'Shortlisted' ? 'success' : body.status === 'Rejected' ? 'warning' : 'info';
+      await notificationRepository.createForEmailSafely(application.applicant_email, {
+        title: `Job Application ${body.status}`,
+        message: `Your application status for "${application.job_title || 'the position'}" has been updated to ${body.status}.`,
+        category: 'job',
+        actionUrl: '/dashboard/user',
+        actionLabel: 'View Applications',
+        severity,
+      });
+    }
 
     return jsonResponse(
       {

@@ -65,6 +65,15 @@ export async function POST(
       }
     }
 
+    await notificationRepository.createForEmailSafely(body.applicant_email, {
+      title: `Application Submitted: ${job.title}`,
+      message: `Your application and CV for "${job.title}" at ${job.company_name} have been received by the hiring team.`,
+      category: 'job',
+      actionUrl: '/dashboard/user',
+      actionLabel: 'View Applications',
+      severity: 'success',
+    });
+
     const hrPhone = job.whatsapp || '263773333444';
     const whatsappLink = `https://wa.me/${sanitizePhoneNumber(hrPhone)}?text=${encodeURIComponent(
       `Hello ${job.company_name}, I have submitted my formal application for the '${job.title}' position on Sadza Connect (Ref: APP-${application.id.slice(0, 8)}). My name is ${body.applicant_name}.`

@@ -7,6 +7,7 @@ import {
   parseAndValidateBody,
 } from '@/shared/utils/route-handler';
 import { propertyRepository } from '@/infrastructure/database/repositories/property-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import {
   NotFoundError,
   AuthorizationError,
@@ -186,6 +187,31 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       }
       const res = await propertyRepository.toggleFeatured(id, body.isFeatured);
       if (res) updated = res;
+    }
+
+    if (property.userId) {
+      if (updated.isVerified !== property.isVerified) {
+        await notificationRepository.createSafely({
+          userId: property.userId,
+          title: `Property ${updated.isVerified ? 'Verified' : 'Unverified'}`,
+          message: `"${property.title}" verification badge is now ${updated.isVerified ? 'active' : 'pending review'}.`,
+          category: 'system',
+          actionUrl: '/properties',
+          actionLabel: 'View Property',
+          severity: updated.isVerified ? 'success' : 'warning',
+        });
+      }
+      if (updated.isFeatured !== property.isFeatured && updated.isFeatured) {
+        await notificationRepository.createSafely({
+          userId: property.userId,
+          title: 'Property Featured on Homepage',
+          message: `"${property.title}" has been promoted to Featured status.`,
+          category: 'system',
+          actionUrl: '/properties',
+          actionLabel: 'View Property',
+          severity: 'success',
+        });
+      }
     }
 
     return jsonResponse({ property: updated, message: 'Property status updated successfully.' }, requestId, 200);

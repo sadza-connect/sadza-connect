@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { orderRepository } from '@/infrastructure/database/repositories/order-repository';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { mapDbOrderToAdminOrderItem } from '@/lib/data/order-mapper';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
@@ -108,6 +109,20 @@ export async function PATCH(
 
     const body = await parseAndValidateBody(req, updateOrderSchema);
     const updated = await orderRepository.update(order.id, body);
+
+    if (order.user_id && body.status && body.status !== order.status) {
+      const severity =
+        body.status === 'Delivered' ? 'success' : body.status === 'Cancelled' ? 'warning' : 'info';
+      await notificationRepository.createSafely({
+        userId: order.user_id,
+        title: `Order ${order.order_number}: ${body.status}`,
+        message: `Your order with ${order.business_name || 'your supplier'} (Waybill ${updated.waybill_number || order.waybill_number}) is now ${body.status}.`,
+        category: 'order',
+        actionUrl: '/dashboard/user',
+        actionLabel: 'Track Order',
+        severity,
+      });
+    }
 
     return jsonResponse(
       {

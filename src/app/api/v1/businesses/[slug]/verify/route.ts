@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
+import { notificationRepository } from '@/infrastructure/database/repositories/notification-repository';
 import { getAuthenticatedUser } from '@/shared/utils/auth-session';
 import {
   jsonResponse,
@@ -42,6 +43,27 @@ export async function POST(
     const body = await parseAndValidateBody(req, verifySchema);
 
     const updated = await businessRepository.verify(existing.id, body.status, body.reason);
+
+    if (existing.user_id) {
+      const severity =
+        body.status === 'Verified' ? 'success' : body.status === 'Rejected' ? 'urgent' : 'info';
+      const msg =
+        body.status === 'Verified'
+          ? `Congratulations! ${existing.name} passed KYC verification and now displays the Verified badge across MySadza Connect.`
+          : body.status === 'Rejected'
+          ? `KYC verification for ${existing.name} requires updates${body.reason ? `: ${body.reason}` : '.'}`
+          : `KYC review status for ${existing.name} is now Pending administrative verification.`;
+
+      await notificationRepository.createSafely({
+        userId: existing.user_id,
+        title: `${existing.name}: KYC ${body.status}`,
+        message: msg,
+        category: 'subscription',
+        actionUrl: '/dashboard/business',
+        actionLabel: 'Open Business Studio',
+        severity,
+      });
+    }
 
     return jsonResponse(
       {
