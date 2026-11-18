@@ -78,6 +78,8 @@ function LoginForm() {
       google_state_invalid: 'Google Sign-In session expired. Please try again.',
       google_email_unverified: 'Your Google account email is not verified. Please verify your email with Google first.',
       google_auth_failed: 'Unable to complete Google Sign-In. Please try again or sign in with email and password.',
+      google_account_suspended:
+        'This account has been suspended. Please contact support for assistance.',
       google_token_exchange_failed: 'Could not verify authorization with Google. Please try again.',
       google_profile_failed: 'Could not retrieve your Google profile details. Please try again.',
     };

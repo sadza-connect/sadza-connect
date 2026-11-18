@@ -94,21 +94,23 @@ export class UserRepository {
     return row ? rowToUser(row) : null;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
+  async findByEmail(email: string, includeDeleted = false): Promise<User | null> {
     const normalized = email.trim().toLowerCase();
-    const row = await this.db<UserRow>('users')
-      .whereRaw('LOWER(email) = ?', [normalized])
-      .whereNull('deleted_at')
-      .first();
+    let query = this.db<UserRow>('users').whereRaw('LOWER(email) = ?', [normalized]);
+    if (!includeDeleted) {
+      query = query.whereNull('deleted_at');
+    }
+    const row = await query.first();
 
     return row ? rowToUser(row) : null;
   }
 
-  async findByGoogleId(googleId: string): Promise<User | null> {
-    const row = await this.db<UserRow>('users')
-      .where({ google_id: googleId })
-      .whereNull('deleted_at')
-      .first();
+  async findByGoogleId(googleId: string, includeDeleted = false): Promise<User | null> {
+    let query = this.db<UserRow>('users').where({ google_id: googleId });
+    if (!includeDeleted) {
+      query = query.whereNull('deleted_at');
+    }
+    const row = await query.first();
 
     return row ? rowToUser(row) : null;
   }
@@ -162,6 +164,7 @@ export class UserRepository {
       .where({ id: user.id })
       .update({
         ...row,
+        deleted_at: user.deletedAt ? user.deletedAt.toISOString() : null,
         updated_at: new Date().toISOString(),
       })
       .returning('*');

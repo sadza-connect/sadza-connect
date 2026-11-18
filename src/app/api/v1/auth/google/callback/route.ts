@@ -3,6 +3,8 @@ import { AuthService } from '@/application/auth/auth-service';
 import { businessRepository } from '@/infrastructure/database/repositories/business-repository';
 import { getClientIp } from '@/shared/utils/route-handler';
 import { env } from '@/config/env';
+import { logger } from '@/shared/logging/logger';
+import { AuthenticationError } from '@/shared/errors/AppError';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -170,7 +172,10 @@ export async function GET(req: NextRequest) {
     });
 
     return response;
-  } catch {
-    return redirectWithError(origin, source, 'google_auth_failed', requestedType);
+  } catch (err) {
+    logger.error({ err, source, requestedType }, '[GOOGLE OAUTH] Callback authentication error');
+    const code =
+      err instanceof AuthenticationError ? 'google_account_suspended' : 'google_auth_failed';
+    return redirectWithError(origin, source, code, requestedType);
   }
 }

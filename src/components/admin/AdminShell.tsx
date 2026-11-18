@@ -204,10 +204,10 @@ export function AdminShell({
             </Link>
 
             <Link
-              href="/admin/messages"
+              href="/notifications"
               className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[#374966] hover:bg-[#e6eaf1]"
               aria-label="Notifications"
-              title="Messages & Notifications"
+              title="Notifications"
             >
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#1e57eb] ring-2 ring-white" />

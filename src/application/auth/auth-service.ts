@@ -172,17 +172,25 @@ export class AuthService {
     ipAddress?: string;
   }): Promise<AuthResult & { isNewUser: boolean }> {
     const normalizedEmail = params.email.trim().toLowerCase();
+    const safeAvatar = params.avatarUrl?.trim().slice(0, 512) || undefined;
+    const rawName = (params.fullName || normalizedEmail.split('@')[0] || 'MySadza User').trim();
+    const safeName = (rawName.length < 2 ? `${rawName} User` : rawName).slice(0, 100);
     let isNewUser = false;
 
-    let user = await this.userRepo.findByGoogleId(params.googleId);
+    let user = await this.userRepo.findByGoogleId(params.googleId, true);
 
     if (!user) {
-      const existingByEmail = await this.userRepo.findByEmail(normalizedEmail);
+      const existingByEmail = await this.userRepo.findByEmail(normalizedEmail, true);
       if (existingByEmail) {
+        if (existingByEmail.accountStatus === AccountStatus.SUSPENDED) {
+          throw new AuthenticationError('This account has been deactivated or suspended');
+        }
         user = await this.userRepo.update(
-          existingByEmail.withGoogleAccount(params.googleId, params.avatarUrl),
+          existingByEmail.withGoogleAccount(params.googleId, safeAvatar),
         );
       }
+    } else if (user.deletedAt && user.accountStatus !== AccountStatus.SUSPENDED) {
+      user = await this.userRepo.update(user.withGoogleAccount(params.googleId, safeAvatar));
     }
 
     if (!user) {
@@ -192,11 +200,11 @@ export class AuthService {
         id: randomUUID(),
         accountType: isBusiness ? 'business' : 'personal',
         role: isBusiness ? UserRole.MERCHANT : UserRole.CUSTOMER,
-        fullName: params.fullName.trim() || normalizedEmail.split('@')[0] || 'Sadza User',
+        fullName: safeName,
         email: Email.create(normalizedEmail),
         googleId: params.googleId,
         authProvider: 'google',
-        avatarUrl: params.avatarUrl,
+        avatarUrl: safeAvatar,
         accountStatus: AccountStatus.ACTIVE,
         isVerified: true,
       });
@@ -211,8 +219,8 @@ export class AuthService {
     const tokens = await this.generateTokens(
       user,
       undefined,
-      params.deviceFingerprint,
-      params.ipAddress,
+      params.deviceFingerprint?.slice(0, 255),
+      params.ipAddress?.slice(0, 45),
     );
 
     return { user, tokens, isNewUser };

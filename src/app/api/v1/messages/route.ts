@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       message: `${body.name} (${body.email}) sent a "${body.topic}" inquiry.`,
       category: 'system',
       severity: 'info',
-      actionUrl: '/admin/messages',
-      actionLabel: 'View Inbox',
+      actionUrl: '/admin',
+      actionLabel: 'View Dashboard',
     });
 
     return jsonResponse(

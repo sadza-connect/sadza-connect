@@ -13,10 +13,17 @@ import {
   Megaphone,
   ReceiptText,
   IdCard,
-  MessageSquare,
   Home,
   Compass,
   Briefcase,
+  Clock,
+  ShoppingCart,
+  FileEdit,
+  CreditCard,
+  RefreshCw,
+  FileSpreadsheet,
+  ShieldAlert,
+  Mail,
 } from 'lucide-react';
 import {
   AdminPageHeader,
@@ -804,14 +811,8 @@ export default function AdminOverviewPage() {
         <div className="flex items-center justify-between p-5 sm:p-6">
           <PanelHeading
             title="Recent Customer Enquiries & KYC Actions"
-            hint="Latest inbound quote requests, advert bookings, and verification submissions"
+            hint="Latest inbound quote requests, advert bookings, and contact form submissions"
           />
-          <Link
-            href="/admin/messages"
-            className="inline-flex items-center gap-1 text-xs font-bold text-[#1e57eb] hover:text-[#1743d4]"
-          >
-            Open Messages Inbox <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
         </div>
         {isLoading ? (
           <div className="p-6 space-y-3.5 animate-pulse">
@@ -831,7 +832,7 @@ export default function AdminOverviewPage() {
           <div className="py-12 px-6 text-center">
             <p className="text-sm font-semibold text-[#0a1018]">No Inbound Enquiries Yet</p>
             <p className="mt-1 text-xs text-[#6b81a5]">
-              New customer quote requests and KYC messages will appear here as soon as they are received.
+              New customer quote requests and contact submissions will appear here as soon as they are received.
             </p>
           </div>
         ) : (
@@ -867,12 +868,12 @@ export default function AdminOverviewPage() {
                     </td>
                     <td className="px-4 py-3.5 text-xs text-[#6b81a5]">{msg.receivedAt}</td>
                     <td className="px-5 py-3.5 text-right sm:px-6">
-                      <Link
-                        href="/admin/messages"
+                      <a
+                        href={`mailto:${msg.email}?subject=${encodeURIComponent(`Re: ${msg.company}`)}`}
                         className="inline-flex items-center gap-1 rounded-lg border border-[#c8d2e0] bg-white px-2.5 py-1 text-xs font-semibold text-[#1f2a3d] hover:border-[#1e57eb] hover:text-[#1e57eb]"
                       >
-                        <MessageSquare className="h-3.5 w-3.5" /> Reply
-                      </Link>
+                        <Mail className="h-3.5 w-3.5" /> Email
+                      </a>
                     </td>
                   </tr>
                 ))}
@@ -880,6 +881,118 @@ export default function AdminOverviewPage() {
             </table>
           </div>
         )}
+      </Panel>
+
+      {/* Uncompleted & Phase 2 Roadmap (Coming Soon) */}
+      <Panel>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+          <PanelHeading
+            title="Upcoming Platform Modules (Coming Soon)"
+            hint="Features scoped for Phase 2 or awaiting production gateway credentials"
+          />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800">
+            <Clock className="h-3.5 w-3.5 text-amber-600" />
+            Phase 2 Roadmap Tracker
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              title: 'ZESA & Utilities Settlement Console',
+              desc: 'Live ZETDC & municipal billing gateway and admin receipt reconciliation ledger (public terminal currently runs simulated tokens).',
+              href: '/admin/bill-payments',
+              icon: ReceiptText,
+              tag: 'Admin Module',
+            },
+            {
+              title: 'Orders & Buyer-Protection Escrow',
+              desc: 'Multi-vendor cart checkout, courier waybill tracking, and EcoCash escrow hold until dispatch. V1 uses direct WhatsApp trade.',
+              href: '/admin/orders',
+              icon: ShoppingCart,
+              tag: 'Admin Module',
+            },
+            {
+              title: 'Digital & PVC ID Cards Studio',
+              desc: 'Admin issuance studio, QR verification management, and printable corporate/member PVC badge templates.',
+              href: '/admin/id-cards',
+              icon: IdCard,
+              tag: 'Admin Module',
+            },
+            {
+              title: 'Editorial Content & Multi-Language CMS',
+              desc: 'Visual rich-text page editor, scheduled banners, and English / Shona / Ndebele localization controls.',
+              href: '/admin/content',
+              icon: FileEdit,
+              tag: 'Admin Module',
+            },
+            {
+              title: 'Live Paynow Zimbabwe & Verified Domain',
+              desc: 'Switch checkout & subscriptions from staging simulation to live Paynow EcoCash/InnBucks/Card keys and verified @sadzaconnect.co.zw email.',
+              href: '/admin/settings',
+              icon: CreditCard,
+              tag: 'Production Keys',
+            },
+            {
+              title: 'Events & Expos Database Migration',
+              desc: 'Move the /events directory from local browser storage into a dedicated PostgreSQL table and admin CRUD console.',
+              href: '/events',
+              icon: Calendar,
+              tag: 'Database Sync',
+            },
+            {
+              title: 'Automated RBZ USD/ZiG Rate Sync',
+              desc: 'Scheduled daily ingestion of official Reserve Bank of Zimbabwe exchange rates instead of manual topbar updates.',
+              href: '/admin/settings',
+              icon: RefreshCw,
+              tag: 'Automation',
+            },
+            {
+              title: 'ZIMRA PDF Tax Invoices & Receipts',
+              desc: 'Generate downloadable PDF invoices and VAT-compliant payment receipts directly from checkout and business billing.',
+              href: '/checkout',
+              icon: FileSpreadsheet,
+              tag: 'Billing',
+            },
+            {
+              title: 'WhatsApp Bot & Anti-Scraping Limits',
+              desc: 'WhatsApp Business Cloud API automated order alerts and global rate-limiting on public directory endpoints.',
+              href: '/admin/analytics',
+              icon: ShieldAlert,
+              tag: 'Growth & Security',
+            },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.title}
+                href={item.href}
+                className="group flex flex-col justify-between rounded-2xl border border-[#c8d2e0]/80 bg-[#f8fafc] p-4 transition-all hover:border-amber-400 hover:bg-white hover:shadow-sm"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-[#c8d2e0]/70 text-[#465a7e] group-hover:text-[#1e57eb]">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                      Coming Soon
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs font-bold text-[#0a1018] group-hover:text-[#1e57eb]">
+                    {item.title}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[#6b81a5]">
+                    {item.desc}
+                  </p>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[10px] font-semibold text-[#6b81a5]">
+                  <span>{item.tag}</span>
+                  <ArrowUpRight className="h-3.5 w-3.5 text-[#9aabc4] group-hover:text-[#1e57eb]" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </Panel>
     </div>
   );

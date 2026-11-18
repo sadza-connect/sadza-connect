@@ -119,11 +119,17 @@ export class User {
   }
 
   withGoogleAccount(googleId: string, avatarUrl?: string): User {
+    const safeAvatar = (this.avatarUrl || avatarUrl)?.trim().slice(0, 512);
     return new User({
       ...this.toParams(),
       googleId,
+      accountStatus:
+        this.accountStatus === AccountStatus.SUSPENDED
+          ? AccountStatus.SUSPENDED
+          : AccountStatus.ACTIVE,
       isVerified: true,
-      avatarUrl: this.avatarUrl || avatarUrl,
+      avatarUrl: safeAvatar,
+      deletedAt: undefined,
       updatedAt: new Date(),
     });
   }

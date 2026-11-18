@@ -10,7 +10,8 @@ import {
   Compass,
   ReceiptText,
   IdCard,
-  MessageSquare,
+  ShoppingCart,
+  FileEdit,
   Users,
   Settings,
 } from 'lucide-react';
@@ -34,9 +35,10 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { label: 'Users & Accounts', href: '/admin/users', icon: Users },
   { label: 'System Settings', href: '/admin/settings', icon: Settings },
-  // Phase 2 Modules (On Hold)
+  // Phase 2 Modules (Coming Soon)
   { label: 'Bill Payments (ZESA)', href: '/admin/bill-payments', icon: ReceiptText, comingSoon: true },
+  { label: 'Orders & Escrow', href: '/admin/orders', icon: ShoppingCart, comingSoon: true },
   { label: 'ID Cards', href: '/admin/id-cards', icon: IdCard, comingSoon: true },
-  { label: 'Messages & Chat', href: '/admin/messages', icon: MessageSquare, comingSoon: true },
+  { label: 'Content & CMS', href: '/admin/content', icon: FileEdit, comingSoon: true },
 ];
 
