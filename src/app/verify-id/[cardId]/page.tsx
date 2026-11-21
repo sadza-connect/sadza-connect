@@ -5,18 +5,17 @@ import {
   CheckCircle2,
   AlertTriangle,
   Building2,
-  Calendar,
-  CreditCard,
-  QrCode,
   ArrowLeft,
   Lock,
   User,
 } from 'lucide-react';
 import { idCardRepository } from '@/infrastructure/database/repositories/id-card-repository';
+import { settingsRepository } from '@/infrastructure/database/repositories/settings-repository';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export default async function VerifyIdPage({
   params,
@@ -33,6 +32,15 @@ export default async function VerifyIdPage({
   if (!card) {
     card = await idCardRepository.findByCardNumber(cardId);
   }
+
+  const platformSettings = await settingsRepository.getSettings().catch(() => null);
+  const extra = platformSettings?.extra_config || {};
+  const customProfile = extra.profile_configured ? extra.profile : null;
+  const companyName = customProfile?.name?.trim() || 'MySadza Connect';
+  const cr14Number = customProfile?.cr14Number?.trim() || '';
+  const zimraTin = customProfile?.zimraTin?.trim() || '';
+  const companyLogoUrl = customProfile?.logoAsset?.[0]?.src || '';
+  const registrarSignatureUrl = customProfile?.signatureAsset?.[0]?.src || '';
 
   const issueDateStr = card?.issue_date
     ? new Date(card.issue_date).toLocaleDateString('en-GB')
@@ -51,26 +59,36 @@ export default async function VerifyIdPage({
             href="/"
             className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white mb-6"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Sadza Connect
+            <ArrowLeft className="w-4 h-4" /> Back to {companyName}
           </Link>
 
           {card ? (
             <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xl space-y-6">
               {/* Verification Header */}
               <div className="text-center pb-6 border-b border-slate-100 dark:border-slate-800">
-                <div
-                  className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-3 ${
-                    card.status === 'Active'
-                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
-                      : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600'
-                  }`}
-                >
-                  {card.status === 'Active' ? (
-                    <ShieldCheck className="w-9 h-9" />
-                  ) : (
-                    <AlertTriangle className="w-9 h-9" />
-                  )}
-                </div>
+                {companyLogoUrl ? (
+                  <div className="mx-auto w-20 h-20 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white p-2 flex items-center justify-center mb-3 shadow-xs overflow-hidden">
+                    <img
+                      src={companyLogoUrl}
+                      alt={`${companyName} Official Logo`}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-3 ${
+                      card.status === 'Active'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
+                        : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600'
+                    }`}
+                  >
+                    {card.status === 'Active' ? (
+                      <ShieldCheck className="w-9 h-9" />
+                    ) : (
+                      <AlertTriangle className="w-9 h-9" />
+                    )}
+                  </div>
+                )}
 
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 mb-2">
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -82,11 +100,18 @@ export default async function VerifyIdPage({
                 </div>
 
                 <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-                  Sadza Connect PVC Badge
+                  {companyName} PVC Badge
                 </h1>
                 <p className="text-xs text-slate-500 mt-1 font-mono">
                   Registry Card #{card.card_number}
                 </p>
+                {(cr14Number || zimraTin) && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {[cr14Number ? `CR14: ${cr14Number}` : '', zimraTin ? `ZIMRA TIN: ${zimraTin}` : '']
+                      .filter(Boolean)
+                      .join(' • ')}
+                  </p>
+                )}
               </div>
 
               {/* Member Profile Dossier */}
@@ -149,14 +174,34 @@ export default async function VerifyIdPage({
                 </div>
               </div>
 
-              {/* Official Assurance */}
-              <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-1">
-                <p className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" /> Official Zimbabwe Commercial Verification
-                </p>
-                <p>
-                  This QR code certifies that {card.member_name} is an active, authorized commercial representative of {card.business_name} registered in good standing on Sadza Connect.
-                </p>
+              {/* Official Assurance & Authorized Registrar Signature */}
+              <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-3">
+                <div>
+                  <p className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5" /> Official Zimbabwe Commercial Verification
+                  </p>
+                  <p className="mt-1">
+                    This QR code certifies that {card.member_name} is an active, authorized commercial representative of {card.business_name} registered in good standing on {companyName}.
+                  </p>
+                </div>
+
+                {registrarSignatureUrl && (
+                  <div className="pt-3 border-t border-emerald-200/70 dark:border-emerald-800/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
+                        Authorized Registrar Signature
+                      </span>
+                      <span className="text-[11px] text-slate-500">{companyName} Registry</span>
+                    </div>
+                    <div className="h-12 px-3 py-1 rounded-lg bg-white border border-emerald-200 flex items-center justify-center">
+                      <img
+                        src={registrarSignatureUrl}
+                        alt="Authorized Registrar Signature"
+                        className="max-h-10 w-auto object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

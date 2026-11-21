@@ -1,16 +1,25 @@
 import { CLEAN_PROVINCES } from './advertsStore';
 
+export type TourismMainCategory =
+  | 'Accommodation & Lodging'
+  | 'Tour Operators & Travel Agencies'
+  | 'Attractions & Tourist Destinations'
+  | 'Restaurants, Food & Dining'
+  | 'Adventures & Outdoor Activities'
+  | 'Tourism Transport & Transfers'
+  | 'Wellness, Leisure & Recreation'
+  | 'Lodges & Safari Camps'
+  | 'Bed & Breakfast (BnB)'
+  | 'Hotels & Resorts'
+  | 'Self-Catering Cottages & Chalets'
+  | 'Houseboats & Lake Stays'
+  | 'Camping & Eco-Resorts';
+
 export interface TourismListing {
   id: string;
   name: string;
   slug: string;
-  category:
-    | 'Lodges & Safari Camps'
-    | 'Bed & Breakfast (BnB)'
-    | 'Hotels & Resorts'
-    | 'Self-Catering Cottages & Chalets'
-    | 'Houseboats & Lake Stays'
-    | 'Camping & Eco-Resorts';
+  category: TourismMainCategory;
   destinationArea: string; // e.g. "Victoria Falls", "Nyanga", "Kariba", "Harare North", "Matobo Hills"
   province: string;
   city: string;
@@ -22,7 +31,15 @@ export interface TourismListing {
   description: string;
   images: string[];
   hostName: string;
-  hostType: 'Hotel / Resort Group' | 'Safari Lodge Operator' | 'Private BnB Host' | 'Guesthouse Manager';
+  hostType:
+    | 'Hotel / Resort Group'
+    | 'Safari Lodge Operator'
+    | 'Private BnB Host'
+    | 'Guesthouse Manager'
+    | 'Tour & Travel Operator'
+    | 'Restaurant & Dining Venue'
+    | 'Transport & Transfer Provider'
+    | 'Wellness & Leisure Hub';
   isVerified: boolean;
   isFeatured: boolean;
   whatsapp: string;
@@ -35,13 +52,29 @@ export interface TourismListing {
 
 export const TOURISM_CATEGORIES = [
   'All Categories',
-  'Lodges & Safari Camps',
-  'Bed & Breakfast (BnB)',
-  'Hotels & Resorts',
-  'Self-Catering Cottages & Chalets',
-  'Houseboats & Lake Stays',
-  'Camping & Eco-Resorts',
+  'Accommodation & Lodging',
+  'Tour Operators & Travel Agencies',
+  'Attractions & Tourist Destinations',
+  'Restaurants, Food & Dining',
+  'Adventures & Outdoor Activities',
+  'Tourism Transport & Transfers',
+  'Wellness, Leisure & Recreation',
 ] as const;
+
+export function normalizeTourismCategory(cat: string): string {
+  const legacyAccommodation = [
+    'Lodges & Safari Camps',
+    'Bed & Breakfast (BnB)',
+    'Hotels & Resorts',
+    'Self-Catering Cottages & Chalets',
+    'Houseboats & Lake Stays',
+    'Camping & Eco-Resorts',
+  ];
+  if (legacyAccommodation.includes(cat)) {
+    return 'Accommodation & Lodging';
+  }
+  return cat;
+}
 
 export const TOURISM_DESTINATIONS = [
   'All Destinations',
@@ -61,7 +94,7 @@ export const DEFAULT_TOURISMS: TourismListing[] = [
     id: 'tour-1',
     name: 'Zambezi Sunset Safari Lodge & River Chalets',
     slug: 'zambezi-sunset-safari-lodge-victoria-falls',
-    category: 'Lodges & Safari Camps',
+    category: 'Accommodation & Lodging',
     destinationArea: 'Victoria Falls',
     province: 'Matabeleland North',
     city: 'Victoria Falls',
@@ -98,7 +131,7 @@ export const DEFAULT_TOURISMS: TourismListing[] = [
     id: 'tour-2',
     name: 'Troutbeck Mist Mountain Chalets & Trout Lodge',
     slug: 'troutbeck-mist-mountain-chalets-nyanga',
-    category: 'Self-Catering Cottages & Chalets',
+    category: 'Accommodation & Lodging',
     destinationArea: 'Nyanga & Eastern Highlands',
     province: 'Manicaland',
     city: 'Nyanga',

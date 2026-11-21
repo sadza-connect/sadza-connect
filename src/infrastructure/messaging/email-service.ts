@@ -138,6 +138,40 @@ export class EmailService {
     });
   }
 
+  async sendTwoFactorLoginEmail(to: string, otp: string, fullName?: string): Promise<void> {
+    logger.info({ to, otp }, '[AUTH] Dispatched 2FA login verification OTP');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n' + '='.repeat(70));
+      console.log(`🔐 [MYSADZA 2FA LOGIN OTP] Security Code for: ${to}`);
+      console.log(`👉 6-DIGIT 2FA PIN: ${otp}`);
+      console.log('='.repeat(70) + '\n');
+    }
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0a1018 0%, #1e57eb 100%); padding: 28px 24px; text-align: center; color: #ffffff;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">MYSADZA CONNECT SECURITY</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; color: #93c5fd;">Two-Factor Authentication (2FA) Sign-In Code</p>
+        </div>
+        <div style="padding: 28px 24px;">
+          <p style="font-size: 14px; color: #0f172a; margin-top: 0;">Hello${fullName ? ` <strong>${fullName}</strong>` : ''},</p>
+          <p style="font-size: 14px; color: #475569; line-height: 1.6;">A sign-in attempt to your MySadza Connect account requires Two-Factor Authentication. Enter the 6-digit verification code below to complete your sign-in:</p>
+          <div style="background: #f8fafc; border: 2px dashed #1e57eb; border-radius: 12px; padding: 22px; text-align: center; margin: 22px 0;">
+            <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 700; color: #64748b; letter-spacing: 1px; text-transform: uppercase;">Your 6-Digit 2FA Code</p>
+            <p style="margin: 0; font-size: 28px; font-weight: 900; letter-spacing: 6px; color: #0f172a; font-family: monospace;">${otp}</p>
+          </div>
+          <p style="font-size: 12px; color: #64748b; line-height: 1.5;">This security code expires in <strong>10 minutes</strong>. If you did not attempt to sign in, please change your password immediately.</p>
+        </div>
+      </div>
+    `;
+    const text = `MySadza Connect Two-Factor Authentication Code: ${otp}. This code expires in 10 minutes.`;
+    await this.sendEmail({
+      to,
+      subject: `${otp} is your MySadza Connect 2FA Sign-In Code`,
+      html,
+      text,
+    });
+  }
+
   async sendInvoiceReceiptEmail(
     to: string,
     invoice: {

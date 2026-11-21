@@ -18,6 +18,13 @@ const updateTourismSchema = z.object({
   name: z.string().min(2).optional(),
   category: z
     .enum([
+      'Accommodation & Lodging',
+      'Tour Operators & Travel Agencies',
+      'Attractions & Tourist Destinations',
+      'Restaurants, Food & Dining',
+      'Adventures & Outdoor Activities',
+      'Tourism Transport & Transfers',
+      'Wellness, Leisure & Recreation',
       'Lodges & Safari Camps',
       'Bed & Breakfast (BnB)',
       'Hotels & Resorts',
@@ -43,6 +50,10 @@ const updateTourismSchema = z.object({
       'Safari Lodge Operator',
       'Private BnB Host',
       'Guesthouse Manager',
+      'Tour & Travel Operator',
+      'Restaurant & Dining Venue',
+      'Transport & Transfer Provider',
+      'Wellness & Leisure Hub',
     ])
     .optional(),
   isVerified: z.boolean().optional(),

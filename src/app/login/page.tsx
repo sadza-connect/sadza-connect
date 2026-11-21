@@ -63,6 +63,13 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Two-Factor Authentication (2FA) challenge state
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorEmail, setTwoFactorEmail] = useState('');
+  const [twoFactorSuccessMsg, setTwoFactorSuccessMsg] = useState('');
+  const [isResendingTwoFactor, setIsResendingTwoFactor] = useState(false);
+
   // Email verification modal state
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyEmailAddress, setVerifyEmailAddress] = useState('');
@@ -92,6 +99,7 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setTwoFactorSuccessMsg('');
 
     if (!identifier.trim()) {
       setErrorMessage('Please enter your registered email address.');
@@ -102,6 +110,11 @@ function LoginForm() {
       return;
     }
 
+    if (requiresTwoFactor && twoFactorCode.trim().length !== 6) {
+      setErrorMessage('Please enter the 6-digit Two-Factor Authentication code sent to your email.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -109,7 +122,11 @@ function LoginForm() {
       const result = await safeFetchJson(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim(), password }),
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          password,
+          ...(requiresTwoFactor ? { twoFactorCode: twoFactorCode.trim() } : {}),
+        }),
       });
 
       if (!result.ok) {
@@ -117,6 +134,16 @@ function LoginForm() {
       }
 
       const data = result.data;
+
+      if (data?.data?.requiresTwoFactor) {
+        setRequiresTwoFactor(true);
+        setTwoFactorEmail(data.data.email || identifier.trim());
+        setTwoFactorCode('');
+        setTwoFactorSuccessMsg(
+          data.data.message || 'A 6-digit Two-Factor Authentication code has been sent to your email.'
+        );
+        return;
+      }
 
       if (data?.data?.accessToken) {
         login({
@@ -158,6 +185,33 @@ function LoginForm() {
     }
   };
 
+  const handleResendTwoFactor = async () => {
+    setErrorMessage('');
+    setTwoFactorSuccessMsg('');
+    setIsResendingTwoFactor(true);
+    try {
+      const apiUrl = getApiBaseUrl();
+      const result = await safeFetchJson(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          password,
+          resendTwoFactor: true,
+        }),
+      });
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to resend 2FA code.');
+      }
+      setTwoFactorCode('');
+      setTwoFactorSuccessMsg('A new 6-digit 2FA security code has been dispatched to your email.');
+    } catch (err: any) {
+      setErrorMessage(formatLoginError(err?.message));
+    } finally {
+      setIsResendingTwoFactor(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between transition-colors duration-300">
       {/* Top navigation */}
@@ -192,10 +246,12 @@ function LoginForm() {
             {/* Header */}
             <div className="mb-5">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Sign in to your account
+                {requiresTwoFactor ? 'Two-Factor Authentication' : 'Sign in to your account'}
               </h2>
               <p className="mt-1.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Sign in instantly with Google or use your registered email and password.
+                {requiresTwoFactor
+                  ? `Enter the 6-digit security verification code sent to ${twoFactorEmail || identifier}.`
+                  : 'Sign in instantly with Google or use your registered email and password.'}
               </p>
             </div>
 
@@ -206,125 +262,194 @@ function LoginForm() {
               </div>
             )}
 
-            {/* 1-Click Google Sign-In */}
-            <div className="mb-4">
-              <GoogleAuthButton
-                mode="login"
-                redirect={searchParams.get('redirect') || undefined}
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="relative my-5 flex items-center">
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
-              <span className="mx-3 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                or sign in with email
-              </span>
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Email Address Input */}
-              <div>
-                <label htmlFor="identifier" className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
-                  Email address
-                </label>
-                <div className="relative flex items-center group">
-                  <MailIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 dark:text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-                  <input
-                    id="identifier"
-                    name="identifier"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="you@company.co.zw"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
-                  />
-                </div>
+            {twoFactorSuccessMsg && !errorMessage && (
+              <div className="mb-4 rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                <CheckCircleIcon className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>{twoFactorSuccessMsg}</span>
               </div>
+            )}
 
-              {/* Password Input */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label htmlFor="current-password" className="block text-xs font-semibold text-slate-800 dark:text-slate-100">
-                    Password
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline transition-colors"
+            {requiresTwoFactor ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="two-factor-code"
+                    className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5"
                   >
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative flex items-center group">
-                  <LockIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 dark:text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    6-Digit Security Code
+                  </label>
                   <input
-                    id="current-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    id="two-factor-code"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
                     required
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
+                    autoFocus
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-3 px-4 text-center text-xl font-bold tracking-[0.45em] text-slate-900 dark:text-white placeholder:text-slate-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/25"
                   />
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  fullWidth
+                  loading={isLoading}
+                  className="mt-2 text-xs font-semibold py-3 rounded-xl shadow-emerald"
+                >
+                  <span>Verify 2FA Code &amp; Sign In</span>
+                  <ArrowRightIcon className="h-4 w-4" />
+                </Button>
+
+                <div className="flex items-center justify-between pt-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    disabled={isResendingTwoFactor || isLoading}
+                    onClick={handleResendTwoFactor}
+                    className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 cursor-pointer"
                   >
-                    {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                    {isResendingTwoFactor ? 'Sending new code...' : 'Resend 6-digit code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequiresTwoFactor(false);
+                      setTwoFactorCode('');
+                      setTwoFactorSuccessMsg('');
+                      setErrorMessage('');
+                    }}
+                    className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    &larr; Use a different account
                   </button>
                 </div>
-              </div>
-
-              {/* Keep me signed in */}
-              <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 dark:bg-slate-950"
+              </form>
+            ) : (
+              <>
+                {/* 1-Click Google Sign-In */}
+                <div className="mb-4">
+                  <GoogleAuthButton
+                    mode="login"
+                    redirect={searchParams.get('redirect') || undefined}
+                    disabled={isLoading}
                   />
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Keep me signed in on this device
+                </div>
+
+                <div className="relative my-5 flex items-center">
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+                  <span className="mx-3 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    or sign in with email
                   </span>
-                </label>
-              </div>
+                  <div className="flex-grow border-t border-slate-200 dark:border-slate-800" />
+                </div>
 
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                fullWidth
-                loading={isLoading}
-                className="mt-4 text-xs font-semibold py-3 rounded-xl shadow-emerald"
-              >
-                <span>Sign in</span>
-                <ArrowRightIcon className="h-4 w-4" />
-              </Button>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Email Address Input */}
+                  <div>
+                    <label htmlFor="identifier" className="block text-xs font-semibold text-slate-800 dark:text-slate-100 mb-1.5">
+                      Email address
+                    </label>
+                    <div className="relative flex items-center group">
+                      <MailIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 dark:text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <input
+                        id="identifier"
+                        name="identifier"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        inputMode="email"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        placeholder="you@company.co.zw"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-3.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
 
-              <div className="mt-3 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVerifyEmailAddress(identifier.includes('@') ? identifier.trim() : '');
-                    setShowVerifyModal(true);
-                  }}
-                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-                >
-                  Received a code? <span className="font-semibold text-emerald-600 dark:text-emerald-400 underline">Enter 6-digit PIN</span>
-                </button>
-              </div>
-            </form>
+                  {/* Password Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label htmlFor="current-password" className="block text-xs font-semibold text-slate-800 dark:text-slate-100">
+                        Password
+                      </label>
+                      <Link
+                        href="/forgot-password"
+                        className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline transition-colors"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <div className="relative flex items-center group">
+                      <LockIcon className="pointer-events-none absolute left-3.5 h-4 w-4 text-slate-400 dark:text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <input
+                        id="current-password"
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/90 py-2.5 pl-10 pr-10 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 dark:focus:ring-emerald-400/25 focus:bg-white dark:focus:bg-slate-900 transition-all font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Keep me signed in */}
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 dark:bg-slate-950"
+                      />
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        Keep me signed in on this device
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    fullWidth
+                    loading={isLoading}
+                    className="mt-4 text-xs font-semibold py-3 rounded-xl shadow-emerald"
+                  >
+                    <span>Sign in</span>
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </Button>
+
+                  <div className="mt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerifyEmailAddress(identifier.includes('@') ? identifier.trim() : '');
+                        setShowVerifyModal(true);
+                      }}
+                      className="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                    >
+                      Received a code? <span className="font-semibold text-emerald-600 dark:text-emerald-400 underline">Enter 6-digit PIN</span>
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
 
             {/* Registration Navigation Link */}
             <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-600 dark:text-slate-400">

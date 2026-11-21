@@ -72,7 +72,7 @@ export default function AdminTourismPage() {
 
   const [form, setForm] = useState({
     name: '',
-    category: 'Lodges & Safari Camps' as TourismListing['category'],
+    category: 'Accommodation & Lodging' as TourismListing['category'],
     destinationArea: 'Victoria Falls',
     province: 'Matabeleland North',
     city: 'Victoria Falls',
@@ -142,7 +142,9 @@ export default function AdminTourismPage() {
 
   // Statistics
   const totalCount = tourisms.length;
-  const safariCount = tourisms.filter((t) => t.category === 'Lodges & Safari Camps').length;
+  const safariCount = tourisms.filter(
+    (t) => t.category === 'Accommodation & Lodging' || t.category === 'Lodges & Safari Camps'
+  ).length;
   const vicFallsCount = tourisms.filter((t) => t.destinationArea === 'Victoria Falls').length;
   const avgNightlyRate = totalCount > 0
     ? Math.round(tourisms.reduce((acc, curr) => acc + curr.pricePerNightUSD, 0) / totalCount)
@@ -152,7 +154,7 @@ export default function AdminTourismPage() {
     setEditingId(null);
     setForm({
       name: '',
-      category: 'Lodges & Safari Camps',
+      category: 'Accommodation & Lodging',
       destinationArea: 'Victoria Falls',
       province: 'Matabeleland North',
       city: 'Victoria Falls',

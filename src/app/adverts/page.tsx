@@ -34,6 +34,7 @@ import {
   CLEAN_PROVINCES,
   COMMERCIAL_SECTORS,
 } from '@/data/advertsStore';
+import { getCitiesForProvince } from '@/lib/data/zimbabwe';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import { ADVERT_PACKAGES, AdvertPackage } from '@/data/platformStore';
@@ -52,6 +53,7 @@ export default function AdvertsDirectoryPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedSector, setSelectedSector] = useState<string>('All');
   const [selectedProvince, setSelectedProvince] = useState<string>('All Provinces');
+  const [selectedCity, setSelectedCity] = useState<string>('All Cities');
   const [selectedOfferType, setSelectedOfferType] = useState<string>('All Offer Types');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -61,6 +63,7 @@ export default function AdvertsDirectoryPage() {
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState<PaidAdvertItem['businessType']>('Registered Company (Pvt Ltd)');
   const [province, setProvince] = useState('Harare');
+  const [city, setCity] = useState('Harare CBD');
   const [category, setCategory] = useState('Solar & Clean Energy');
   const [offerType, setOfferType] = useState<PaidAdvertItem['offerType']>('Special Package');
   const [headline, setHeadline] = useState('');
@@ -163,6 +166,10 @@ export default function AdvertsDirectoryPage() {
         setSelectedPackageId(pkg);
         setCreateModalOpen(true);
       }
+      const prov = params.get('province');
+      if (prov) setSelectedProvince(prov);
+      const cityParam = params.get('city');
+      if (cityParam) setSelectedCity(cityParam);
     }
 
     return () => {
@@ -175,6 +182,11 @@ export default function AdvertsDirectoryPage() {
     return adverts.filter((ad) => {
       const matchSector = selectedSector === 'All' || ad.category === selectedSector;
       const matchProv = selectedProvince === 'All Provinces' || ad.province === selectedProvince;
+      const matchCity =
+        selectedCity === 'All Cities' ||
+        ad.headline.toLowerCase().includes(selectedCity.toLowerCase()) ||
+        ad.offerText.toLowerCase().includes(selectedCity.toLowerCase()) ||
+        ad.businessName.toLowerCase().includes(selectedCity.toLowerCase());
       const matchOffer = selectedOfferType === 'All Offer Types' || ad.offerType === selectedOfferType;
       const matchSearch =
         !searchQuery.trim() ||
@@ -182,9 +194,9 @@ export default function AdvertsDirectoryPage() {
         ad.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ad.offerText.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ad.category.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchSector && matchProv && matchOffer && matchSearch;
+      return matchSector && matchProv && matchCity && matchOffer && matchSearch;
     });
-  }, [adverts, selectedSector, selectedProvince, selectedOfferType, searchQuery]);
+  }, [adverts, selectedSector, selectedProvince, selectedCity, selectedOfferType, searchQuery]);
 
   const handlePublishAdvert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,6 +281,7 @@ export default function AdvertsDirectoryPage() {
   const resetFilters = () => {
     setSelectedSector('All');
     setSelectedProvince('All Provinces');
+    setSelectedCity('All Cities');
     setSelectedOfferType('All Offer Types');
     setSearchQuery('');
   };
@@ -368,7 +381,7 @@ export default function AdvertsDirectoryPage() {
             {/* Filter Console */}
             <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-center">
               {/* Search input */}
-              <div className="lg:col-span-4 relative">
+              <div className="lg:col-span-3 relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
@@ -405,16 +418,43 @@ export default function AdvertsDirectoryPage() {
               </div>
 
               {/* Province Filter (Clean Names) */}
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-2">
                 <select
                   aria-label="Filter by Province"
                   value={selectedProvince}
-                  onChange={(e) => setSelectedProvince(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedProvince(e.target.value);
+                    setSelectedCity('All Cities');
+                  }}
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-600"
                 >
                   {CLEAN_PROVINCES.map((prov) => (
                     <option key={prov} value={prov}>
                       {prov}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City / Town Filter (Dynamic per Province) */}
+              <div className="lg:col-span-2">
+                <select
+                  aria-label="Filter by City or Town"
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-600"
+                >
+                  <option value="All Cities">
+                    {selectedProvince === 'All Provinces'
+                      ? 'All Cities / Towns'
+                      : `All in ${selectedProvince}`}
+                  </option>
+                  {(selectedProvince === 'All Provinces'
+                    ? ['Harare CBD', 'Bulawayo CBD', 'Mutare', 'Gweru', 'Victoria Falls', 'Masvingo', 'Chinhoyi', 'Bindura', 'Marondera', 'Beitbridge']
+                    : getCitiesForProvince(selectedProvince)
+                  ).map((c) => (
+                    <option key={c} value={c}>
+                      {c}
                     </option>
                   ))}
                 </select>
@@ -446,6 +486,7 @@ export default function AdvertsDirectoryPage() {
               </span>
               {(selectedSector !== 'All' ||
                 selectedProvince !== 'All Provinces' ||
+                selectedCity !== 'All Cities' ||
                 selectedOfferType !== 'All Offer Types' ||
                 searchQuery) && (
                 <button
@@ -463,7 +504,10 @@ export default function AdvertsDirectoryPage() {
                 <button
                   key={prov}
                   type="button"
-                  onClick={() => setSelectedProvince(prov)}
+                  onClick={() => {
+                    setSelectedProvince(prov);
+                    setSelectedCity('All Cities');
+                  }}
                   className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
                     selectedProvince === prov
                       ? 'bg-slate-900 text-white dark:bg-emerald-600'
@@ -475,6 +519,40 @@ export default function AdvertsDirectoryPage() {
               ))}
             </div>
           </div>
+
+          {/* Cities / Towns under selected Province */}
+          {selectedProvince !== 'All Provinces' && getCitiesForProvince(selectedProvince).length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar rounded-xl border border-amber-300/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 px-3.5 py-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300 shrink-0 mr-1">
+                Cities in {selectedProvince}:
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedCity('All Cities')}
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                  selectedCity === 'All Cities'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-amber-200 dark:border-slate-700 hover:bg-amber-100/70'
+                }`}
+              >
+                All in {selectedProvince}
+              </button>
+              {getCitiesForProvince(selectedProvince).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setSelectedCity(c)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                    selectedCity === c
+                      ? 'bg-amber-600 text-white shadow-2xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-amber-200 dark:border-slate-700 hover:bg-amber-100/70'
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Adverts Grid */}
           {isLoading ? (
@@ -730,7 +808,7 @@ export default function AdvertsDirectoryPage() {
                 onChange={(e) => setBusinessName(e.target.value)}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Commercial Sector
@@ -754,12 +832,34 @@ export default function AdvertsDirectoryPage() {
                   </label>
                   <select
                     value={province}
-                    onChange={(e) => setProvince(e.target.value)}
+                    onChange={(e) => {
+                      const nextProv = e.target.value;
+                      setProvince(nextProv);
+                      const cities = getCitiesForProvince(nextProv);
+                      if (cities.length > 0) setCity(cities[0]);
+                    }}
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
                   >
                     {CLEAN_PROVINCES.filter((p) => p !== 'All Provinces').map((prov) => (
                       <option key={prov} value={prov}>
                         {prov}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    City / Town
+                  </label>
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white"
+                  >
+                    {getCitiesForProvince(province).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
                       </option>
                     ))}
                   </select>

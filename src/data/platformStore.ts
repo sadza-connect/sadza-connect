@@ -46,6 +46,10 @@ export interface PlatformSettings {
   tierEnterpriseName?: string;
   tierEnterpriseLimit?: number;
   tierEnterprisePriceUsd?: number;
+  companyLogoUrl?: string;
+  registrarSignatureUrl?: string;
+  cr14Number?: string;
+  zimraTin?: string;
   shipping?: any;
   verification?: any;
   notifications?: any;

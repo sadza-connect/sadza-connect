@@ -11,6 +11,7 @@ import { UserRepository } from '../../infrastructure/database/repositories/user-
 import { RefreshTokenRepository } from '../../infrastructure/database/repositories/refresh-token-repository.js';
 import { EmailVerificationTokenRepository } from '../../infrastructure/database/repositories/email-verification-token-repository.js';
 import { PasswordResetTokenRepository } from '../../infrastructure/database/repositories/password-reset-token-repository.js';
+import { settingsRepository } from '../../infrastructure/database/repositories/settings-repository.js';
 import { EmailService } from '../../infrastructure/messaging/email-service.js';
 import { JwtService } from './jwt-service.js';
 import { env } from '../../config/env.js';
@@ -41,6 +42,12 @@ export interface AuthTokens {
 export interface AuthResult {
   user: User;
   tokens: AuthTokens;
+}
+
+export interface LoginResult {
+  user: User;
+  tokens?: AuthTokens;
+  requiresTwoFactor?: boolean;
 }
 
 export interface RegisterResult {
@@ -135,7 +142,9 @@ export class AuthService {
     password: string,
     deviceFingerprint?: string,
     ipAddress?: string,
-  ): Promise<AuthResult> {
+    twoFactorCode?: string,
+    resendTwoFactor?: boolean,
+  ): Promise<LoginResult> {
     const user = await this.userRepo.findByEmail(identifier.trim().toLowerCase());
     if (!user) {
       throw new AuthenticationError('Invalid email or password');
@@ -154,6 +163,53 @@ export class AuthService {
 
     if (!user.canLogin()) {
       throw new AuthenticationError('This account has been deactivated or suspended');
+    }
+
+    // Check Two-Factor Authentication (2FA) policy from platform settings
+    const settings = await settingsRepository.getSettings().catch(() => null);
+    const securityCfg = settings?.extra_config?.security || {};
+    const isAdmin2FA = user.role === UserRole.ADMIN && securityCfg.twoFactorAdmin === true;
+    const isBusiness2FA =
+      (user.role === UserRole.MERCHANT || user.accountType === 'business') &&
+      securityCfg.twoFactorBusiness === true;
+
+    if (isAdmin2FA || isBusiness2FA) {
+      if (!twoFactorCode || resendTwoFactor) {
+        await this.verificationTokenRepo.invalidateForUser(user.id);
+        const otp = this.generateOtp();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        await this.verificationTokenRepo.create({
+          id: randomUUID(),
+          userId: user.id,
+          token: otp,
+          expiresAt,
+        });
+        await this.emailService.sendTwoFactorLoginEmail(
+          user.email.getValue(),
+          otp,
+          user.fullName,
+        );
+        return { user, requiresTwoFactor: true };
+      }
+
+      const storedToken = await this.verificationTokenRepo.findByToken(twoFactorCode);
+      if (!storedToken || storedToken.user_id !== user.id) {
+        throw new AuthenticationError(
+          'Invalid 6-digit 2FA verification code. Please check your email or request a new code.',
+        );
+      }
+      if (storedToken.used_at) {
+        throw new TokenExpiredError(
+          'This 2FA verification code has already been used. Please request a new code.',
+        );
+      }
+      if (new Date(storedToken.expires_at) < new Date()) {
+        throw new TokenExpiredError(
+          'This 2FA verification code has expired. Please request a new code.',
+        );
+      }
+
+      await this.verificationTokenRepo.markAsUsed(storedToken.id);
     }
 
     await this.userRepo.updateLastLogin(user.id);

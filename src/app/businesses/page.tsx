@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
-import { BusinessListing } from '@/lib/data/zimbabwe';
+import { BusinessListing, getCitiesForProvince } from '@/lib/data/zimbabwe';
 import { CLEAN_PROVINCES, COMMERCIAL_SECTORS } from '@/data/advertsStore';
 import {
   getSavedBusinessIds,
@@ -38,6 +38,7 @@ export default function BusinessesDirectoryPage() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState('All Provinces');
+  const [selectedCity, setSelectedCity] = useState('All Cities');
   const [selectedSector, setSelectedSector] = useState('All Sectors');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'relevant' | 'rating' | 'name'>('relevant');
@@ -73,6 +74,8 @@ export default function BusinessesDirectoryPage() {
       if (q) setSearchTerm(q);
       const prov = urlParams.get('province');
       if (prov) setSelectedProvince(prov);
+      const cityParam = urlParams.get('city');
+      if (cityParam) setSelectedCity(cityParam);
       const sec = urlParams.get('sector');
       if (sec) setSelectedSector(sec);
     }
@@ -101,10 +104,16 @@ export default function BusinessesDirectoryPage() {
         biz.name.toLowerCase().includes(q) ||
         biz.description.toLowerCase().includes(q) ||
         biz.categoryName.toLowerCase().includes(q) ||
+        (biz.city && biz.city.toLowerCase().includes(q)) ||
         (biz.tags && biz.tags.some((t) => t.toLowerCase().includes(q)));
 
       const matchesProvince =
         selectedProvince === 'All Provinces' || biz.province === selectedProvince;
+
+      const matchesCity =
+        selectedCity === 'All Cities' ||
+        (biz.city && biz.city.toLowerCase().includes(selectedCity.toLowerCase())) ||
+        biz.description.toLowerCase().includes(selectedCity.toLowerCase());
 
       const matchesSector =
         selectedSector === 'All Sectors' ||
@@ -113,7 +122,7 @@ export default function BusinessesDirectoryPage() {
 
       const matchesVerified = !verifiedOnly || Boolean(biz.cr14Verified);
 
-      return matchesSearch && matchesProvince && matchesSector && matchesVerified;
+      return matchesSearch && matchesProvince && matchesCity && matchesSector && matchesVerified;
     });
 
     if (sortBy === 'rating') {
@@ -127,6 +136,7 @@ export default function BusinessesDirectoryPage() {
     businesses,
     searchTerm,
     selectedProvince,
+    selectedCity,
     selectedSector,
     verifiedOnly,
     sortBy,
@@ -206,12 +216,15 @@ export default function BusinessesDirectoryPage() {
           {/* -------------------------------------------------------------
               PROVINCE PILLS & VERIFIED ONLY TOGGLE STRIP (Matching Figma)
           ------------------------------------------------------------- */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             {/* Province Pills */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
               <button
                 type="button"
-                onClick={() => setSelectedProvince('All Provinces')}
+                onClick={() => {
+                  setSelectedProvince('All Provinces');
+                  setSelectedCity('All Cities');
+                }}
                 className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
                   selectedProvince === 'All Provinces'
                     ? 'bg-[#005a36] text-white shadow-xs'
@@ -228,7 +241,10 @@ export default function BusinessesDirectoryPage() {
                   <button
                     key={prov}
                     type="button"
-                    onClick={() => setSelectedProvince(prov)}
+                    onClick={() => {
+                      setSelectedProvince(prov);
+                      setSelectedCity('All Cities');
+                    }}
                     className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
                       isActive
                         ? 'bg-[#005a36] text-white shadow-xs'
@@ -244,7 +260,12 @@ export default function BusinessesDirectoryPage() {
               <div className="relative">
                 <select
                   value={POPULAR_PROVINCES.includes(selectedProvince) ? '' : selectedProvince}
-                  onChange={(e) => e.target.value && setSelectedProvince(e.target.value)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedProvince(e.target.value);
+                      setSelectedCity('All Cities');
+                    }
+                  }}
                   className="px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer appearance-none pr-7"
                 >
                   <option value="">More ▾</option>
@@ -280,6 +301,40 @@ export default function BusinessesDirectoryPage() {
             </div>
           </div>
 
+          {/* Cities / Towns under selected Province */}
+          {selectedProvince !== 'All Provinces' && getCitiesForProvince(selectedProvince).length > 0 && (
+            <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar rounded-xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/30 px-3.5 py-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 shrink-0 mr-1">
+                Cities in {selectedProvince}:
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedCity('All Cities')}
+                className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                  selectedCity === 'All Cities'
+                    ? 'bg-emerald-700 text-white shadow-2xs'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-emerald-200 dark:border-slate-700 hover:bg-emerald-100/70'
+                }`}
+              >
+                All in {selectedProvince}
+              </button>
+              {getCitiesForProvince(selectedProvince).map((city) => (
+                <button
+                  key={city}
+                  type="button"
+                  onClick={() => setSelectedCity(city)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                    selectedCity === city
+                      ? 'bg-emerald-700 text-white shadow-2xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-emerald-200 dark:border-slate-700 hover:bg-emerald-100/70'
+                  }`}
+                >
+                  {city}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* -------------------------------------------------------------
               RESULTS HEADER & SORT ROW
           ------------------------------------------------------------- */}
@@ -293,6 +348,7 @@ export default function BusinessesDirectoryPage() {
 
               {(searchTerm ||
                 selectedProvince !== 'All Provinces' ||
+                selectedCity !== 'All Cities' ||
                 selectedSector !== 'All Sectors' ||
                 verifiedOnly) && (
                 <button
@@ -300,6 +356,7 @@ export default function BusinessesDirectoryPage() {
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedProvince('All Provinces');
+                    setSelectedCity('All Cities');
                     setSelectedSector('All Sectors');
                     setVerifiedOnly(false);
                   }}

@@ -33,12 +33,26 @@ export async function POST(req: NextRequest) {
 
     const userAgent = req.headers.get('user-agent') || undefined;
 
-    const { user, tokens } = await authService.login(
+    const { user, tokens, requiresTwoFactor } = await authService.login(
       loginIdentifier,
       body.password,
       userAgent,
       clientIp,
+      body.twoFactorCode,
+      body.resendTwoFactor,
     );
+
+    if (requiresTwoFactor || !tokens) {
+      return jsonResponse(
+        {
+          requiresTwoFactor: true,
+          email: user.email.getValue(),
+          message: 'A 6-digit Two-Factor Authentication code has been sent to your registered email.',
+        },
+        requestId,
+        200,
+      );
+    }
 
     const response = jsonResponse(
       {

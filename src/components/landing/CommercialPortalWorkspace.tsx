@@ -75,7 +75,7 @@ import {
   DEFAULT_PLATFORM_SETTINGS,
   PlatformSettings,
 } from '@/data/platformStore';
-import { BusinessListing, MarketplaceProduct } from '@/lib/data/zimbabwe';
+import { BusinessListing, MarketplaceProduct, getCitiesForProvince } from '@/lib/data/zimbabwe';
 import { mapDbBusinessToListing } from '@/lib/data/business-mapper';
 import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 import { mapDbAdvertToPaidAdvert } from '@/lib/data/advert-mapper';
@@ -1495,13 +1495,13 @@ export function CommercialPortalWorkspace() {
               </div>
             </div>
 
-            {/* Card 2: Browse by Province (Strictly Clean Province Names) */}
+            {/* Card 2: Browse by Province & Cities (Strictly Clean Province Names + Cities Under Each Province) */}
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
               <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 px-5 py-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <MapPin className="h-4.5 w-4.5 text-emerald-600" />
                   <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                    Filter by Province
+                    Province &amp; Cities
                   </h2>
                 </div>
                 <span className="text-xs font-semibold text-slate-500">10 Provinces</span>
@@ -1510,22 +1510,59 @@ export function CommercialPortalWorkspace() {
               <div className="p-2.5 grid grid-cols-1 gap-1">
                 {CLEAN_PROVINCES.map((province) => {
                   const active = selectedProvince === province;
+                  const provinceCities =
+                    province !== 'All Provinces' ? getCitiesForProvince(province) : [];
                   return (
-                    <button
-                      key={province}
-                      type="button"
-                      onClick={() => setSelectedProvince(province)}
-                      className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-left text-sm transition-colors cursor-pointer ${
-                        active
-                          ? 'bg-slate-900 text-white dark:bg-emerald-600 font-bold'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium'
-                      }`}
-                    >
-                      <span className="truncate">{province}</span>
-                      {active && (
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 dark:text-white" />
+                    <div key={province} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProvince(province);
+                        }}
+                        className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-left text-sm transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-slate-900 text-white dark:bg-emerald-600 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium'
+                        }`}
+                      >
+                        <span className="truncate">{province}</span>
+                        {active ? (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 dark:text-white" />
+                        ) : provinceCities.length > 0 ? (
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            {provinceCities.length} cities
+                          </span>
+                        ) : null}
+                      </button>
+
+                      {active && provinceCities.length > 0 && (
+                        <div className="pl-3 pr-1 py-1.5 flex flex-wrap gap-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-700/60">
+                          <span className="w-full text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                            Cities &amp; Towns in {province}:
+                          </span>
+                          {provinceCities.map((city) => {
+                            const citySelected =
+                              searchQuery.trim().toLowerCase() === city.toLowerCase();
+                            return (
+                              <button
+                                key={city}
+                                type="button"
+                                onClick={() =>
+                                  setSearchQuery(citySelected ? '' : city)
+                                }
+                                className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                                  citySelected
+                                    ? 'bg-emerald-600 text-white font-bold'
+                                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-emerald-500'
+                                }`}
+                              >
+                                {city}
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -2563,11 +2600,11 @@ export function CommercialPortalWorkspace() {
                     <div className="flex items-center gap-2.5">
                       <Compass className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                       <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        Tourism &amp; Hospitality Retreats
+                        <strong>Discover Zimbabwe – Stay, Explore &amp; Experience</strong>
                       </h2>
                     </div>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                      Safari lodges, boutique BnBs, resort hotels, chalets &amp; houseboats
+                      Accommodation &amp; lodging, tour operators, attractions, restaurants, outdoor adventures, transfers &amp; wellness
                     </p>
                   </div>
 
@@ -2575,7 +2612,7 @@ export function CommercialPortalWorkspace() {
                     href="/tourism"
                     className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 px-3.5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-colors shrink-0"
                   >
-                    <span>All Retreats</span>
+                    <span>Explore Tourism</span>
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </div>
@@ -2631,7 +2668,7 @@ export function CommercialPortalWorkspace() {
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                               <span className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-200">
                                 <MapPin className="h-3.5 w-3.5 text-amber-600" />
-                                {item.addressOrLocation}, {item.province}
+                                {item.city}, {item.province}
                               </span>
                               <span>•</span>
                               <span>Host: {item.hostName}</span>
@@ -2675,14 +2712,17 @@ export function CommercialPortalWorkspace() {
               >
                 <div className="border-b border-slate-200 dark:border-slate-800 px-5 sm:px-6 py-4.5 flex items-center justify-between gap-3 bg-indigo-50/40 dark:bg-indigo-950/20">
                   <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-0.5">
+                      Zimbabwe&apos;s Events, Exhibitions, Conferences &amp; Entertainment Portal.
+                    </span>
                     <div className="flex items-center gap-2.5">
                       <Calendar className="h-5 w-5 text-indigo-600" />
                       <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                        Upcoming Commercial Events &amp; Expos
+                        <strong>Discover Events. Connect. Experience Zimbabwe.</strong>
                       </h2>
                     </div>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                      Trade fairs, mining summits, agricultural field days &amp; forums
+                      Find and attend exciting events across Zimbabwe. Discover business expos, conferences, festivals, concerts, exhibitions, sporting events, workshops and networking opportunities.
                     </p>
                   </div>
 

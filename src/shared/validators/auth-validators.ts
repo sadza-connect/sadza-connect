@@ -49,6 +49,13 @@ export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().optional(),
   phoneNumber: z.string().trim().optional(),
   password: z.string().min(1, 'Password is required'),
+  twoFactorCode: z
+    .string()
+    .trim()
+    .length(6, '2FA verification code must be 6 digits')
+    .regex(/^\d{6}$/, '2FA verification code must be 6 digits')
+    .optional(),
+  resendTwoFactor: z.boolean().optional(),
 }).refine(
   (data) => Boolean(data.identifier || data.email),
   {

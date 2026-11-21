@@ -205,9 +205,28 @@ export default function AdminBusinessesPage() {
     }
   };
 
+  const [brandAssets, setBrandAssets] = useState<{ logoUrl: string; signatureUrl: string }>({
+    logoUrl: '',
+    signatureUrl: '',
+  });
+
   useEffect(() => {
     loadAdminBusinesses();
     loadModerationQueue();
+
+    fetch('/api/v1/settings')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.settings) {
+          const extra = json.data.settings.extra_config || {};
+          const customProfile = extra.profile_configured ? extra.profile : null;
+          setBrandAssets({
+            logoUrl: customProfile?.logoAsset?.[0]?.src || '',
+            signatureUrl: customProfile?.signatureAsset?.[0]?.src || '',
+          });
+        }
+      })
+      .catch(() => {});
 
     const sync = () => {
       loadAdminBusinesses();
@@ -1021,9 +1040,19 @@ export default function AdminBusinessesPage() {
                     >
                       <div className="border border-emerald-900/20 p-6 rounded-lg relative">
                         {/* Emblem Header */}
-                        <div className="h-10 w-10 mx-auto mb-2 rounded-full bg-emerald-800/10 flex items-center justify-center text-emerald-800 dark:text-emerald-400 font-serif font-black text-xs">
-                          ZW
-                        </div>
+                        {brandAssets.logoUrl ? (
+                          <div className="h-12 w-12 mx-auto mb-2 rounded-xl border border-emerald-800/20 bg-white p-1 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={brandAssets.logoUrl}
+                              alt="Official Logo"
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 mx-auto mb-2 rounded-full bg-emerald-800/10 flex items-center justify-center text-emerald-800 dark:text-emerald-400 font-serif font-black text-xs">
+                            ZW
+                          </div>
+                        )}
                         <p className="text-[10px] font-bold tracking-widest uppercase text-emerald-900 dark:text-emerald-400 mb-0.5">
                           REPUBLIC OF ZIMBABWE
                         </p>
@@ -1041,14 +1070,24 @@ export default function AdminBusinessesPage() {
                           is this day incorporated under the Companies and Other Business Entities Act and that the company is a private limited company.
                         </p>
                         <p className="text-[10px] text-slate-500 italic mt-4">
-                          Given under my hand at Harare on this 5th day of March 2024.
+                          {reviewingKycBiz.firstVerifiedAt
+                            ? `Verified at Harare on ${new Date(reviewingKycBiz.firstVerifiedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`
+                            : 'Submitted for verification at Harare.'}
                         </p>
 
                         <div className="mt-6 flex items-end justify-between text-left text-[10px]">
                           <div>
-                            <div className="font-serif italic text-xs font-bold text-slate-800 dark:text-slate-200">
-                              J. Moyo
-                            </div>
+                            {brandAssets.signatureUrl ? (
+                              <img
+                                src={brandAssets.signatureUrl}
+                                alt="Authorized Registrar Signature"
+                                className="h-9 w-auto object-contain mb-1"
+                              />
+                            ) : (
+                              <div className="font-serif italic text-xs font-bold text-slate-800 dark:text-slate-200">
+                                Authorized Registrar
+                              </div>
+                            )}
                             <div className="text-[9px] text-slate-400">Registrar of Companies</div>
                           </div>
 

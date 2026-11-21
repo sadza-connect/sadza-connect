@@ -106,6 +106,27 @@ function CheckoutContent() {
     setSettings(getPlatformSettings());
     const sync = () => setSettings(getPlatformSettings());
     window.addEventListener('sadza-platform-updated', sync);
+
+    fetch('/api/v1/settings')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.settings) {
+          const s = json.data.settings;
+          const extra = s.extra_config || {};
+          const customProfile = extra.profile_configured ? extra.profile : null;
+          setSettings((prev) => ({
+            ...prev,
+            siteName: customProfile?.name?.trim() || prev.siteName,
+            companyLogoUrl: customProfile?.logoAsset?.[0]?.src || '',
+            registrarSignatureUrl: customProfile?.signatureAsset?.[0]?.src || '',
+            cr14Number: customProfile?.cr14Number?.trim() || '',
+            zimraTin: customProfile?.zimraTin?.trim() || '',
+            hqAddress: s.hq_address || prev.hqAddress,
+          }));
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener('sadza-platform-updated', sync);
   }, []);
 
@@ -726,16 +747,35 @@ function CheckoutContent() {
                   id="printable-tax-voucher"
                   className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 space-y-4 text-xs font-mono shadow-sm"
                 >
-                  <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                    <div>
-                      <p className="font-bold text-sm text-slate-900 dark:text-white">
-                        SADZA CONNECT (PVT) LTD
-                      </p>
-                      <p className="text-[11px] text-slate-500">VAT Reg: 10098421 • Harare, Zimbabwe</p>
+                  <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800 gap-3">
+                    <div className="flex items-center gap-3">
+                      {settings.companyLogoUrl && (
+                        <div className="h-11 w-11 rounded-lg border border-slate-200 dark:border-slate-700 bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden">
+                          <img
+                            src={settings.companyLogoUrl}
+                            alt={settings.siteName}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-sm text-slate-900 dark:text-white uppercase">
+                          {settings.siteName || 'MySadza Connect'}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {[
+                            settings.cr14Number ? `CR14: ${settings.cr14Number}` : '',
+                            settings.zimraTin ? `ZIMRA TIN: ${settings.zimraTin}` : '',
+                            'Harare, Zimbabwe',
+                          ]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <span className="px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                        PAID & VERIFIED
+                        PAID &amp; VERIFIED
                       </span>
                       <p className="text-[11px] font-bold text-slate-900 dark:text-white mt-1">
                         {completedInvoice.invoiceNumber}
@@ -753,7 +793,7 @@ function CheckoutContent() {
                       <span className="text-slate-500 block">{taxBpnNumber}</span>
                     </div>
                     <div className="text-right">
-                      <span className="text-slate-400 block">DATE & COVERAGE:</span>
+                      <span className="text-slate-400 block">DATE &amp; COVERAGE:</span>
                       <span className="text-slate-800 dark:text-slate-200 block">{completedInvoice.date}</span>
                       <span className="text-slate-500 block">{completedInvoice.periodCovered}</span>
                       <span className="text-slate-500 block font-semibold">Via {completedInvoice.paymentMethod}</span>
@@ -772,12 +812,25 @@ function CheckoutContent() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-2">
-                      <QrCode className="w-8 h-8 text-slate-700 dark:text-slate-300" />
-                      <span className="text-[10px] text-slate-400 leading-tight">
-                        Scan to verify validity on ZW National Registry
-                      </span>
+                  <div className="flex items-center justify-between pt-1 gap-4">
+                    <div className="flex items-center gap-3">
+                      <QrCode className="w-8 h-8 text-slate-700 dark:text-slate-300 shrink-0" />
+                      {settings.registrarSignatureUrl ? (
+                        <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-3">
+                          <img
+                            src={settings.registrarSignatureUrl}
+                            alt="Authorized Registrar Signature"
+                            className="h-8 w-auto object-contain bg-white rounded px-1.5 py-0.5 border border-slate-200"
+                          />
+                          <span className="text-[10px] text-slate-400 leading-tight">
+                            Authorized Registrar<br />Signature
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 leading-tight">
+                          Scan to verify validity on ZW National Registry
+                        </span>
+                      )}
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 block">TOTAL SETTLED:</span>

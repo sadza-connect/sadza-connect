@@ -38,11 +38,13 @@ import {
   TourismListing,
   TOURISM_CATEGORIES,
   TOURISM_DESTINATIONS,
+  normalizeTourismCategory,
   getStoredTourisms,
   saveStoredTourism,
   syncTourismsFromApi,
 } from '@/data/tourismStore';
 import { CLEAN_PROVINCES } from '@/data/advertsStore';
+import { getCitiesForProvince } from '@/lib/data/zimbabwe';
 import { sanitizePhoneNumber } from '@/lib/utils/whatsapp';
 import { validateUploadFile, compressImageToBlob, UPLOAD_LIMITS } from '@/lib/constants/upload-limits';
 
@@ -53,6 +55,7 @@ export default function TourismDirectoryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
   const [selectedDestination, setSelectedDestination] = useState<string>('All Destinations');
   const [selectedProvince, setSelectedProvince] = useState<string>('All Provinces');
+  const [selectedCity, setSelectedCity] = useState<string>('All Cities');
 
   // Details Modal
   const [selectedListing, setSelectedListing] = useState<TourismListing | null>(null);
@@ -60,7 +63,7 @@ export default function TourismDirectoryPage() {
   // Create Listing Modal
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState<TourismListing['category']>('Lodges & Safari Camps');
+  const [newCategory, setNewCategory] = useState<TourismListing['category']>('Accommodation & Lodging');
   const [newDestination, setNewDestination] = useState('Victoria Falls');
   const [newProvince, setNewProvince] = useState('Matabeleland North');
   const [newCity, setNewCity] = useState('Victoria Falls');
@@ -80,6 +83,16 @@ export default function TourismDirectoryPage() {
   const [tourismUploadError, setTourismUploadError] = useState<string | null>(null);
   const tourismFileInputRef = useRef<HTMLInputElement>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const availableFilterCities = useMemo(
+    () => getCitiesForProvince(selectedProvince),
+    [selectedProvince]
+  );
+
+  const availableFormCities = useMemo(
+    () => getCitiesForProvince(newProvince),
+    [newProvince]
+  );
 
   const handleTourismImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -165,8 +178,11 @@ export default function TourismDirectoryPage() {
         item.description.toLowerCase().includes(q) ||
         item.amenities.some((a) => a.toLowerCase().includes(q));
 
+      const normalizedCat = normalizeTourismCategory(item.category);
       const matchesCategory =
-        selectedCategory === 'All Categories' || item.category === selectedCategory;
+        selectedCategory === 'All Categories' ||
+        item.category === selectedCategory ||
+        normalizedCat === selectedCategory;
 
       const matchesDestination =
         selectedDestination === 'All Destinations' ||
@@ -185,9 +201,20 @@ export default function TourismDirectoryPage() {
       const matchesProvince =
         selectedProvince === 'All Provinces' || item.province === selectedProvince;
 
-      return matchesSearch && matchesCategory && matchesDestination && matchesProvince;
+      const matchesCity =
+        selectedCity === 'All Cities' ||
+        item.city.toLowerCase() === selectedCity.toLowerCase() ||
+        item.addressOrLocation.toLowerCase().includes(selectedCity.toLowerCase());
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesDestination &&
+        matchesProvince &&
+        matchesCity
+      );
     });
-  }, [listings, searchQuery, selectedCategory, selectedDestination, selectedProvince]);
+  }, [listings, searchQuery, selectedCategory, selectedDestination, selectedProvince, selectedCity]);
 
   const handleCreateTourism = (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,7 +233,7 @@ export default function TourismDirectoryPage() {
       guestsCapacity: newGuests ? Number(newGuests) : 2,
       bedrooms: newBedrooms ? Number(newBedrooms) : 1,
       amenities: newAmenities.split(',').map((a) => a.trim()).filter(Boolean),
-      description: newDescription.trim() || 'Newly listed tourism and hospitality retreat on Sadza Connect.',
+      description: newDescription.trim() || 'Newly listed tourism and hospitality experience on MySadza Connect.',
       images: [
         tourismImageUpload ||
           newImageUrl.trim() ||
@@ -250,13 +277,13 @@ export default function TourismDirectoryPage() {
               <div className="space-y-3 max-w-3xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-500/30 text-teal-300 text-xs font-bold tracking-wide">
                   <Compass className="h-3.5 w-3.5" />
-                  <span>Zimbabwe Tourism, Hospitality &amp; Lodging Portal</span>
+                  <span>Zimbabwe Tourism, Hospitality &amp; Leisure Portal</span>
                 </div>
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white">
-                  Lodges, BnBs, Hotels &amp; Resorts
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
+                  <strong>Discover Zimbabwe – Stay, Explore &amp; Experience</strong>
                 </h1>
                 <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                  Discover premier safari game lodges, Kariba houseboats, misty Nyanga mountain chalets, executive Harare BnBs, and Matobo granite retreats. Connect directly with verified hosts and reservation desks on WhatsApp with zero booking commission.
+                  Explore accommodation and lodging, tour operators, attractions, restaurants and dining, outdoor adventures, tourism transfers, and wellness experiences across all 10 provinces of Zimbabwe. Connect directly with verified hosts on WhatsApp.
                 </p>
               </div>
 
@@ -266,20 +293,38 @@ export default function TourismDirectoryPage() {
                   className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-teal-900/30 flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>List a Lodge, BnB or Hotel</span>
+                  <span>List a Stay, Tour or Experience</span>
                 </Button>
               </div>
+            </div>
+
+            {/* 7 Main Tourism Categories Pills */}
+            <div className="mt-7 flex flex-wrap items-center gap-2">
+              {TOURISM_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-teal-500 text-slate-950 shadow-md shadow-teal-950/50'
+                      : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-slate-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
 
             {/* Quick Stats Banner */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800">
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50">
-                <div className="text-xs text-slate-400 font-medium">Verified Retreats</div>
-                <div className="text-xl sm:text-2xl font-black text-teal-400">{listings.length} Stays</div>
+                <div className="text-xs text-slate-400 font-medium">Verified Listings</div>
+                <div className="text-xl sm:text-2xl font-black text-teal-400">{listings.length} Experiences</div>
               </div>
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50">
-                <div className="text-xs text-slate-400 font-medium">Covered Regions</div>
-                <div className="text-xl sm:text-2xl font-black text-white">10 Provinces</div>
+                <div className="text-xs text-slate-400 font-medium">Main Categories</div>
+                <div className="text-xl sm:text-2xl font-black text-white">7 Sectors</div>
               </div>
               <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50">
                 <div className="text-xs text-slate-400 font-medium">Direct Booking</div>
@@ -326,7 +371,7 @@ export default function TourismDirectoryPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search lodge, pool, safari, Nyanga, Kariba..."
+                placeholder="Search accommodation, tour operator, restaurant, activity..."
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2.5 pl-10 pr-9 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-teal-600 focus:bg-white dark:focus:bg-slate-900 transition-colors"
               />
               {searchQuery && (
@@ -368,7 +413,10 @@ export default function TourismDirectoryPage() {
 
               <select
                 value={selectedProvince}
-                onChange={(e) => setSelectedProvince(e.target.value)}
+                onChange={(e) => {
+                  setSelectedProvince(e.target.value);
+                  setSelectedCity('All Cities');
+                }}
                 className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-600 cursor-pointer"
               >
                 {CLEAN_PROVINCES.map((prov) => (
@@ -378,7 +426,28 @@ export default function TourismDirectoryPage() {
                 ))}
               </select>
 
-              {(searchQuery || selectedCategory !== 'All Categories' || selectedDestination !== 'All Destinations' || selectedProvince !== 'All Provinces') && (
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-600 cursor-pointer"
+              >
+                <option value="All Cities">
+                  {selectedProvince === 'All Provinces'
+                    ? 'All Cities & Towns'
+                    : `All ${selectedProvince} Cities`}
+                </option>
+                {availableFilterCities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+
+              {(searchQuery ||
+                selectedCategory !== 'All Categories' ||
+                selectedDestination !== 'All Destinations' ||
+                selectedProvince !== 'All Provinces' ||
+                selectedCity !== 'All Cities') && (
                 <button
                   type="button"
                   onClick={() => {
@@ -386,6 +455,7 @@ export default function TourismDirectoryPage() {
                     setSelectedCategory('All Categories');
                     setSelectedDestination('All Destinations');
                     setSelectedProvince('All Provinces');
+                    setSelectedCity('All Cities');
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 transition-colors cursor-pointer"
                 >
@@ -402,10 +472,10 @@ export default function TourismDirectoryPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                Featured Zimbabwean Lodges, BnBs &amp; Hotels
+                Discover Zimbabwe – Stay, Explore &amp; Experience
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Showing {filteredListings.length} verified retreats matching your itinerary
+                Showing {filteredListings.length} verified tourism &amp; hospitality listings
               </p>
             </div>
           </div>
@@ -745,7 +815,12 @@ export default function TourismDirectoryPage() {
                     </label>
                     <select
                       value={newProvince}
-                      onChange={(e) => setNewProvince(e.target.value)}
+                      onChange={(e) => {
+                        const prov = e.target.value;
+                        setNewProvince(prov);
+                        const cities = getCitiesForProvince(prov);
+                        if (cities[0]) setNewCity(cities[0]);
+                      }}
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs text-slate-900 dark:text-white"
                     >
                       {CLEAN_PROVINCES.filter((p) => p !== 'All Provinces').map((p) => (
@@ -759,16 +834,21 @@ export default function TourismDirectoryPage() {
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       City / Town *
                     </label>
-                    <Input
-                      required
+                    <select
                       value={newCity}
                       onChange={(e) => setNewCity(e.target.value)}
-                      placeholder="e.g. Victoria Falls"
-                    />
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs text-slate-900 dark:text-white"
+                    >
+                      {availableFormCities.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Price per Night (USD) *
+                      Rate / Price (USD) *
                     </label>
                     <Input
                       required

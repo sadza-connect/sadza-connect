@@ -357,6 +357,26 @@ export default function BusinessDashboardPage() {
     const syncAll = async () => {
       setSettings(getPlatformSettings());
 
+      fetch('/api/v1/settings')
+        .then((r) => r.json())
+        .then((json) => {
+          if (isMounted && json.success && json.data?.settings) {
+            const s = json.data.settings;
+            const extra = s.extra_config || {};
+            const customProfile = extra.profile_configured ? extra.profile : null;
+            setSettings((prev) => ({
+              ...prev,
+              usdToZigRate: Number(s.usd_to_zig_rate) || prev.usdToZigRate,
+              siteName: customProfile?.name?.trim() || prev.siteName,
+              companyLogoUrl: customProfile?.logoAsset?.[0]?.src || '',
+              registrarSignatureUrl: customProfile?.signatureAsset?.[0]?.src || '',
+              cr14Number: customProfile?.cr14Number?.trim() || '',
+              zimraTin: customProfile?.zimraTin?.trim() || '',
+            }));
+          }
+        })
+        .catch(() => {});
+
       const businessEndpoint = isAdmin
         ? '/api/v1/businesses?limit=100&include_expired=true'
         : '/api/v1/businesses?my_business=true';
@@ -4683,17 +4703,38 @@ export default function BusinessDashboardPage() {
           <div className="flex flex-col flex-1 min-h-0">
             <ModalBody>
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 space-y-4">
-                <div className="flex items-start justify-between border-b border-slate-200 pb-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
-                      Sadza Connect Integrated Commerce
-                    </p>
-                    <p className="text-sm font-bold text-slate-950 mt-0.5">
-                      {selectedInvoice.businessName}
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      Receipt #: {selectedInvoice.invoiceNumber}
-                    </p>
+                <div className="flex items-start justify-between border-b border-slate-200 pb-3 gap-3">
+                  <div className="flex items-center gap-3">
+                    {settings.companyLogoUrl && (
+                      <div className="h-11 w-11 rounded-xl border border-slate-200 bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden">
+                        <img
+                          src={settings.companyLogoUrl}
+                          alt={settings.siteName}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#1e57eb]">
+                        {settings.siteName || 'MySadza Connect'}
+                      </p>
+                      {(settings.cr14Number || settings.zimraTin) && (
+                        <p className="text-[10px] text-slate-500">
+                          {[
+                            settings.cr14Number ? `CR14: ${settings.cr14Number}` : '',
+                            settings.zimraTin ? `ZIMRA TIN: ${settings.zimraTin}` : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </p>
+                      )}
+                      <p className="text-sm font-bold text-slate-950 mt-0.5">
+                        {selectedInvoice.businessName}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Receipt #: {selectedInvoice.invoiceNumber}
+                      </p>
+                    </div>
                   </div>
                   <AdminBadge tone="success">PAID VERIFIED</AdminBadge>
                 </div>
@@ -4722,6 +4763,26 @@ export default function BusinessDashboardPage() {
                     </span>
                   </div>
                 </div>
+
+                {settings.registrarSignatureUrl && (
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                        Authorized Registrar Signature
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {settings.siteName || 'MySadza Connect'} Billing Registry
+                      </span>
+                    </div>
+                    <div className="h-11 px-3 py-1 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                      <img
+                        src={settings.registrarSignatureUrl}
+                        alt="Authorized Registrar Signature"
+                        className="max-h-9 w-auto object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </ModalBody>
 

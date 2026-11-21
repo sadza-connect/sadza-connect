@@ -2,6 +2,7 @@ export interface Province {
   id: string;
   name: string;
   capital: string;
+  cities: string[];
   majorHubs: string[];
   gdpDrivers: string;
   color: string;
@@ -12,7 +13,23 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'harare',
     name: 'Harare',
     capital: 'Harare',
-    majorHubs: ['CBD', 'Eastlea', 'Borrowdale', 'Msasa Industrial', 'Chitungwiza'],
+    cities: [
+      'Harare CBD',
+      'Chitungwiza',
+      'Epworth',
+      'Borrowdale',
+      'Avondale',
+      'Eastlea',
+      'Msasa Industrial',
+      'Graniteside',
+      'Southerton',
+      'Mount Pleasant',
+      'Westgate',
+      'Belgravia',
+      'Newlands',
+      'Highfield',
+    ],
+    majorHubs: ['Harare CBD', 'Chitungwiza', 'Borrowdale', 'Eastlea', 'Msasa Industrial', 'Graniteside'],
     gdpDrivers: 'Financial Services, Manufacturing, Commercial Trade & Tech',
     color: '#007a3d',
   },
@@ -20,7 +37,20 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'bulawayo',
     name: 'Bulawayo',
     capital: 'Bulawayo',
-    majorHubs: ['Belmont Industrial', 'CBD', 'Kelvin North', 'Suburbs'],
+    cities: [
+      'Bulawayo CBD',
+      'Belmont Industrial',
+      'Kelvin North',
+      'Suburbs',
+      'Hillside',
+      'Bradfield',
+      'Ascot',
+      'Donnington',
+      'Famona',
+      'Nkulumane',
+      'Cowdray Park',
+    ],
+    majorHubs: ['Bulawayo CBD', 'Belmont Industrial', 'Kelvin North', 'Suburbs', 'Famona'],
     gdpDrivers: 'Heavy Engineering, Textiles, Rail Hub & Cultural Tourism',
     color: '#d97706',
   },
@@ -28,7 +58,8 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'midlands',
     name: 'Midlands',
     capital: 'Gweru',
-    majorHubs: ['Gweru', 'Kwekwe', 'Zvishavane', 'Gokwe'],
+    cities: ['Gweru', 'Kwekwe', 'Zvishavane', 'Gokwe', 'Shurugwi', 'Redcliff', 'Mvuma', 'Lalapanzi'],
+    majorHubs: ['Gweru', 'Kwekwe', 'Zvishavane', 'Gokwe', 'Shurugwi', 'Redcliff'],
     gdpDrivers: 'Steel, Ferrochrome Mining, Cattle Ranching & Education',
     color: '#005a2b',
   },
@@ -36,7 +67,18 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'manicaland',
     name: 'Manicaland',
     capital: 'Mutare',
-    majorHubs: ['Mutare', 'Nyanga', 'Chipinge', 'Rusape'],
+    cities: [
+      'Mutare',
+      'Nyanga',
+      'Chipinge',
+      'Rusape',
+      'Chimanimani',
+      'Juliasdale',
+      'Buhera',
+      'Hauna',
+      'Birchenough Bridge',
+    ],
+    majorHubs: ['Mutare', 'Nyanga', 'Chipinge', 'Rusape', 'Chimanimani'],
     gdpDrivers: 'Timber, Macadamia, Tea/Coffee & Cross-Border Logistics',
     color: '#16a34a',
   },
@@ -44,7 +86,18 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'masvingo',
     name: 'Masvingo',
     capital: 'Masvingo',
-    majorHubs: ['Masvingo Urban', 'Chiredzi', 'Triangle', 'Mashava'],
+    cities: [
+      'Masvingo',
+      'Chiredzi',
+      'Triangle',
+      'Mashava',
+      'Gutu',
+      'Bikita',
+      'Mwenezi',
+      'Chivi',
+      'Great Zimbabwe',
+    ],
+    majorHubs: ['Masvingo', 'Chiredzi', 'Triangle', 'Mashava', 'Gutu'],
     gdpDrivers: 'Sugar Cane Plantations, Great Zimbabwe Tourism & Lithium',
     color: '#b45309',
   },
@@ -52,7 +105,18 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'mashonaland-east',
     name: 'Mashonaland East',
     capital: 'Marondera',
-    majorHubs: ['Marondera', 'Ruwa', 'Goromonzi', 'Mutoko'],
+    cities: [
+      'Marondera',
+      'Ruwa',
+      'Goromonzi',
+      'Mutoko',
+      'Murehwa',
+      'Chivhu',
+      'Macheke',
+      'Wedza',
+      'Beatrice',
+    ],
+    majorHubs: ['Marondera', 'Ruwa', 'Goromonzi', 'Mutoko', 'Murehwa', 'Chivhu'],
     gdpDrivers: 'Horticulture, Floriculture, Tobacco & Black Granite',
     color: '#007a3d',
   },
@@ -60,7 +124,18 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'mashonaland-west',
     name: 'Mashonaland West',
     capital: 'Chinhoyi',
-    majorHubs: ['Chinhoyi', 'Kadoma', 'Kariba', 'Norton'],
+    cities: [
+      'Chinhoyi',
+      'Kadoma',
+      'Kariba',
+      'Norton',
+      'Chegutu',
+      'Karoi',
+      'Banket',
+      'Mhangura',
+      'Sanyati',
+    ],
+    majorHubs: ['Chinhoyi', 'Kadoma', 'Kariba', 'Norton', 'Chegutu', 'Karoi'],
     gdpDrivers: 'Commercial Maize & Soya, Gold Mining & Kariba Hydro',
     color: '#059669',
   },
@@ -68,7 +143,18 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'mashonaland-central',
     name: 'Mashonaland Central',
     capital: 'Bindura',
-    majorHubs: ['Bindura', 'Mazowe', 'Shamva', 'Mt Darwin'],
+    cities: [
+      'Bindura',
+      'Mazowe',
+      'Shamva',
+      'Mt Darwin',
+      'Mvurwi',
+      'Glendale',
+      'Concession',
+      'Guruve',
+      'Centenary',
+    ],
+    majorHubs: ['Bindura', 'Mazowe', 'Shamva', 'Mt Darwin', 'Mvurwi', 'Glendale'],
     gdpDrivers: 'Nickel & Gold Mining, Citrus Estates & Seed Maize',
     color: '#047857',
   },
@@ -76,7 +162,17 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'matabeleland-north',
     name: 'Matabeleland North',
     capital: 'Lupane',
-    majorHubs: ['Victoria Falls', 'Hwange', 'Lupane'],
+    cities: [
+      'Victoria Falls',
+      'Hwange',
+      'Lupane',
+      'Binga',
+      'Dete',
+      'Tsholotsho',
+      'Inyathi',
+      'Nkayi',
+    ],
+    majorHubs: ['Victoria Falls', 'Hwange', 'Lupane', 'Binga', 'Dete'],
     gdpDrivers: 'World Tourism, Coal Mining & Thermal Energy',
     color: '#d40000',
   },
@@ -84,11 +180,35 @@ export const ZIMBABWE_PROVINCES: Province[] = [
     id: 'matabeleland-south',
     name: 'Matabeleland South',
     capital: 'Gwanda',
-    majorHubs: ['Beitbridge', 'Gwanda', 'Plumtree'],
+    cities: [
+      'Beitbridge',
+      'Gwanda',
+      'Plumtree',
+      'Filabusi',
+      'Esigodini',
+      'Matobo',
+      'Maphisa',
+      'Colleen Bawn',
+    ],
+    majorHubs: ['Beitbridge', 'Gwanda', 'Plumtree', 'Filabusi', 'Esigodini', 'Matobo'],
     gdpDrivers: 'Gold Mining, Beitbridge Transit Port & Livestock',
     color: '#eab308',
   },
 ];
+
+export const PROVINCE_CITIES_MAP: Record<string, string[]> = Object.fromEntries(
+  ZIMBABWE_PROVINCES.map((p) => [p.name, p.cities])
+);
+
+export function getCitiesForProvince(provinceName?: string): string[] {
+  if (!provinceName || provinceName === 'All Provinces' || provinceName === 'All') {
+    return Array.from(new Set(ZIMBABWE_PROVINCES.flatMap((p) => p.cities)));
+  }
+  const found = ZIMBABWE_PROVINCES.find(
+    (p) => p.name.toLowerCase() === provinceName.trim().toLowerCase()
+  );
+  return found ? found.cities : [];
+}
 
 export interface Category {
   id: string;
